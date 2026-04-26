@@ -201,6 +201,16 @@ flutter gen-l10n
 
 ---
 
+## Dependency policy
+
+Pin majors; let `^X.Y.Z` ranges pull minor/patch via `flutter pub upgrade`. Major bumps require deliberate code review and are tracked as separate work.
+
+**Current ceiling: `custom_lint 0.8.1`** caps the analyzer ecosystem at analyzer ^8.0.0. That holds back the codegen toolchain — `freezed >=3.2.5`, `json_serializable >=6.13.x`, `drift_dev >=2.32.x` all need analyzer 9+ / 10+ / 13+. We accept this so the `riverpod_lint` rule set keeps running. Bumps unlock when `custom_lint` ships an analyzer-9-compatible release.
+
+`flutter pub outdated` will report ~59 transitive packages behind latest. Most are gated by the same ceiling. **Don't bump piecemeal** — wait for the lint ecosystem to move.
+
+---
+
 ## Sibling repos
 
 - `../SalesSphereERP-Frontend/` — React + Vite web (orval + TanStack Query + shadcn)

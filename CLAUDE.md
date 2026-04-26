@@ -112,6 +112,16 @@ Generated files (under `lib/`) are **committed** so PR diffs surface contract ch
 
 ---
 
+## Dependency policy
+
+Pin majors; let `^X.Y.Z` ranges pull minor/patch. Major bumps require code review and ship as separate work.
+
+**Current analyzer ceiling: `custom_lint 0.8.1`** holds analyzer at ^8.0.0. That gates the whole codegen toolchain — `freezed >=3.2.5`, `json_serializable >=6.13.x`, `drift_dev >=2.32.x` all need analyzer 9+/10+/13+. We accept the ceiling so `riverpod_lint` keeps working. Bumps unlock when `custom_lint` releases an analyzer-9-compatible version.
+
+`flutter pub outdated` reports ~59 transitive packages behind latest. Most are gated by the same ceiling. **Don't bump piecemeal.**
+
+---
+
 ## Testing
 
 ```bash
