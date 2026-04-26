@@ -1,0 +1,34 @@
+{
+  "@@locale": "en",
+  "appTitle": "SalesSphere",
+  "@appTitle": { "description": "Application name in the title bar" },
+
+  "loginTitle": "SalesSphere — Sign in",
+  "loginEmailLabel": "Email",
+  "loginPasswordLabel": "Password",
+  "loginEmailRequired": "Email required",
+  "loginPasswordRequired": "Password required",
+  "loginSubmit": "Sign in",
+  "loginWelcome": "Welcome back",
+
+  "biometricTitle": "Unlock",
+  "biometricInstruction": "Use your fingerprint or face to unlock SalesSphere.",
+  "biometricUnlock": "Unlock",
+  "biometricUsePassword": "Use password instead",
+
+  "navHome": "Home",
+  "navAttendance": "Attendance",
+  "navProfile": "Profile",
+
+  "profileSignOut": "Sign out",
+
+  "syncIdle": "Up to date",
+  "syncSyncing": "Syncing…",
+  "syncOffline": "Offline — changes will sync when you reconnect",
+  "syncPending": "{count, plural, =0{No pending changes} one{1 pending change} other{{count} pending changes}}",
+  "@syncPending": {
+    "placeholders": {
+      "count": { "type": "int", "format": "compact" }
+    }
+  }
+}

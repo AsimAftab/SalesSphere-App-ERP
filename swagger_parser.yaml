@@ -1,0 +1,22 @@
+# Generates wire DTOs from `tool/openapi.json` into
+# `lib/core/api/generated/dto/`. Re-run with `tool/gen_dto.sh`.
+#
+# IMPORTANT: this generates **DTOs only** (no client/service classes).
+# Hand-written API files in `lib/features/<x>/data/` import these DTOs and
+# call them via the configured Dio instance. See the project README for the
+# full hybrid pattern (Anti-Corruption Layer).
+
+swagger_parser:
+  schema_path: tool/openapi.json
+  output_directory: lib/core/api/generated/dto
+  name: salessphere_api
+  language: dart
+  json_serializer: freezed
+  put_clients_in_folder: true
+  use_root_url: false
+  enums_to_json: true
+  enums_prefix: false
+  squash_clients: false
+  fall_back_union: ''
+  exclude_tags: []
+  include_tags: []

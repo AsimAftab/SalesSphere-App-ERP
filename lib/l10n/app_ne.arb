@@ -1,0 +1,28 @@
+{
+  "@@locale": "ne",
+  "appTitle": "SalesSphere",
+
+  "loginTitle": "SalesSphere — साइन इन",
+  "loginEmailLabel": "इमेल",
+  "loginPasswordLabel": "पासवर्ड",
+  "loginEmailRequired": "इमेल आवश्यक छ",
+  "loginPasswordRequired": "पासवर्ड आवश्यक छ",
+  "loginSubmit": "साइन इन",
+  "loginWelcome": "स्वागत छ",
+
+  "biometricTitle": "अनलक",
+  "biometricInstruction": "SalesSphere अनलक गर्न औंलाछाप वा अनुहार प्रयोग गर्नुहोस्।",
+  "biometricUnlock": "अनलक",
+  "biometricUsePassword": "पासवर्ड प्रयोग गर्नुहोस्",
+
+  "navHome": "गृह",
+  "navAttendance": "हाजिरी",
+  "navProfile": "प्रोफाइल",
+
+  "profileSignOut": "साइन आउट",
+
+  "syncIdle": "अद्यावधिक",
+  "syncSyncing": "सिङ्क हुँदै…",
+  "syncOffline": "अफलाइन — पुनः जडान भएपछि सिङ्क हुनेछ",
+  "syncPending": "{count, plural, =0{कुनै परिवर्तनहरू छैनन्} one{१ परिवर्तन बाँकी छ} other{{count} परिवर्तनहरू बाँकी छन्}}"
+}
