@@ -6,6 +6,7 @@ import 'package:sales_sphere_erp/core/router/router_refresh.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/core/router/shell_scaffold.dart';
 import 'package:sales_sphere_erp/features/attendance/presentation/pages/attendance_page.dart';
+import 'package:sales_sphere_erp/features/auth/auth_controller.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/pages/biometric_unlock_page.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/pages/login_page.dart';
 import 'package:sales_sphere_erp/features/home/presentation/pages/home_page.dart';
@@ -13,6 +14,11 @@ import 'package:sales_sphere_erp/features/profile/presentation/pages/profile_pag
 import 'package:sales_sphere_erp/features/splash/splash_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
+  // Eagerly instantiate the auth controller so its startup resolution runs.
+  // Without this read, authStateProvider stays at AuthStatus.unknown forever
+  // and the redirect parks every navigation on the splash page.
+  ref.read(authControllerProvider);
+
   final refresh = RouterRefreshNotifier(ref);
   ref.onDispose(refresh.dispose);
 
