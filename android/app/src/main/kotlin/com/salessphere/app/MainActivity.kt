@@ -1,4 +1,4 @@
-package com.example.sales_sphere_erp
+package com.salessphere.app
 
 import io.flutter.embedding.android.FlutterActivity
 
