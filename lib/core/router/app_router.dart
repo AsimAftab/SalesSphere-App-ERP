@@ -8,6 +8,7 @@ import 'package:sales_sphere_erp/core/router/shell_scaffold.dart';
 import 'package:sales_sphere_erp/features/attendance/presentation/pages/attendance_page.dart';
 import 'package:sales_sphere_erp/features/auth/auth_controller.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/pages/biometric_unlock_page.dart';
+import 'package:sales_sphere_erp/features/auth/presentation/pages/forgot_password_page.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/pages/login_page.dart';
 import 'package:sales_sphere_erp/features/home/presentation/pages/home_page.dart';
 import 'package:sales_sphere_erp/features/profile/presentation/pages/profile_page.dart';
@@ -37,11 +38,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       switch (auth.status) {
         case AuthStatus.unauthenticated:
-          return loc == Routes.login ? null : Routes.login;
+          final inAuthZone =
+              loc == Routes.login || loc == Routes.forgotPassword;
+          return inAuthZone ? null : Routes.login;
         case AuthStatus.awaitingBiometric:
           return loc == Routes.biometric ? null : Routes.biometric;
         case AuthStatus.authenticated:
           final inAuthZone = loc == Routes.login ||
+              loc == Routes.forgotPassword ||
               loc == Routes.biometric ||
               loc == Routes.splash;
           return inAuthZone ? Routes.home : null;
@@ -59,6 +63,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.login,
         name: Routes.loginName,
         builder: (_, __) => const LoginPage(),
+      ),
+      GoRoute(
+        path: Routes.forgotPassword,
+        name: Routes.forgotPasswordName,
+        builder: (_, __) => const ForgotPasswordPage(),
       ),
       GoRoute(
         path: Routes.biometric,

@@ -3,7 +3,11 @@
 *.log
 *.pyc
 *.swp
+*.swo
 .DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
 .atom/
 .build/
 .buildlog/
@@ -27,11 +31,14 @@ migrate_working_dir/
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
+.flutter-plugins
 .flutter-plugins-dependencies
+.packages
 .pub-cache/
 .pub/
 /build/
 /coverage/
+/coverage/lcov.info
 
 # Symbolication related
 app.*.symbols
@@ -39,10 +46,37 @@ app.*.symbols
 # Obfuscation related
 app.*.map.json
 
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
+# Flutter Version Management (FVM)
+.fvm/
+
+# Android
+/android/.gradle/
+/android/captures/
+/android/local.properties
+/android/key.properties
+/android/build/
+/android/app/build/
+/android/app/debug/
+/android/app/profile/
+/android/app/release/
+/android/app/google-services.json
+/android/app/*.jks
+/android/app/*.keystore
+
+# iOS (kept for when iOS support is added later — Android-first today)
+/ios/Pods/
+/ios/.symlinks/
+/ios/Flutter/App.framework
+/ios/Flutter/Flutter.framework
+/ios/Flutter/Flutter.podspec
+/ios/Flutter/Generated.xcconfig
+/ios/Flutter/ephemeral/
+/ios/Flutter/app.flx
+/ios/Flutter/app.zip
+/ios/Flutter/flutter_assets/
+/ios/Runner/GoogleService-Info.plist
+/ios/ServiceDefinitions.json
+/ios/Runner/GeneratedPluginRegistrant.*
 
 # SalesSphere — flavor secrets (compile-time --dart-define-from-file inputs).
 # Commit *.example versions; never the real ones.
@@ -53,3 +87,17 @@ env/prod.json
 
 # Sentry symbols (uploaded via fastlane / EAS later, never committed)
 sentry.properties
+
+# Generated code — regenerate after every pull:
+#   dart run build_runner build --delete-conflicting-outputs
+#   ./tool/gen_dto.sh
+#   flutter gen-l10n
+**/*.freezed.dart
+**/*.g.dart
+/lib/core/api/generated/dto/
+/lib/l10n/generated/
+
+# Release artifacts
+*.apk
+*.aab
+*.ipa

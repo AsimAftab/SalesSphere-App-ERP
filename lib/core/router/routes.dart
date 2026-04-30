@@ -3,6 +3,7 @@ class Routes {
 
   static const splash = '/';
   static const login = '/login';
+  static const forgotPassword = '/forgot-password';
   static const biometric = '/biometric';
 
   static const home = '/home';
@@ -11,6 +12,7 @@ class Routes {
 
   static const splashName = 'splash';
   static const loginName = 'login';
+  static const forgotPasswordName = 'forgotPassword';
   static const biometricName = 'biometric';
   static const homeName = 'home';
   static const attendanceName = 'attendance';
