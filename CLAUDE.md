@@ -103,11 +103,10 @@ dart run build_runner watch --delete-conflicting-outputs   # incremental
 flutter gen-l10n                                           # regenerate ARB → AppL10n
 ```
 
-Generated files (under `lib/`) are **committed** so PR diffs surface contract changes:
+Generated files (under `lib/`) are **not committed** — `.gitignore` excludes them. Run codegen after every fresh clone or pull that touches a freezed model, drift schema, OpenAPI spec, or ARB file. Patterns excluded:
 
-- `**/*.freezed.dart`, `**/*.g.dart` (freezed + json_serializable)
-- `lib/core/db/**/*.g.dart` (drift)
-- `lib/core/api/generated/dto/**` (swagger_parser DTOs only — clients stripped)
+- `**/*.freezed.dart`, `**/*.g.dart` (freezed + json_serializable + drift + riverpod_generator)
+- `lib/core/api/generated/dto/**` (swagger_parser DTOs only — clients stripped by `tool/gen_dto.sh`)
 - `lib/l10n/generated/**` (ARB → Dart)
 
 ---

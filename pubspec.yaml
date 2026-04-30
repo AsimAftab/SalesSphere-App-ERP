@@ -58,6 +58,7 @@ dependencies:
   # UI / theming
   flex_color_scheme: ^8.3.1
   flutter_screenutil: ^5.9.3
+  flutter_svg: ^2.0.10
 
   # Files / media
   image_picker: ^1.1.2
@@ -101,6 +102,7 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/images/png/
     - assets/icons/
 
   fonts:
