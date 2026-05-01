@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
+import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
+import 'package:sales_sphere_erp/shared/utils/validators.dart';
+import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
+import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
+import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
@@ -14,42 +19,38 @@ class ForgotPasswordPage extends StatefulWidget {
 }
 
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
-  static final _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-  static const _formEstimateHeight = 385.0;
-
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   bool _isSubmitting = false;
-  String? _errorMessage;
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _phoneController.dispose();
     super.dispose();
-  }
-
-  String? _validateEmail(String? v) {
-    final value = v?.trim() ?? '';
-    if (value.isEmpty) return 'Email required';
-    if (!_emailRegex.hasMatch(value)) return 'Enter a valid email';
-    return null;
   }
 
   Future<void> _submit() async {
     if (_formKey.currentState?.validate() != true) return;
     FocusManager.instance.primaryFocus?.unfocus();
-    setState(() {
-      _isSubmitting = true;
-      _errorMessage = null;
-    });
-    // Simulating API Call
-    await Future<void>.delayed(const Duration(seconds: 1));
-    if (!mounted) return;
-    setState(() => _isSubmitting = false);
-    await _showSuccessSheet(_emailController.text.trim());
+    setState(() => _isSubmitting = true);
+
+    try {
+      // Simulated API call — replace with the real reset-code endpoint.
+      await Future<void>.delayed(const Duration(seconds: 1));
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      await _showSuccessSheet(_phoneController.text.trim());
+    } on Exception {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      SnackbarUtils.showError(
+        context,
+        'Could not send the reset code. Please try again.',
+      );
+    }
   }
 
-  Future<void> _showSuccessSheet(String email) {
+  Future<void> _showSuccessSheet(String phone) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -57,7 +58,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       enableDrag: false,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) => _SuccessSheet(
-        email: email,
+        phone: phone,
         onBackToLogin: () {
           Navigator.of(sheetContext).pop();
           _backToLogin();
@@ -82,19 +83,15 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     final isKeyboardUp = keyboardInset > 0;
 
     final defaultSheetHeight = screenHeight * 0.45;
-    final defaultBrandHeight = screenHeight - defaultSheetHeight + 40;
-    final expandedSheetHeight = (keyboardInset + _formEstimateHeight).clamp(
+    final defaultBrandHeight = screenHeight - defaultSheetHeight + 40.h;
+    final formEstimateHeight = 385.h;
+    final expandedSheetHeight = (keyboardInset + formEstimateHeight).clamp(
       defaultSheetHeight,
-      screenHeight - mq.padding.top - 8,
+      screenHeight - mq.padding.top - 8.h,
     );
     final sheetHeight = isKeyboardUp ? expandedSheetHeight : defaultSheetHeight;
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
-        statusBarBrightness: Brightness.dark,
-      ),
+    return LightStatusBar(
       child: Scaffold(
         resizeToAvoidBottomInset: false,
         body: GestureDetector(
@@ -123,13 +120,13 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   ),
                 ),
                 Positioned(
-                  top: mq.padding.top + 4,
-                  left: 4,
+                  top: mq.padding.top + 4.h,
+                  left: 4.w,
                   child: IconButton(
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.arrow_back,
                       color: Colors.white,
-                      size: 24,
+                      size: 24.sp,
                     ),
                     onPressed: _backToLogin,
                     tooltip: 'Back',
@@ -144,12 +141,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   height: sheetHeight,
                   child: _ForgotPasswordSheet(
                     formKey: _formKey,
-                    emailController: _emailController,
+                    phoneController: _phoneController,
                     isSubmitting: _isSubmitting,
-                    errorMessage: _errorMessage,
                     keyboardInset: keyboardInset,
                     onSubmit: _submit,
-                    validateEmail: _validateEmail,
                     onBackToLogin: _backToLogin,
                   ),
                 ),
@@ -167,13 +162,12 @@ class _ForgotPasswordHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Dynamic centering ensures the illustration looks perfect on all screen sizes
     return Center(
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 40.0), // Pushes image up slightly from the sheet
+        padding: EdgeInsets.only(bottom: 40.h),
         child: SvgPicture.asset(
           'assets/images/forgot_password.svg',
-          height: MediaQuery.of(context).size.height * 0.25, // Scales beautifully
+          height: MediaQuery.of(context).size.height * 0.25,
         ),
       ),
     );
@@ -183,39 +177,35 @@ class _ForgotPasswordHeader extends StatelessWidget {
 class _ForgotPasswordSheet extends StatelessWidget {
   const _ForgotPasswordSheet({
     required this.formKey,
-    required this.emailController,
+    required this.phoneController,
     required this.isSubmitting,
-    required this.errorMessage,
     required this.keyboardInset,
     required this.onSubmit,
-    required this.validateEmail,
     required this.onBackToLogin,
   });
 
   final GlobalKey<FormState> formKey;
-  final TextEditingController emailController;
+  final TextEditingController phoneController;
   final bool isSubmitting;
-  final String? errorMessage;
   final double keyboardInset;
   final VoidCallback onSubmit;
-  final String? Function(String?) validateEmail;
   final VoidCallback onBackToLogin;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30.r)),
       ),
       child: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
         padding: EdgeInsets.only(
-          left: 24,
-          right: 24,
-          top: 16,
-          bottom: 32 + keyboardInset,
+          left: 24.w,
+          right: 24.w,
+          top: 16.h,
+          bottom: 32.h + keyboardInset,
         ),
         child: Form(
           key: formKey,
@@ -225,125 +215,79 @@ class _ForgotPasswordSheet extends StatelessWidget {
             children: <Widget>[
               Center(
                 child: Container(
-                  width: 40,
-                  height: 4,
+                  width: 40.w,
+                  height: 4.h,
                   decoration: BoxDecoration(
                     color: AppColors.border,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(10.r),
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
-              const Text(
+              SizedBox(height: 24.h),
+              Text(
                 'Forgot Password?',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: AppColors.primary,
-                  fontSize: 26,
+                  fontSize: 26.sp,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.5,
                 ),
               ),
-              const SizedBox(height: 12),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
+              SizedBox(height: 12.h),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.w),
                 child: Text(
-                  'Enter your email to receive a password reset link.',
+                  'Enter your phone number to receive a password reset code.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.textSecondary,
-                    fontSize: 15,
+                    fontSize: 15.sp,
                     height: 1.4,
                   ),
                 ),
               ),
-              const SizedBox(height: 28),
-              if (errorMessage != null) ...<Widget>[
-                _StatusBanner(
-                  icon: Icons.error_outline,
-                  message: errorMessage!,
-                  iconColor: const Color(0xFFC62828),
-                  textColor: const Color(0xFFB71C1C),
-                  borderColor: const Color(0xFFE53935),
-                  fillColor: const Color(0xFFFFEBEE),
-                ),
-                const SizedBox(height: 16),
-              ],
-              TextFormField(
-                controller: emailController,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 16,
-                ),
-                cursorColor: AppColors.secondary,
-                decoration: _decoration(
-                  hint: 'Email Address',
-                  icon: Icons.mail_outline,
-                ),
-                keyboardType: TextInputType.emailAddress,
+              SizedBox(height: 28.h),
+              PrimaryTextField(
+                controller: phoneController,
+                hintText: 'Phone Number',
+                prefixIcon: Icons.phone_outlined,
+                keyboardType: TextInputType.phone,
                 textInputAction: TextInputAction.done,
-                autocorrect: false,
-                enableSuggestions: false,
                 enabled: !isSubmitting,
                 onFieldSubmitted: (_) => onSubmit(),
-                validator: validateEmail,
+                validator: Validators.phone,
               ),
-              const SizedBox(height: 24),
-              SizedBox(
-                height: 52,
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF1A73E8),
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor:
-                    const Color(0xFF1A73E8).withValues(alpha: 0.5),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12), // Smoother border
-                    ),
-                  ),
-                  onPressed: isSubmitting ? null : onSubmit,
-                  child: isSubmitting
-                      ? const SizedBox(
-                    height: 22,
-                    width: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        Colors.white,
-                      ),
-                    ),
-                  )
-                      : const Text(
-                    'Send Reset Link',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
+              SizedBox(height: 24.h),
+              PrimaryButton(
+                label: 'Send Reset Code',
+                onPressed: onSubmit,
+                isLoading: isSubmitting,
+                size: ButtonSize.large,
               ),
-              const SizedBox(height: 24),
-
-              // REPLACED TextButton with GestureDetector to guarantee styling works
+              SizedBox(height: 24.h),
               Center(
                 child: GestureDetector(
                   onTap: onBackToLogin,
-                  behavior: HitTestBehavior.opaque, // Expands touch target
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      vertical: 8.h,
+                      horizontal: 16.w,
+                    ),
                     child: Text.rich(
                       TextSpan(
                         text: 'Remember your password? ',
                         style: TextStyle(
                           color: AppColors.textSecondary,
-                          fontSize: 15,
+                          fontSize: 15.sp,
                         ),
                         children: <InlineSpan>[
                           TextSpan(
                             text: 'Login',
                             style: TextStyle(
                               color: AppColors.secondary,
+                              fontSize: 15.sp,
                               fontWeight: FontWeight.w600,
                               decoration: TextDecoration.underline,
                               decorationColor: AppColors.secondary,
@@ -361,93 +305,12 @@ class _ForgotPasswordSheet extends StatelessWidget {
       ),
     );
   }
-
-  InputDecoration _decoration({
-    required String hint,
-    required IconData icon,
-    Widget? suffix,
-  }) {
-    return InputDecoration(
-      hintText: hint,
-      prefixIcon: Icon(icon, color: AppColors.textHint, size: 22),
-      suffixIcon: suffix,
-      filled: true,
-      fillColor: AppColors.surface,
-      hintStyle: const TextStyle(color: AppColors.textHint, fontSize: 16),
-      contentPadding: const EdgeInsets.symmetric(
-        vertical: 18,
-        horizontal: 16,
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.border, width: 1.5),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.secondary, width: 2),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFE53935), width: 1.5),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFE53935), width: 2),
-      ),
-    );
-  }
-}
-class _StatusBanner extends StatelessWidget {
-  const _StatusBanner({
-    required this.icon,
-    required this.message,
-    required this.iconColor,
-    required this.textColor,
-    required this.borderColor,
-    required this.fillColor,
-  });
-
-  final IconData icon;
-  final String message;
-  final Color iconColor;
-  final Color textColor;
-  final Color borderColor;
-  final Color fillColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: fillColor,
-        border: Border.all(color: borderColor),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: <Widget>[
-          Icon(icon, color: iconColor, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: TextStyle(
-                color: textColor,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _SuccessSheet extends StatelessWidget {
-  const _SuccessSheet({required this.email, required this.onBackToLogin});
+  const _SuccessSheet({required this.phone, required this.onBackToLogin});
 
-  final String email;
+  final String phone;
   final VoidCallback onBackToLogin;
 
   @override
@@ -459,10 +322,10 @@ class _SuccessSheet extends StatelessWidget {
       canPop: false,
       child: Container(
         width: double.infinity,
-        padding: EdgeInsets.fromLTRB(24, 16, 24, 32 + viewInsets),
-        decoration: const BoxDecoration(
+        padding: EdgeInsets.fromLTRB(24.w, 16.h, 24.w, 32.h + viewInsets),
+        decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30.r)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -470,74 +333,59 @@ class _SuccessSheet extends StatelessWidget {
           children: <Widget>[
             Center(
               child: Container(
-                width: 40,
-                height: 4,
+                width: 40.w,
+                height: 4.h,
                 decoration: BoxDecoration(
                   color: AppColors.border,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(10.r),
                 ),
               ),
             ),
-            const SizedBox(height: 32),
+            SizedBox(height: 32.h),
             Center(
               child: CircleAvatar(
-                radius: 40,
+                radius: 40.r,
                 backgroundColor: AppColors.success.withValues(alpha: 0.15),
-                child: const CircleAvatar(
-                  radius: 28,
+                child: CircleAvatar(
+                  radius: 28.r,
                   backgroundColor: AppColors.success,
                   child: Icon(
                     Icons.check,
-                    size: 36,
+                    size: 36.sp,
                     color: AppColors.textWhite,
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 24),
-            const Center(
+            SizedBox(height: 24.h),
+            Center(
               child: Text(
                 'Request Submitted!',
                 style: TextStyle(
                   color: AppColors.primary,
-                  fontSize: 24,
+                  fontSize: 24.sp,
                   fontWeight: FontWeight.w800,
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
+            SizedBox(height: 12.h),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.w),
               child: Text(
-                'If that email is registered, a password reset token has been sent. Please check your inbox and spam folder.',
+                'If that number is registered, a password reset code has been sent via SMS.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: AppColors.textSecondary,
-                  fontSize: 15,
+                  fontSize: 15.sp,
                   height: 1.5,
                 ),
               ),
             ),
-            const SizedBox(height: 32),
-            SizedBox(
-              height: 52,
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF1A73E8),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                onPressed: onBackToLogin,
-                child: const Text(
-                  'Back to Login',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
+            SizedBox(height: 32.h),
+            PrimaryButton(
+              label: 'Back to Login',
+              onPressed: onBackToLogin,
+              size: ButtonSize.large,
             ),
           ],
         ),

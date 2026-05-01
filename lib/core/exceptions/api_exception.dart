@@ -22,6 +22,14 @@ class UnauthorizedException extends ApiException {
   ]) : super(statusCode: 401);
 }
 
+/// Specialisation thrown by the auth repository on login-time 401s, so UI
+/// code can disambiguate "wrong email/password" from "session expired".
+class BadCredentialsException extends UnauthorizedException {
+  const BadCredentialsException([
+    super.message = 'Invalid email or password.',
+  ]);
+}
+
 class ForbiddenException extends ApiException {
   const ForbiddenException([
     super.message = 'You do not have permission to do that.',
