@@ -20,12 +20,12 @@ class ForgotPasswordPage extends StatefulWidget {
 
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   final _formKey = GlobalKey<FormState>();
-  final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
   bool _isSubmitting = false;
 
   @override
   void dispose() {
-    _phoneController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
@@ -39,18 +39,18 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       await Future<void>.delayed(const Duration(seconds: 1));
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      await _showSuccessSheet(_phoneController.text.trim());
+      await _showSuccessSheet(_emailController.text.trim());
     } on Exception {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
       SnackbarUtils.showError(
         context,
-        'Could not send the reset code. Please try again.',
+        'Could not send the reset link. Please try again.',
       );
     }
   }
 
-  Future<void> _showSuccessSheet(String phone) {
+  Future<void> _showSuccessSheet(String email) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -58,7 +58,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       enableDrag: false,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) => _SuccessSheet(
-        phone: phone,
+        email: email,
         onBackToLogin: () {
           Navigator.of(sheetContext).pop();
           _backToLogin();
@@ -84,7 +84,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
     final defaultSheetHeight = screenHeight * 0.45;
     final defaultBrandHeight = screenHeight - defaultSheetHeight + 40.h;
-    final formEstimateHeight = 385.h;
+    final formEstimateHeight = 375.h;
     final expandedSheetHeight = (keyboardInset + formEstimateHeight).clamp(
       defaultSheetHeight,
       screenHeight - mq.padding.top - 8.h,
@@ -141,7 +141,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   height: sheetHeight,
                   child: _ForgotPasswordSheet(
                     formKey: _formKey,
-                    phoneController: _phoneController,
+                    emailController: _emailController,
                     isSubmitting: _isSubmitting,
                     keyboardInset: keyboardInset,
                     onSubmit: _submit,
@@ -167,7 +167,7 @@ class _ForgotPasswordHeader extends StatelessWidget {
         padding: EdgeInsets.only(bottom: 40.h),
         child: SvgPicture.asset(
           'assets/images/forgot_password.svg',
-          height: MediaQuery.of(context).size.height * 0.25,
+          width: MediaQuery.of(context).size.width * 0.85,
         ),
       ),
     );
@@ -177,7 +177,7 @@ class _ForgotPasswordHeader extends StatelessWidget {
 class _ForgotPasswordSheet extends StatelessWidget {
   const _ForgotPasswordSheet({
     required this.formKey,
-    required this.phoneController,
+    required this.emailController,
     required this.isSubmitting,
     required this.keyboardInset,
     required this.onSubmit,
@@ -185,7 +185,7 @@ class _ForgotPasswordSheet extends StatelessWidget {
   });
 
   final GlobalKey<FormState> formKey;
-  final TextEditingController phoneController;
+  final TextEditingController emailController;
   final bool isSubmitting;
   final double keyboardInset;
   final VoidCallback onSubmit;
@@ -205,7 +205,7 @@ class _ForgotPasswordSheet extends StatelessWidget {
           left: 24.w,
           right: 24.w,
           top: 16.h,
-          bottom: 32.h + keyboardInset,
+          bottom: 40.h + keyboardInset,
         ),
         child: Form(
           key: formKey,
@@ -238,7 +238,7 @@ class _ForgotPasswordSheet extends StatelessWidget {
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16.w),
                 child: Text(
-                  'Enter your phone number to receive a password reset code.',
+                  'Enter your email address to receive a password reset link.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.textSecondary,
@@ -249,23 +249,23 @@ class _ForgotPasswordSheet extends StatelessWidget {
               ),
               SizedBox(height: 28.h),
               PrimaryTextField(
-                controller: phoneController,
-                hintText: 'Phone Number',
-                prefixIcon: Icons.phone_outlined,
-                keyboardType: TextInputType.phone,
+                controller: emailController,
+                hintText: 'Email Address',
+                prefixIcon: Icons.email_outlined,
+                keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.done,
                 enabled: !isSubmitting,
                 onFieldSubmitted: (_) => onSubmit(),
-                validator: Validators.phone,
+                validator: Validators.email,
               ),
               SizedBox(height: 24.h),
               PrimaryButton(
-                label: 'Send Reset Code',
+                label: 'Send Reset Link',
                 onPressed: onSubmit,
                 isLoading: isSubmitting,
                 size: ButtonSize.large,
               ),
-              SizedBox(height: 24.h),
+              SizedBox(height: 12.h),
               Center(
                 child: GestureDetector(
                   onTap: onBackToLogin,
@@ -308,27 +308,28 @@ class _ForgotPasswordSheet extends StatelessWidget {
 }
 
 class _SuccessSheet extends StatelessWidget {
-  const _SuccessSheet({required this.phone, required this.onBackToLogin});
+  const _SuccessSheet({required this.email, required this.onBackToLogin});
 
-  final String phone;
+  final String email;
   final VoidCallback onBackToLogin;
 
   @override
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
     final viewInsets = mq.viewInsets.bottom;
+    final sheetHeight = mq.size.height * 0.45;
 
     return PopScope(
       canPop: false,
       child: Container(
         width: double.infinity,
-        padding: EdgeInsets.fromLTRB(24.w, 16.h, 24.w, 32.h + viewInsets),
+        height: sheetHeight + viewInsets,
+        padding: EdgeInsets.fromLTRB(24.w, 16.h, 24.w, 24.h + viewInsets),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(30.r)),
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             Center(
@@ -341,47 +342,50 @@ class _SuccessSheet extends StatelessWidget {
                 ),
               ),
             ),
-            SizedBox(height: 32.h),
-            Center(
-              child: CircleAvatar(
-                radius: 40.r,
-                backgroundColor: AppColors.success.withValues(alpha: 0.15),
-                child: CircleAvatar(
-                  radius: 28.r,
-                  backgroundColor: AppColors.success,
-                  child: Icon(
-                    Icons.check,
-                    size: 36.sp,
-                    color: AppColors.textWhite,
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: <Widget>[
+                  CircleAvatar(
+                    radius: 40.r,
+                    backgroundColor: AppColors.success.withValues(alpha: 0.15),
+                    child: CircleAvatar(
+                      radius: 28.r,
+                      backgroundColor: AppColors.success,
+                      child: Icon(
+                        Icons.check,
+                        size: 36.sp,
+                        color: AppColors.textWhite,
+                      ),
+                    ),
                   ),
-                ),
+                  SizedBox(height: 20.h),
+                  Text(
+                    'Request Submitted!',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 24.sp,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  SizedBox(height: 12.h),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16.w),
+                    child: Text(
+                      'If that email is registered, a password reset link has been sent. Please check your inbox and spam folder.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 15.sp,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            SizedBox(height: 24.h),
-            Center(
-              child: Text(
-                'Request Submitted!',
-                style: TextStyle(
-                  color: AppColors.primary,
-                  fontSize: 24.sp,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-            SizedBox(height: 12.h),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.w),
-              child: Text(
-                'If that number is registered, a password reset code has been sent via SMS.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 15.sp,
-                  height: 1.5,
-                ),
-              ),
-            ),
-            SizedBox(height: 32.h),
             PrimaryButton(
               label: 'Back to Login',
               onPressed: onBackToLogin,
