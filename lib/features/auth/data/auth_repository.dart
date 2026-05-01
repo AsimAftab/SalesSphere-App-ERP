@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,6 +6,7 @@ import 'package:sales_sphere_erp/core/api/interceptors/auth_interceptor.dart';
 import 'package:sales_sphere_erp/core/auth/token_storage.dart';
 import 'package:sales_sphere_erp/core/db/app_database.dart';
 import 'package:sales_sphere_erp/core/db/daos/users_dao.dart';
+import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
 import 'package:sales_sphere_erp/features/auth/data/auth_api.dart';
 import 'package:sales_sphere_erp/features/auth/data/dto/auth_user_dto.dart';
 import 'package:sales_sphere_erp/features/auth/data/dto/login_request_dto.dart';
@@ -29,17 +31,30 @@ class AuthRepository {
     required String email,
     required String password,
   }) async {
-    final dto = await _api.login(
-      LoginRequestDto(email: email, password: password),
-    );
-    await _tokens.save(
-      accessToken: dto.accessToken,
-      refreshToken: dto.refreshToken,
-      expiresAt: dto.expiresAt,
-    );
-    final user = _toDomain(dto.user);
-    await _persist(user);
-    return user;
+    try {
+      final dto = await _api.login(
+        LoginRequestDto(email: email, password: password),
+      );
+      await _tokens.save(
+        accessToken: dto.accessToken,
+        refreshToken: dto.refreshToken,
+        expiresAt: dto.expiresAt,
+      );
+      final user = _toDomain(dto.user);
+      await _persist(user);
+      return user;
+    } on DioException catch (e) {
+      // The error interceptor stashes a typed [ApiException] in DioException.error.
+      // Unwrap it so the rest of the app never sees raw dio errors, and convert
+      // a login-time 401 into the more specific [BadCredentialsException] so the
+      // UI can distinguish it from a session-expired 401.
+      final mapped = e.error;
+      if (mapped is UnauthorizedException) {
+        throw const BadCredentialsException();
+      }
+      if (mapped is ApiException) throw mapped;
+      rethrow;
+    }
   }
 
   /// Re-fetches the authenticated user. Used after biometric unlock or app
