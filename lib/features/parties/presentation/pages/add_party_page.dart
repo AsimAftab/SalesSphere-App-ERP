@@ -1,14 +1,10 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:geocoding/geocoding.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
@@ -18,26 +14,11 @@ import 'package:sales_sphere_erp/features/parties/domain/party.dart';
 import 'package:sales_sphere_erp/features/parties/presentation/widgets/party_type_picker.dart';
 import 'package:sales_sphere_erp/shared/utils/app_date_picker.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
-import 'package:sales_sphere_erp/shared/utils/string_extensions.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
-import 'package:sales_sphere_erp/shared/widgets/coord_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
-import 'package:sales_sphere_erp/shared/widgets/info_banner.dart';
+import 'package:sales_sphere_erp/shared/widgets/location_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
-
-/// Flip to `true` once you've added a Google Maps API key to
-/// `android/app/src/main/AndroidManifest.xml`:
-///
-/// ```xml
-/// <meta-data
-///     android:name="com.google.android.geo.API_KEY"
-///     android:value="YOUR_KEY_HERE"/>
-/// ```
-///
-/// Without the key the Maps SDK throws `IllegalStateException` and crashes
-/// the app, so we render a static placeholder until the key is wired up.
-const bool _googleMapsEnabled = false;
 
 class AddPartyPage extends ConsumerStatefulWidget {
   const AddPartyPage({super.key});
@@ -49,7 +30,8 @@ class AddPartyPage extends ConsumerStatefulWidget {
 class _AddPartyPageState extends ConsumerState<AddPartyPage> {
   // Default camera target — Bengaluru. Replaced as soon as the user picks
   // a point or taps "use my current location".
-  static const _defaultLatLng = LatLng(13.134965, 77.566811);
+  static const _defaultLat = 13.134965;
+  static const _defaultLng = 77.566811;
 
   final _formKey = GlobalKey<FormState>();
 
@@ -62,16 +44,13 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
   final _notesController = TextEditingController();
   final _addressController = TextEditingController();
 
-  final Completer<GoogleMapController> _mapController =
-      Completer<GoogleMapController>();
-
   static const _maxImages = 2;
 
   String? _partyType;
   DateTime? _dateJoined;
-  LatLng _pinned = _defaultLatLng;
+  double _latitude = _defaultLat;
+  double _longitude = _defaultLng;
   final List<String> _imagePaths = <String>[];
-  bool _locating = false;
   bool _submitting = false;
 
   @override
@@ -94,7 +73,6 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
       initialDate: _dateJoined ?? now,
       firstDate: DateTime(now.year - 50),
       lastDate: DateTime(now.year + 5),
-      helpText: 'Date Joined',
     );
     if (picked == null) return;
     setState(() {
@@ -123,65 +101,11 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
     setState(() => _imagePaths.removeAt(index));
   }
 
-  Future<void> _useCurrentLocation() async {
-    if (_locating) return;
-    setState(() => _locating = true);
-    try {
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        if (!mounted) return;
-        SnackbarUtils.showError(context, 'Location permission denied.');
-        return;
-      }
-
-      final position = await Geolocator.getCurrentPosition();
-      final next = LatLng(position.latitude, position.longitude);
-      setState(() => _pinned = next);
-
-      // Best-effort reverse-geocode to fill the search-address field.
-      unawaited(_reverseGeocode(next));
-
-      if (_googleMapsEnabled && _mapController.isCompleted) {
-        final controller = await _mapController.future;
-        await controller.animateCamera(
-          CameraUpdate.newLatLngZoom(next, 16),
-        );
-      }
-    } on Exception catch (_) {
-      if (!mounted) return;
-      SnackbarUtils.showError(context, "Couldn't fetch your location.");
-    } finally {
-      if (mounted) setState(() => _locating = false);
-    }
-  }
-
-  Future<void> _reverseGeocode(LatLng latLng) async {
-    try {
-      final placemarks = await placemarkFromCoordinates(
-        latLng.latitude,
-        latLng.longitude,
-      );
-      if (placemarks.isEmpty || !mounted) return;
-      final p = placemarks.first;
-      final parts = <String?>[
-        p.street,
-        p.subLocality,
-        p.locality,
-        p.administrativeArea,
-      ].whereType<String>().where((s) => s.isNotEmpty);
-      _addressController.text = parts.join(', ');
-    } on Exception catch (_) {
-      // Reverse geocoding is non-critical; ignore failures silently.
-    }
-  }
-
-  void _onMapTap(LatLng latLng) {
-    setState(() => _pinned = latLng);
-    unawaited(_reverseGeocode(latLng));
+  void _onLocationChanged(double lat, double lng) {
+    setState(() {
+      _latitude = lat;
+      _longitude = lng;
+    });
   }
 
   Future<void> _submit() async {
@@ -201,8 +125,8 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
         dateJoined: _dateJoined,
         partyType: _partyType,
         notes: _notesController.text.trim().nullIfEmpty(),
-        latitude: _pinned.latitude,
-        longitude: _pinned.longitude,
+        latitude: _latitude,
+        longitude: _longitude,
         imagePaths: List<String>.unmodifiable(_imagePaths),
       );
       await repo.addParty(draft);
@@ -253,9 +177,8 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
                           prefixIcon: Icons.business_outlined,
                           textInputAction: TextInputAction.next,
                           floatingLabel: true,
-                          validator: (v) => (v?.trim().isEmpty ?? true)
-                              ? 'Party name is required'
-                              : null,
+                          validator: (v) =>
+                              Validators.requiredField(v, 'Party name'),
                         ),
                         SizedBox(height: 14.h),
                         PrimaryTextField(
@@ -264,9 +187,8 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
                           prefixIcon: Icons.person_outline,
                           textInputAction: TextInputAction.next,
                           floatingLabel: true,
-                          validator: (v) => (v?.trim().isEmpty ?? true)
-                              ? 'Owner name is required'
-                              : null,
+                          validator: (v) =>
+                              Validators.requiredField(v, 'Owner name'),
                         ),
                         SizedBox(height: 14.h),
                         PrimaryTextField(
@@ -280,14 +202,7 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
                           inputFormatters: <TextInputFormatter>[
                             FilteringTextInputFormatter.digitsOnly,
                           ],
-                          validator: (v) {
-                            final t = v?.trim() ?? '';
-                            if (t.isEmpty) return 'PAN/VAT number is required';
-                            if (t.length != 9) {
-                              return 'PAN/VAT number must be 9 digits';
-                            }
-                            return null;
-                          },
+                          validator: Validators.panVat,
                         ),
                         SizedBox(height: 14.h),
                         PrimaryTextField(
@@ -301,14 +216,7 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
                           inputFormatters: <TextInputFormatter>[
                             FilteringTextInputFormatter.digitsOnly,
                           ],
-                          validator: (v) {
-                            final t = v?.trim() ?? '';
-                            if (t.isEmpty) return 'Phone number is required';
-                            if (t.length != 10) {
-                              return 'Phone number must be 10 digits';
-                            }
-                            return null;
-                          },
+                          validator: Validators.phone10,
                         ),
                         SizedBox(height: 14.h),
                         PrimaryTextField(
@@ -318,9 +226,7 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
                           keyboardType: TextInputType.emailAddress,
                           textInputAction: TextInputAction.next,
                           floatingLabel: true,
-                          validator: (v) => v == null || v.trim().isEmpty
-                              ? null
-                              : Validators.email(v),
+                          validator: Validators.emailOptional,
                         ),
                         SizedBox(height: 14.h),
                         // Date Joined — read-only, opens a date picker on tap.
@@ -357,58 +263,14 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
                           floatingLabel: true,
                         ),
                         SizedBox(height: 14.h),
-                        PrimaryTextField(
-                          controller: _addressController,
-                          hintText: 'Search address...',
-                          prefixIcon: Icons.search,
-                          textInputAction: TextInputAction.search,
-                          floatingLabel: true,
-                          validator: (v) => (v?.trim().isEmpty ?? true)
-                              ? 'Address is required'
-                              : null,
-                        ),
-                        SizedBox(height: 14.h),
-                        CustomButton(
-                          label: 'Use My Current Location',
-                          leadingIcon: Icons.my_location,
-                          isLoading: _locating,
-                          onPressed: _useCurrentLocation,
-                        ),
-                        SizedBox(height: 16.h),
-                        _MapPreview(
-                          target: _pinned,
-                          onTap: _onMapTap,
-                          onMapCreated: (controller) {
-                            if (!_mapController.isCompleted) {
-                              _mapController.complete(controller);
-                            }
-                          },
-                        ),
-                        SizedBox(height: 14.h),
-                        const InfoBanner(
-                          message:
-                              'Drag & pinch to navigate the map. Tap '
-                              'anywhere to pinpoint exact location. Use '
-                              '+/- zoom controls for precision.',
-                        ),
-                        SizedBox(height: 18.h),
-                        Text(
-                          'Location Details (Auto-generated from map)',
-                          style: TextStyle(
-                            color: AppColors.primary,
-                            fontSize: 12.sp,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                        SizedBox(height: 10.h),
-                        CoordField(
-                          label: 'Latitude',
-                          value: _pinned.latitude.toStringAsFixed(6),
-                        ),
-                        SizedBox(height: 10.h),
-                        CoordField(
-                          label: 'Longitude',
-                          value: _pinned.longitude.toStringAsFixed(6),
+                        LocationPicker(
+                          addressController: _addressController,
+                          latitude: _latitude,
+                          longitude: _longitude,
+                          editing: true,
+                          onLocationChanged: _onLocationChanged,
+                          addressValidator: (v) =>
+                              Validators.requiredField(v, 'Address'),
                         ),
                         SizedBox(height: 18.h),
                         Row(
@@ -499,83 +361,6 @@ class _Header extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _MapPreview extends StatelessWidget {
-  const _MapPreview({
-    required this.target,
-    required this.onTap,
-    required this.onMapCreated,
-  });
-
-  final LatLng target;
-  final ValueChanged<LatLng> onTap;
-  final void Function(GoogleMapController) onMapCreated;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12.r),
-      child: SizedBox(
-        height: 220.h,
-        child: _googleMapsEnabled
-            ? GoogleMap(
-                initialCameraPosition:
-                    CameraPosition(target: target, zoom: 14),
-                markers: <Marker>{
-                  Marker(
-                    markerId: const MarkerId('pinned'),
-                    position: target,
-                  ),
-                },
-                onTap: onTap,
-                onMapCreated: onMapCreated,
-                myLocationButtonEnabled: false,
-                compassEnabled: false,
-              )
-            : const _MapPlaceholder(),
-      ),
-    );
-  }
-}
-
-class _MapPlaceholder extends StatelessWidget {
-  const _MapPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        border: Border.all(color: AppColors.border, width: 1.5),
-        borderRadius: BorderRadius.circular(12.r),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          Icon(
-            Icons.map_outlined,
-            color: AppColors.textSecondary,
-            size: 48.sp,
-          ),
-          SizedBox(height: 10.h),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 24.w),
-            child: Text(
-              'Map disabled — add a Google Maps API key to '
-              'AndroidManifest.xml to enable.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13.sp,
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -734,4 +519,8 @@ class _SubmitBar extends StatelessWidget {
       ),
     );
   }
+}
+
+extension on String {
+  String? nullIfEmpty() => isEmpty ? null : this;
 }

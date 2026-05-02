@@ -36,4 +36,36 @@ class Validators {
     }
     return null;
   }
+
+  /// Required-text validator. Returns `"$label is required"` when the
+  /// trimmed value is empty, otherwise null.
+  static String? requiredField(String? value, String label) {
+    return (value?.trim().isEmpty ?? true) ? '$label is required' : null;
+  }
+
+  /// Exactly 10 digits — Nepal mobile-number format used on the parties
+  /// add/edit forms.
+  static String? phone10(String? value) {
+    final v = value?.trim() ?? '';
+    if (v.isEmpty) return 'Phone number is required';
+    if (v.length != 10) return 'Phone number must be 10 digits';
+    return null;
+  }
+
+  /// Exactly 9 digits — PAN/VAT number format used on the parties
+  /// add/edit forms.
+  static String? panVat(String? value) {
+    final v = value?.trim() ?? '';
+    if (v.isEmpty) return 'PAN/VAT number is required';
+    if (v.length != 9) return 'PAN/VAT number must be 9 digits';
+    return null;
+  }
+
+  /// Email validator that only runs the format check when the field has
+  /// content. Use this when the email is optional but still has to look
+  /// valid when filled.
+  static String? emailOptional(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    return email(value);
+  }
 }

@@ -11,7 +11,7 @@ Future<DateTime?> showAppDatePicker({
   required DateTime initialDate,
   required DateTime firstDate,
   required DateTime lastDate,
-  String? helpText,
+  String helpText = 'Select date',
 }) {
   return showDatePicker(
     context: context,

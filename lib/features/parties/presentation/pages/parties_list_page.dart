@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/parties/data/parties_repository.dart';
 import 'package:sales_sphere_erp/features/parties/domain/party.dart';
-import 'package:sales_sphere_erp/shared/widgets/async_list_view.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
+import 'package:sales_sphere_erp/shared/widgets/refreshable_list.dart';
 import 'package:sales_sphere_erp/shared/widgets/skeleton.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
@@ -63,29 +64,24 @@ class _PartiesListPageState extends ConsumerState<PartiesListPage> {
         ),
         body: Stack(
           children: <Widget>[
-            // Curved gradient header sits behind everything else.
-            ClipPath(
-              clipper: _HeaderClipper(),
-              child: Container(
-                height: 220.h,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: <Color>[
-                      AppColors.headerGradientStart,
-                      AppColors.headerGradientEnd,
-                    ],
-                  ),
-                ),
+            // Decorative corner bubble sits behind everything else.
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SvgPicture.asset(
+                'assets/images/corner_bubble.svg',
+                fit: BoxFit.cover,
+                height: 180.h,
               ),
             ),
             SafeArea(
               child: Column(
                 children: <Widget>[
                   _PartiesAppBar(onBack: _back),
+                  SizedBox(height: 46.h),
                   Padding(
-                    padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 0),
+                    padding: EdgeInsets.symmetric(horizontal: 20.w),
                     child: PrimaryTextField(
                       controller: _searchController,
                       hintText: 'Search',
@@ -108,7 +104,7 @@ class _PartiesListPageState extends ConsumerState<PartiesListPage> {
                             ),
                     ),
                   ),
-                  SizedBox(height: 40.h),
+                  SizedBox(height: 20.h),
                   Padding(
                     padding: EdgeInsets.symmetric(horizontal: 20.w),
                     child: Align(
@@ -125,7 +121,7 @@ class _PartiesListPageState extends ConsumerState<PartiesListPage> {
                   ),
                   SizedBox(height: 12.h),
                   Expanded(
-                    child: AsyncListView<Party>(
+                    child: RefreshableList<Party>(
                       async: partiesAsync,
                       filter: _applySearch,
                       onRefresh: () async {
@@ -175,7 +171,7 @@ class _PartiesAppBar extends StatelessWidget {
             onPressed: onBack,
             tooltip: 'Back',
           ),
-          SizedBox(width: 4.w),
+          SizedBox(width: 12.w),
           Text(
             'Parties',
             style: TextStyle(
@@ -367,27 +363,4 @@ class _ErrorState extends StatelessWidget {
       ),
     );
   }
-}
-
-class _HeaderClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    // Diagonal sweep: shorter on the left (just behind the title), taller on
-    // the right (drops to ~the search bar's lower edge) so the bubble
-    // doesn't cover the whole top of the screen.
-    final path = Path()
-      ..lineTo(0, size.height * 0.28)
-      ..quadraticBezierTo(
-        size.width * 0.55,
-        size.height * 0.42,
-        size.width,
-        size.height * 0.78,
-      )
-      ..lineTo(size.width, 0)
-      ..close();
-    return path;
-  }
-
-  @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }
