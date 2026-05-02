@@ -559,25 +559,25 @@ class PrimaryFabButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.primary,
-      borderRadius: BorderRadius.circular(18.r),
-      elevation: 4,
+      borderRadius: BorderRadius.circular(16.r),
+      elevation: 6,
       shadowColor: AppColors.shadow,
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(18.r),
+        borderRadius: BorderRadius.circular(14.r),
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 14.h),
+          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Icon(icon, color: AppColors.textWhite, size: 22.sp),
-              SizedBox(width: 6.w),
+              Icon(icon, color: AppColors.textWhite, size: 20.sp),
+              SizedBox(width: 8.w),
               Text(
                 label,
                 style: TextStyle(
                   color: AppColors.textWhite,
                   fontSize: 16.sp,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],

@@ -7,16 +7,14 @@ import 'package:sales_sphere_erp/shared/widgets/no_glow_scroll_behavior.dart';
 
 /// Reusable list view that:
 ///   * watches an [AsyncValue] of a list
-///   * renders a skeleton placeholder list while data is loading the first
-///     time
-///   * supports pull-to-refresh — keeps showing the existing list while the
-///     [RefreshIndicator] spinner is visible (`skipLoadingOnRefresh: true`)
+///   * renders a skeleton placeholder list while data is loading
+///   * supports pull-to-refresh via [RefreshIndicator]
 ///   * routes through caller-provided empty / error builders.
 ///
 /// Drop this in on any list-style page so the pull-to-refresh + skeleton +
 /// empty/error UX stays consistent across the app.
-class AsyncListView<T> extends StatelessWidget {
-  const AsyncListView({
+class RefreshableList<T> extends StatelessWidget {
+  const RefreshableList({
     required this.async,
     required this.onRefresh,
     required this.itemBuilder,

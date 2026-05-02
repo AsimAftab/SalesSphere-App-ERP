@@ -1,14 +1,11 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:geocoding/geocoding.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
@@ -18,21 +15,15 @@ import 'package:sales_sphere_erp/features/parties/domain/party.dart';
 import 'package:sales_sphere_erp/features/parties/presentation/widgets/party_type_picker.dart';
 import 'package:sales_sphere_erp/shared/utils/app_date_picker.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
-import 'package:sales_sphere_erp/shared/utils/string_extensions.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
-import 'package:sales_sphere_erp/shared/widgets/coord_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
-import 'package:sales_sphere_erp/shared/widgets/full_screen_image.dart';
-import 'package:sales_sphere_erp/shared/widgets/info_banner.dart';
+import 'package:sales_sphere_erp/shared/widgets/image_preview.dart';
+import 'package:sales_sphere_erp/shared/widgets/location_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/no_glow_scroll_behavior.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/section_card.dart';
 import 'package:sales_sphere_erp/shared/widgets/skeleton.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
-
-// Mirrors the flag in [add_party_page.dart] — flip to `true` once a Google
-// Maps API key is configured in `AndroidManifest.xml` to enable the live map.
-const bool _googleMapsEnabled = false;
 
 class PartyDetailPage extends ConsumerStatefulWidget {
   const PartyDetailPage({required this.id, this.initial, super.key});
@@ -59,19 +50,16 @@ class _PartyDetailPageState extends ConsumerState<PartyDetailPage> {
   final _addressController = TextEditingController();
   final _dateController = TextEditingController();
 
-  final Completer<GoogleMapController> _mapController =
-      Completer<GoogleMapController>();
-
   static const _maxImages = 2;
 
   String? _partyType;
   DateTime? _dateJoined;
-  LatLng _pinned = const LatLng(0, 0);
+  double _latitude = 0;
+  double _longitude = 0;
   final List<String> _imagePaths = <String>[];
 
   bool _editing = false;
   bool _saving = false;
-  bool _locating = false;
   bool _loading = false;
   bool _notFound = false;
 
@@ -129,7 +117,8 @@ class _PartyDetailPageState extends ConsumerState<PartyDetailPage> {
     _dateJoined = p.dateJoined;
     _dateController.text =
         p.dateJoined != null ? DateFormat.yMMMd().format(p.dateJoined!) : '';
-    _pinned = LatLng(p.latitude ?? 0, p.longitude ?? 0);
+    _latitude = p.latitude ?? 0;
+    _longitude = p.longitude ?? 0;
     _imagePaths
       ..clear()
       ..addAll(p.imagePaths);
@@ -155,7 +144,6 @@ class _PartyDetailPageState extends ConsumerState<PartyDetailPage> {
       initialDate: _dateJoined ?? now,
       firstDate: DateTime(now.year - 50),
       lastDate: DateTime(now.year + 5),
-      helpText: 'Date Joined',
     );
     if (picked == null) return;
     setState(() {
@@ -185,61 +173,11 @@ class _PartyDetailPageState extends ConsumerState<PartyDetailPage> {
     setState(() => _imagePaths.removeAt(index));
   }
 
-  Future<void> _useCurrentLocation() async {
-    if (!_editing || _locating) return;
-    setState(() => _locating = true);
-    try {
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        if (!mounted) return;
-        SnackbarUtils.showError(context, 'Location permission denied.');
-        return;
-      }
-      final position = await Geolocator.getCurrentPosition();
-      final next = LatLng(position.latitude, position.longitude);
-      setState(() => _pinned = next);
-      unawaited(_reverseGeocode(next));
-      if (_googleMapsEnabled && _mapController.isCompleted) {
-        final controller = await _mapController.future;
-        await controller
-            .animateCamera(CameraUpdate.newLatLngZoom(next, 16));
-      }
-    } on Exception catch (_) {
-      if (!mounted) return;
-      SnackbarUtils.showError(context, "Couldn't fetch your location.");
-    } finally {
-      if (mounted) setState(() => _locating = false);
-    }
-  }
-
-  Future<void> _reverseGeocode(LatLng latLng) async {
-    try {
-      final placemarks = await placemarkFromCoordinates(
-        latLng.latitude,
-        latLng.longitude,
-      );
-      if (placemarks.isEmpty || !mounted) return;
-      final p = placemarks.first;
-      final parts = <String?>[
-        p.street,
-        p.subLocality,
-        p.locality,
-        p.administrativeArea,
-      ].whereType<String>().where((s) => s.isNotEmpty);
-      _addressController.text = parts.join(', ');
-    } on Exception catch (_) {
-      // best-effort
-    }
-  }
-
-  void _onMapTap(LatLng latLng) {
-    if (!_editing) return;
-    setState(() => _pinned = latLng);
-    unawaited(_reverseGeocode(latLng));
+  void _onLocationChanged(double lat, double lng) {
+    setState(() {
+      _latitude = lat;
+      _longitude = lng;
+    });
   }
 
   Future<void> _save() async {
@@ -259,8 +197,8 @@ class _PartyDetailPageState extends ConsumerState<PartyDetailPage> {
         dateJoined: _dateJoined,
         partyType: _partyType,
         notes: _notesController.text.trim().nullIfEmpty(),
-        latitude: _pinned.latitude,
-        longitude: _pinned.longitude,
+        latitude: _latitude,
+        longitude: _longitude,
         imagePaths: List<String>.unmodifiable(_imagePaths),
       );
       await repo.updateParty(updated);
@@ -283,7 +221,7 @@ class _PartyDetailPageState extends ConsumerState<PartyDetailPage> {
 
   void _previewImage(int index) {
     if (index < 0 || index >= _imagePaths.length) return;
-    FullScreenImage.show(context, _imagePaths[index]);
+    ImagePreview.show(context, _imagePaths[index]);
   }
 
   void _back() {
@@ -365,9 +303,10 @@ class _PartyDetailPageState extends ConsumerState<PartyDetailPage> {
                                   prefixIcon: Icons.business_outlined,
                                   floatingLabel: true,
                                   enabled: _editing,
-                                  validator: (v) => (v?.trim().isEmpty ?? true)
-                                      ? 'Party name is required'
-                                      : null,
+                                  validator: (v) => Validators.requiredField(
+                                    v,
+                                    'Party name',
+                                  ),
                                 ),
                                 SizedBox(height: 12.h),
                                 PrimaryTextField(
@@ -376,9 +315,10 @@ class _PartyDetailPageState extends ConsumerState<PartyDetailPage> {
                                   prefixIcon: Icons.person_outline,
                                   floatingLabel: true,
                                   enabled: _editing,
-                                  validator: (v) => (v?.trim().isEmpty ?? true)
-                                      ? 'Owner name is required'
-                                      : null,
+                                  validator: (v) => Validators.requiredField(
+                                    v,
+                                    'Owner name',
+                                  ),
                                 ),
                                 SizedBox(height: 12.h),
                                 PrimaryTextField(
@@ -392,16 +332,7 @@ class _PartyDetailPageState extends ConsumerState<PartyDetailPage> {
                                   inputFormatters: <TextInputFormatter>[
                                     FilteringTextInputFormatter.digitsOnly,
                                   ],
-                                  validator: (v) {
-                                    final t = v?.trim() ?? '';
-                                    if (t.isEmpty) {
-                                      return 'PAN/VAT number is required';
-                                    }
-                                    if (t.length != 9) {
-                                      return 'PAN/VAT number must be 9 digits';
-                                    }
-                                    return null;
-                                  },
+                                  validator: Validators.panVat,
                                 ),
                                 SizedBox(height: 12.h),
                                 PrimaryTextField(
@@ -415,16 +346,7 @@ class _PartyDetailPageState extends ConsumerState<PartyDetailPage> {
                                   inputFormatters: <TextInputFormatter>[
                                     FilteringTextInputFormatter.digitsOnly,
                                   ],
-                                  validator: (v) {
-                                    final t = v?.trim() ?? '';
-                                    if (t.isEmpty) {
-                                      return 'Phone number is required';
-                                    }
-                                    if (t.length != 10) {
-                                      return 'Phone number must be 10 digits';
-                                    }
-                                    return null;
-                                  },
+                                  validator: Validators.phone10,
                                 ),
                                 SizedBox(height: 12.h),
                                 PrimaryTextField(
@@ -434,10 +356,7 @@ class _PartyDetailPageState extends ConsumerState<PartyDetailPage> {
                                   keyboardType: TextInputType.emailAddress,
                                   floatingLabel: true,
                                   enabled: _editing,
-                                  validator: (v) =>
-                                      v == null || v.trim().isEmpty
-                                          ? null
-                                          : Validators.email(v),
+                                  validator: Validators.emailOptional,
                                 ),
                                 if (_editing || _partyType != null) ...<Widget>[
                                   SizedBox(height: 12.h),
@@ -459,87 +378,14 @@ class _PartyDetailPageState extends ConsumerState<PartyDetailPage> {
                                   enabled: _editing,
                                 ),
                                 SizedBox(height: 16.h),
-                                ValueListenableBuilder<TextEditingValue>(
-                                  valueListenable: _addressController,
-                                  builder: (_, value, __) {
-                                    return PrimaryTextField(
-                                      controller: _addressController,
-                                      hintText: 'Search address...',
-                                      prefixIcon: Icons.search,
-                                      floatingLabel: true,
-                                      enabled: _editing,
-                                      suffixWidget: value.text.isNotEmpty
-                                          ? IconButton(
-                                              icon: Icon(
-                                                Icons.close,
-                                                size: 20.sp,
-                                                color: AppColors
-                                                    .textSecondary,
-                                              ),
-                                              tooltip: 'Clear',
-                                              onPressed:
-                                                  _addressController.clear,
-                                            )
-                                          : null,
-                                      validator: (v) =>
-                                          (v?.trim().isEmpty ?? true)
-                                              ? 'Address is required'
-                                              : null,
-                                    );
-                                  },
-                                ),
-                                if (_editing) ...<Widget>[
-                                  SizedBox(height: 12.h),
-                                  CustomButton(
-                                    label: 'Use My Current Location',
-                                    leadingIcon: Icons.my_location,
-                                    isLoading: _locating,
-
-                                    onPressed: _useCurrentLocation,
-                                  ),
-                                ],
-                                SizedBox(height: 14.h),
-                                _MapPreview(
-                                  target: _pinned,
+                                LocationPicker(
+                                  addressController: _addressController,
+                                  latitude: _latitude,
+                                  longitude: _longitude,
                                   editing: _editing,
-                                  onTap: _onMapTap,
-                                  onMapCreated: (controller) {
-                                    if (!_mapController.isCompleted) {
-                                      _mapController.complete(controller);
-                                    }
-                                  },
-                                ),
-                                SizedBox(height: 14.h),
-                                InfoBanner(
-                                  message: _editing
-                                      ? 'Drag & pinch to navigate the map. '
-                                          'Tap anywhere to pinpoint exact '
-                                          'location. Use +/- zoom controls '
-                                          'for precision.'
-                                      : 'View current location on map. '
-                                          'Enable edit mode to change '
-                                          'location.',
-                                ),
-                                SizedBox(height: 18.h),
-                                Text(
-                                  'Location Details (Auto-generated from map)',
-                                  style: TextStyle(
-                                    color: AppColors.primary,
-                                    fontSize: 12.sp,
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                                SizedBox(height: 10.h),
-                                CoordField(
-                                  label: 'Latitude',
-                                  value:
-                                      _pinned.latitude.toStringAsFixed(6),
-                                ),
-                                SizedBox(height: 10.h),
-                                CoordField(
-                                  label: 'Longitude',
-                                  value:
-                                      _pinned.longitude.toStringAsFixed(6),
+                                  onLocationChanged: _onLocationChanged,
+                                  addressValidator: (v) =>
+                                      Validators.requiredField(v, 'Address'),
                                 ),
                                 SizedBox(height: 12.h),
                                 GestureDetector(
@@ -612,43 +458,17 @@ class _CurvedHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipPath(
-      clipper: _HeaderClipper(),
-      child: Container(
-        height: 200.h,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: <Color>[
-              AppColors.headerGradientStart,
-              AppColors.headerGradientEnd,
-            ],
-          ),
-        ),
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: SvgPicture.asset(
+        'assets/images/corner_bubble.svg',
+        fit: BoxFit.cover,
+        height: 180.h,
       ),
     );
   }
-}
-
-class _HeaderClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    final path = Path()
-      ..lineTo(0, size.height * 0.30)
-      ..quadraticBezierTo(
-        size.width * 0.55,
-        size.height * 0.45,
-        size.width,
-        size.height * 0.85,
-      )
-      ..lineTo(size.width, 0)
-      ..close();
-    return path;
-  }
-
-  @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }
 
 class _DetailAppBar extends StatelessWidget {
@@ -803,105 +623,6 @@ class _NameAddressCard extends StatelessWidget {
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _MapPreview extends StatelessWidget {
-  const _MapPreview({
-    required this.target,
-    required this.editing,
-    required this.onTap,
-    required this.onMapCreated,
-  });
-
-  final LatLng target;
-  final bool editing;
-  final ValueChanged<LatLng> onTap;
-  final void Function(GoogleMapController) onMapCreated;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12.r),
-      child: SizedBox(
-        height: 220.h,
-        child: _googleMapsEnabled
-            ? GoogleMap(
-                initialCameraPosition:
-                    CameraPosition(target: target, zoom: 14),
-                markers: <Marker>{
-                  Marker(
-                    markerId: const MarkerId('pinned'),
-                    position: target,
-                  ),
-                },
-                onTap: editing ? onTap : null,
-                onMapCreated: onMapCreated,
-                myLocationButtonEnabled: false,
-                compassEnabled: false,
-              )
-            : DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: <Color>[
-                      AppColors.headerGradientStart,
-                      AppColors.headerGradientEnd,
-                    ],
-                  ),
-                  border: Border.all(
-                    color: AppColors.border.withValues(alpha: 0.5),
-                    width: 1.5,
-                  ),
-                  borderRadius: BorderRadius.circular(12.r),
-                ),
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      Container(
-                        width: 56.w,
-                        height: 56.w,
-                        decoration: BoxDecoration(
-                          color: AppColors.surface.withValues(alpha: 0.7),
-                          borderRadius: BorderRadius.circular(16.r),
-                        ),
-                        alignment: Alignment.center,
-                        child: Icon(
-                          Icons.map_outlined,
-                          color: AppColors.primary,
-                          size: 28.sp,
-                        ),
-                      ),
-                      SizedBox(height: 12.h),
-                      Text(
-                        'Map preview unavailable',
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      SizedBox(height: 4.h),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 24.w),
-                        child: Text(
-                          'Configure your Google Maps API key to enable.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 12.sp,
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
       ),
     );
   }
@@ -1129,7 +850,6 @@ class _SubmitBar extends StatelessWidget {
           child: PrimaryButton(
             label: editing ? 'Save Changes' : 'Edit Detail',
             leadingIcon: editing ? Icons.check : Icons.edit,
-            size: ButtonSize.large,
             isLoading: isLoading,
             onPressed: onPressed,
           ),
@@ -1311,4 +1031,8 @@ class _NotFoundScaffold extends StatelessWidget {
       ),
     );
   }
+}
+
+extension on String {
+  String? nullIfEmpty() => isEmpty ? null : this;
 }
