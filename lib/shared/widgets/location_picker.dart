@@ -77,7 +77,8 @@ class _LocationPickerState extends State<LocationPicker> {
   @override
   void didUpdateWidget(LocationPicker oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final moved = oldWidget.latitude != widget.latitude ||
+    final moved =
+        oldWidget.latitude != widget.latitude ||
         oldWidget.longitude != widget.longitude;
     if (!moved) return;
     if (!kGoogleMapsEnabled || !_mapController.isCompleted) return;
@@ -152,10 +153,9 @@ class _LocationPickerState extends State<LocationPicker> {
           valueListenable: widget.addressController,
           builder: (_, value, __) => PrimaryTextField(
             controller: widget.addressController,
-            hintText: 'Search address...',
+            label: 'Search address...',
             prefixIcon: Icons.search,
             textInputAction: TextInputAction.search,
-            floatingLabel: true,
             enabled: widget.editing,
             suffixWidget: value.text.isNotEmpty
                 ? IconButton(
@@ -195,10 +195,10 @@ class _LocationPickerState extends State<LocationPicker> {
         _InfoBanner(
           message: widget.editing
               ? 'Drag & pinch to navigate the map. Tap anywhere to '
-                  'pinpoint exact location. Use +/- zoom controls for '
-                  'precision.'
+                    'pinpoint exact location. Use +/- zoom controls for '
+                    'precision.'
               : 'View current location on map. Enable edit mode to '
-                  'change location.',
+                    'change location.',
         ),
         SizedBox(height: 18.h),
         Text(
@@ -247,13 +247,9 @@ class _MapPreview extends StatelessWidget {
         height: 220.h,
         child: kGoogleMapsEnabled
             ? GoogleMap(
-                initialCameraPosition:
-                    CameraPosition(target: target, zoom: 14),
+                initialCameraPosition: CameraPosition(target: target, zoom: 14),
                 markers: <Marker>{
-                  Marker(
-                    markerId: const MarkerId('pinned'),
-                    position: target,
-                  ),
+                  Marker(markerId: const MarkerId('pinned'), position: target),
                 },
                 onTap: editing ? onTap : null,
                 onMapCreated: onMapCreated,
@@ -380,8 +376,7 @@ class _CoordField extends StatelessWidget {
       decoration: InputDecoration(
         labelText: label,
         floatingLabelBehavior: FloatingLabelBehavior.always,
-        contentPadding:
-            EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+        contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
         prefixIcon: Icon(
           Icons.explore_outlined,
           color: AppColors.textSecondary,

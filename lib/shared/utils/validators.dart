@@ -68,4 +68,14 @@ class Validators {
     if (value == null || value.trim().isEmpty) return null;
     return email(value);
   }
+
+  /// PAN/VAT validator that only runs the 9-digit check when the field
+  /// has content. Use this when PAN/VAT is optional but still has to
+  /// look valid when filled.
+  static String? panVatOptional(String? value) {
+    final v = value?.trim() ?? '';
+    if (v.isEmpty) return null;
+    if (v.length != 9) return 'PAN/VAT number must be 9 digits';
+    return null;
+  }
 }

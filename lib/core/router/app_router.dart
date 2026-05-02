@@ -14,8 +14,12 @@ import 'package:sales_sphere_erp/features/home/presentation/pages/home_page.dart
 import 'package:sales_sphere_erp/features/parties/domain/party.dart';
 import 'package:sales_sphere_erp/features/parties/presentation/pages/add_party_page.dart';
 import 'package:sales_sphere_erp/features/parties/presentation/pages/parties_list_page.dart';
-import 'package:sales_sphere_erp/features/parties/presentation/pages/party_detail_page.dart';
+import 'package:sales_sphere_erp/features/parties/presentation/pages/edit_party_detail_page.dart';
 import 'package:sales_sphere_erp/features/profile/presentation/pages/profile_page.dart';
+import 'package:sales_sphere_erp/features/prospects/domain/prospect.dart';
+import 'package:sales_sphere_erp/features/prospects/presentation/pages/add_prospect_page.dart';
+import 'package:sales_sphere_erp/features/prospects/presentation/pages/edit_prospect_detail_page.dart';
+import 'package:sales_sphere_erp/features/prospects/presentation/pages/prospects_list_page.dart';
 import 'package:sales_sphere_erp/features/splash/splash_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -28,18 +32,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.onDispose(refresh.dispose);
 
   return GoRouter(
-    initialLocation: Routes.parties,
+    initialLocation: Routes.prospects,
     debugLogDiagnostics: true,
     refreshListenable: refresh,
     redirect: (context, state) {
       final auth = ref.read(authStateProvider);
       final loc = state.matchedLocation;
 
-      // TEMP: preview the parties UI without going through auth. Remove this
-      // bypass once the auth-gated entry point is wired up again.
+      // TEMP: preview the parties + prospects UI without going through
+      // auth. Remove this bypass once the auth-gated entry point is
+      // wired up again.
       if (loc == Routes.parties ||
           loc == Routes.addParty ||
-          loc.startsWith('/parties/detail/')) {
+          loc.startsWith('/parties/detail/') ||
+          loc == Routes.prospects ||
+          loc == Routes.addProspect ||
+          loc.startsWith('/prospects/detail/')) {
         return null;
       }
 
@@ -122,9 +130,31 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final id = state.pathParameters['id']!;
           final extra = state.extra;
-          return PartyDetailPage(
+          return EditPartyDetailPage(
             id: id,
             initial: extra is Party ? extra : null,
+          );
+        },
+      ),
+      GoRoute(
+        path: Routes.prospects,
+        name: Routes.prospectsName,
+        builder: (_, __) => const ProspectsListPage(),
+      ),
+      GoRoute(
+        path: Routes.addProspect,
+        name: Routes.addProspectName,
+        builder: (_, __) => const AddProspectPage(),
+      ),
+      GoRoute(
+        path: Routes.prospectDetail,
+        name: Routes.prospectDetailName,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          final extra = state.extra;
+          return EditProspectDetailPage(
+            id: id,
+            initial: extra is Prospect ? extra : null,
           );
         },
       ),

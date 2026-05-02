@@ -9,25 +9,25 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
-import 'package:sales_sphere_erp/features/parties/data/parties_repository.dart';
-import 'package:sales_sphere_erp/features/parties/domain/party.dart';
-import 'package:sales_sphere_erp/features/parties/presentation/widgets/party_type_picker.dart';
+import 'package:sales_sphere_erp/features/prospects/data/prospects_repository.dart';
+import 'package:sales_sphere_erp/features/prospects/domain/prospect.dart';
 import 'package:sales_sphere_erp/shared/utils/app_date_picker.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
+import 'package:sales_sphere_erp/shared/widgets/interest_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/location_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
-class AddPartyPage extends ConsumerStatefulWidget {
-  const AddPartyPage({super.key});
+class AddProspectPage extends ConsumerStatefulWidget {
+  const AddProspectPage({super.key});
 
   @override
-  ConsumerState<AddPartyPage> createState() => _AddPartyPageState();
+  ConsumerState<AddProspectPage> createState() => _AddProspectPageState();
 }
 
-class _AddPartyPageState extends ConsumerState<AddPartyPage> {
+class _AddProspectPageState extends ConsumerState<AddProspectPage> {
   // Default camera target — Bengaluru. Replaced as soon as the user picks
   // a point or taps "use my current location".
   static const _defaultLat = 13.134965;
@@ -46,7 +46,7 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
 
   static const _maxImages = 2;
 
-  String? _partyType;
+  List<Interest> _interests = const <Interest>[];
   DateTime? _dateJoined;
   double _latitude = _defaultLat;
   double _longitude = _defaultLng;
@@ -113,9 +113,10 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _submitting = true);
     try {
-      final repo = ref.read(partiesRepositoryProvider);
-      final draft = Party(
-        id: '', // assigned by the API mock
+      final repo = ref.read(prospectsRepositoryProvider);
+      final draft = Prospect(
+        id: '',
+        // assigned by the API mock
         name: _nameController.text.trim(),
         address: _addressController.text.trim(),
         ownerName: _ownerController.text.trim().nullIfEmpty(),
@@ -123,16 +124,16 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
         phone: _phoneController.text.trim().nullIfEmpty(),
         email: _emailController.text.trim().nullIfEmpty(),
         dateJoined: _dateJoined,
-        partyType: _partyType,
+        interests: List<Interest>.unmodifiable(_interests),
         notes: _notesController.text.trim().nullIfEmpty(),
         latitude: _latitude,
         longitude: _longitude,
         imagePaths: List<String>.unmodifiable(_imagePaths),
       );
-      await repo.addParty(draft);
-      ref.invalidate(partiesListProvider);
+      await repo.addProspect(draft);
+      ref.invalidate(prospectsListProvider);
       if (!mounted) return;
-      SnackbarUtils.showSuccess(context, 'Party added.');
+      SnackbarUtils.showSuccess(context, 'Prospect added successfully.');
       context.pop();
     } on Exception catch (_) {
       if (!mounted) return;
@@ -173,12 +174,12 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
                       children: <Widget>[
                         PrimaryTextField(
                           controller: _nameController,
-                          label: 'Party Name',
-                          hintText: 'Enter party name',
+                          label: 'Prospect Name',
+                          hintText: 'Enter prospect name',
                           prefixIcon: Icons.business_outlined,
                           textInputAction: TextInputAction.next,
                           validator: (v) =>
-                              Validators.requiredField(v, 'Party name'),
+                              Validators.requiredField(v, 'Prospect name'),
                         ),
                         SizedBox(height: 14.h),
                         PrimaryTextField(
@@ -202,7 +203,7 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
                           inputFormatters: <TextInputFormatter>[
                             FilteringTextInputFormatter.digitsOnly,
                           ],
-                          validator: Validators.panVat,
+                          validator: Validators.panVatOptional,
                         ),
                         SizedBox(height: 14.h),
                         PrimaryTextField(
@@ -247,10 +248,32 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
                           ),
                         ),
                         SizedBox(height: 14.h),
-                        PartyTypePicker(
-                          value: _partyType,
-                          enabled: true,
-                          onChanged: (v) => setState(() => _partyType = v),
+                        Consumer(
+                          builder: (context, ref, _) {
+                            final catalogueAsync = ref.watch(
+                              prospectInterestsProvider,
+                            );
+                            final repo = ref.read(prospectsRepositoryProvider);
+                            return InterestPicker(
+                              value: _interests,
+                              catalogue:
+                                  catalogueAsync.value ??
+                                  const <String, List<String>>{},
+                              enabled: true,
+                              label: 'Prospect Interest',
+                              hintText: 'Select prospect interest',
+                              onChanged: (next) =>
+                                  setState(() => _interests = next),
+                              onAddCategory: (name) async {
+                                await repo.addInterestCategory(name);
+                                ref.invalidate(prospectInterestsProvider);
+                              },
+                              onAddBrand: (cat, brand) async {
+                                await repo.addInterestBrand(cat, brand);
+                                ref.invalidate(prospectInterestsProvider);
+                              },
+                            );
+                          },
                         ),
                         SizedBox(height: 14.h),
                         PrimaryTextField(
@@ -276,7 +299,7 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
                         Row(
                           children: <Widget>[
                             Text(
-                              'Party Image (Optional)',
+                              'Prospect Image (Optional)',
                               style: TextStyle(
                                 color: AppColors.primary,
                                 fontSize: 12.sp,
@@ -342,7 +365,7 @@ class _Header extends StatelessWidget {
             ),
             SizedBox(height: 4.h),
             Text(
-              'New member in the Family',
+              'New Prospect Incoming',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppColors.textWhite.withValues(alpha: 0.8),
@@ -351,7 +374,7 @@ class _Header extends StatelessWidget {
             ),
             SizedBox(height: 4.h),
             Text(
-              'Add New Party',
+              'Add New Prospect',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppColors.textWhite,
@@ -387,13 +410,9 @@ class _ImagePickerStrip extends StatelessWidget {
     final tiles = <Widget>[
       for (int i = 0; i < paths.length; i++)
         Expanded(
-          child: _ImageTile(
-            path: paths[i],
-            onClear: () => onRemove(i),
-          ),
+          child: _ImageTile(path: paths[i], onClear: () => onRemove(i)),
         ),
-      if (canAddMore)
-        Expanded(child: _AddImageTile(onTap: onAdd)),
+      if (canAddMore) Expanded(child: _AddImageTile(onTap: onAdd)),
     ];
 
     final separated = <Widget>[];
@@ -480,10 +499,7 @@ class _AddImageTile extends StatelessWidget {
             Text(
               'Tap to add image',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 12.sp,
-              ),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 12.sp),
             ),
           ],
         ),
@@ -510,7 +526,7 @@ class _SubmitBar extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 12.h),
           child: PrimaryButton(
-            label: 'Add Party',
+            label: 'Add Prospect',
             leadingIcon: Icons.add_circle_outline,
             isLoading: isLoading,
             onPressed: onPressed,
