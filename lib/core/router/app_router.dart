@@ -11,6 +11,10 @@ import 'package:sales_sphere_erp/features/auth/presentation/pages/biometric_unlo
 import 'package:sales_sphere_erp/features/auth/presentation/pages/forgot_password_page.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/pages/login_page.dart';
 import 'package:sales_sphere_erp/features/home/presentation/pages/home_page.dart';
+import 'package:sales_sphere_erp/features/parties/domain/party.dart';
+import 'package:sales_sphere_erp/features/parties/presentation/pages/add_party_page.dart';
+import 'package:sales_sphere_erp/features/parties/presentation/pages/parties_list_page.dart';
+import 'package:sales_sphere_erp/features/parties/presentation/pages/party_detail_page.dart';
 import 'package:sales_sphere_erp/features/profile/presentation/pages/profile_page.dart';
 import 'package:sales_sphere_erp/features/splash/splash_page.dart';
 
@@ -24,12 +28,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.onDispose(refresh.dispose);
 
   return GoRouter(
-    initialLocation: Routes.splash,
+    initialLocation: Routes.parties,
     debugLogDiagnostics: true,
     refreshListenable: refresh,
     redirect: (context, state) {
       final auth = ref.read(authStateProvider);
       final loc = state.matchedLocation;
+
+      // TEMP: preview the parties UI without going through auth. Remove this
+      // bypass once the auth-gated entry point is wired up again.
+      if (loc == Routes.parties ||
+          loc == Routes.addParty ||
+          loc.startsWith('/parties/detail/')) {
+        return null;
+      }
 
       // Unknown auth state → splash, unless we're already on splash.
       if (auth.status == AuthStatus.unknown) {
@@ -93,6 +105,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const ProfilePage(),
           ),
         ],
+      ),
+      GoRoute(
+        path: Routes.parties,
+        name: Routes.partiesName,
+        builder: (_, __) => const PartiesListPage(),
+      ),
+      GoRoute(
+        path: Routes.addParty,
+        name: Routes.addPartyName,
+        builder: (_, __) => const AddPartyPage(),
+      ),
+      GoRoute(
+        path: Routes.partyDetail,
+        name: Routes.partyDetailName,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          final extra = state.extra;
+          return PartyDetailPage(
+            id: id,
+            initial: extra is Party ? extra : null,
+          );
+        },
       ),
     ],
   );
