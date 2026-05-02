@@ -4,15 +4,20 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 
-/// Primary Text Field Component
-/// A reusable text field with proper error handling.
+/// Primary Text Field Component.
+///
+/// Pass `label` for the standard Material floating-label behaviour — the
+/// label sits inside the field at rest and animates up to the border on
+/// focus or when the field has content. Pass `hintText` for the
+/// placeholder rendered inside the field when it is focused and empty.
+/// Both are optional; you can use either, both, or neither.
 class PrimaryTextField extends StatefulWidget {
   final IconData? prefixIcon;
   final Widget? suffixWidget;
-  final String hintText;
-  final TextEditingController controller;
-  final Widget? label;
+  final String? hintText;
+  final String? label;
   final TextStyle? labelStyle;
+  final TextEditingController controller;
   final String? Function(String?)? validator;
   final bool? obscureText;
   final TextInputType? keyboardType;
@@ -29,19 +34,13 @@ class PrimaryTextField extends StatefulWidget {
   final int? maxLines;
   final bool showCounter;
 
-  /// When `true`, [hintText] is rendered as a floating label: it sits
-  /// inside the field at rest and animates up to the border on focus or
-  /// when the field has content. Defaults to `false` so existing callers
-  /// keep their static-hint behaviour.
-  final bool floatingLabel;
-
   const PrimaryTextField({
-    required this.hintText,
     required this.controller,
     super.key,
+    this.hintText,
+    this.label,
     this.prefixIcon,
     this.suffixWidget,
-    this.label,
     this.labelStyle,
     this.validator,
     this.obscureText,
@@ -58,7 +57,6 @@ class PrimaryTextField extends StatefulWidget {
     this.minLines,
     this.maxLines,
     this.showCounter = false,
-    this.floatingLabel = false,
   });
 
   @override
@@ -123,10 +121,9 @@ class _PrimaryTextFieldState extends State<PrimaryTextField> {
               horizontal: 16.w,
               vertical: 14.h,
             ),
-            hintText: widget.floatingLabel ? null : widget.hintText,
-            labelText: widget.floatingLabel ? widget.hintText : null,
-            label: widget.label,
-            floatingLabelBehavior: widget.floatingLabel
+            hintText: widget.hintText,
+            labelText: widget.label,
+            floatingLabelBehavior: widget.label != null
                 ? FloatingLabelBehavior.auto
                 : FloatingLabelBehavior.never,
             labelStyle:
@@ -142,8 +139,8 @@ class _PrimaryTextFieldState extends State<PrimaryTextField> {
               color: hasError
                   ? AppColors.error
                   : (shouldShowGreyStyle
-                      ? AppColors.textPrimary
-                      : AppColors.secondary),
+                        ? AppColors.textPrimary
+                        : AppColors.secondary),
               fontSize: 13.sp,
               fontFamily: 'Poppins',
               fontWeight: FontWeight.w500,

@@ -119,9 +119,8 @@ class _PartyTypePickerState extends ConsumerState<PartyTypePicker> {
           SizedBox(height: 12.h),
           PrimaryTextField(
             controller: _newController,
-            hintText: 'New party type',
+            label: 'New party type',
             prefixIcon: Icons.add_circle_outline,
-            floatingLabel: true,
             textInputAction: TextInputAction.done,
             suffixWidget: IconButton(
               icon: Icon(
