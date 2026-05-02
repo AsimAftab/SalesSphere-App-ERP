@@ -537,3 +537,53 @@ class GradientButton extends StatelessWidget {
     );
   }
 }
+
+/// Pill-shaped, intrinsic-width primary action button — used as a
+/// floating-style "+ Add" button anchored at the bottom of list screens
+/// (parties list, products list, customers list, etc.). Mirrors the
+/// styling of the Add Party FAB so the affordance is consistent across
+/// the app.
+class PrimaryFabButton extends StatelessWidget {
+  const PrimaryFabButton({
+    required this.label,
+    required this.onPressed,
+    super.key,
+    this.icon = Icons.add,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.primary,
+      borderRadius: BorderRadius.circular(18.r),
+      elevation: 4,
+      shadowColor: AppColors.shadow,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(18.r),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 14.h),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(icon, color: AppColors.textWhite, size: 22.sp),
+              SizedBox(width: 6.w),
+              Text(
+                label,
+                style: TextStyle(
+                  color: AppColors.textWhite,
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

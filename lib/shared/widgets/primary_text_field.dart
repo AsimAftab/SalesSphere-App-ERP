@@ -29,6 +29,12 @@ class PrimaryTextField extends StatefulWidget {
   final int? maxLines;
   final bool showCounter;
 
+  /// When `true`, [hintText] is rendered as a floating label: it sits
+  /// inside the field at rest and animates up to the border on focus or
+  /// when the field has content. Defaults to `false` so existing callers
+  /// keep their static-hint behaviour.
+  final bool floatingLabel;
+
   const PrimaryTextField({
     required this.hintText,
     required this.controller,
@@ -52,6 +58,7 @@ class PrimaryTextField extends StatefulWidget {
     this.minLines,
     this.maxLines,
     this.showCounter = false,
+    this.floatingLabel = false,
   });
 
   @override
@@ -116,8 +123,12 @@ class _PrimaryTextFieldState extends State<PrimaryTextField> {
               horizontal: 16.w,
               vertical: 14.h,
             ),
-            hintText: widget.hintText,
+            hintText: widget.floatingLabel ? null : widget.hintText,
+            labelText: widget.floatingLabel ? widget.hintText : null,
             label: widget.label,
+            floatingLabelBehavior: widget.floatingLabel
+                ? FloatingLabelBehavior.auto
+                : FloatingLabelBehavior.never,
             labelStyle:
                 widget.labelStyle ??
                 TextStyle(
@@ -127,6 +138,16 @@ class _PrimaryTextFieldState extends State<PrimaryTextField> {
                   fontSize: 14.sp,
                   fontFamily: 'Poppins',
                 ),
+            floatingLabelStyle: TextStyle(
+              color: hasError
+                  ? AppColors.error
+                  : (shouldShowGreyStyle
+                      ? AppColors.textPrimary
+                      : AppColors.secondary),
+              fontSize: 13.sp,
+              fontFamily: 'Poppins',
+              fontWeight: FontWeight.w500,
+            ),
             hintStyle: TextStyle(
               color: shouldShowGreyStyle
                   ? AppColors.textHint.withValues(alpha: 0.5)

@@ -21,6 +21,10 @@ class AppColors {
   static const Color surfaceDark = Color(0xFF1E1E1E);
   static const Color cardBackground = Color(0xFFFFFFFF);
 
+  // Header tints — light-blue gradient used on listing-page banners.
+  static const Color headerGradientStart = Color(0xFFE3ECFA);
+  static const Color headerGradientEnd = Color(0xFFC7D7F1);
+
   // Text Colors
   static const Color textPrimary = Color(0xFF212121);
   static const Color textSecondary = Color(0xFF757575);
