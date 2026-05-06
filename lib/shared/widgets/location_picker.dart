@@ -1,28 +1,31 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import 'package:sales_sphere_erp/core/config/env.dart';
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/core/services/google_places_service.dart';
+import 'package:sales_sphere_erp/core/services/location_service.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 
-/// Flip to `true` once a Google Maps API key has been added to
-/// `android/app/src/main/AndroidManifest.xml`:
-///
-/// ```xml
-/// <meta-data
-///     android:name="com.google.android.geo.API_KEY"
-///     android:value="YOUR_KEY_HERE"/>
-/// ```
-///
-/// Without the key the Maps SDK throws `IllegalStateException` and crashes
-/// the app, so the picker renders a placeholder until the key is wired up.
-const bool kGoogleMapsEnabled = false;
+/// True when the active flavor's `env/<flavor>.json` carries a
+/// `GOOGLE_MAPS_ANDROID_KEY`. Gradle plumbs the same value into the
+/// AndroidManifest's `com.google.android.geo.API_KEY` meta-data, so the
+/// Dart-side flag and the native SDK key go live together. When empty,
+/// LocationPicker renders a placeholder rather than crashing the SDK.
+bool get _googleMapsEnabled => Env.current.googleMapsAndroidKey.isNotEmpty;
+
+/// True when a `GOOGLE_PLACES_API_KEY` is configured. When false, the
+/// autocomplete dropdown never renders — the search field still works
+/// as a plain text input. Mirrors the [_googleMapsEnabled] kill-switch.
+bool get _googlePlacesEnabled => Env.current.googlePlacesApiKey.isNotEmpty;
 
 /// Composite location-picking block. Wraps:
 ///   * a "Search address" text field (optionally clearable)
@@ -35,7 +38,7 @@ const bool kGoogleMapsEnabled = false;
 /// position fetch, reverse-geocoding, and camera animation. Parents just
 /// listen for [onLocationChanged] to persist the new coordinates and
 /// receive an updated [addressController] text automatically.
-class LocationPicker extends StatefulWidget {
+class LocationPicker extends ConsumerStatefulWidget {
   const LocationPicker({
     required this.addressController,
     required this.latitude,
@@ -65,14 +68,25 @@ class LocationPicker extends StatefulWidget {
   final String? Function(String?)? addressValidator;
 
   @override
-  State<LocationPicker> createState() => _LocationPickerState();
+  ConsumerState<LocationPicker> createState() => _LocationPickerState();
 }
 
-class _LocationPickerState extends State<LocationPicker> {
+class _LocationPickerState extends ConsumerState<LocationPicker> {
   final Completer<GoogleMapController> _mapController =
       Completer<GoogleMapController>();
 
   bool _locating = false;
+
+  // Autocomplete state.
+  Timer? _debounce;
+  List<PlacePrediction> _predictions = const <PlacePrediction>[];
+  String _lastQuery = '';
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(LocationPicker oldWidget) {
@@ -81,7 +95,7 @@ class _LocationPickerState extends State<LocationPicker> {
         oldWidget.latitude != widget.latitude ||
         oldWidget.longitude != widget.longitude;
     if (!moved) return;
-    if (!kGoogleMapsEnabled || !_mapController.isCompleted) return;
+    if (!_googleMapsEnabled || !_mapController.isCompleted) return;
     _mapController.future.then((controller) {
       controller.animateCamera(
         CameraUpdate.newLatLngZoom(
@@ -96,22 +110,33 @@ class _LocationPickerState extends State<LocationPicker> {
     if (_locating) return;
     setState(() => _locating = true);
     try {
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
+      final locationService = ref.read(locationServiceProvider);
+      final permission = await locationService.ensurePermission();
+      if (permission == LocationPermission.deniedForever) {
+        if (!mounted) return;
+        // Permanent denial — re-requesting won't show the prompt again,
+        // so route the user straight to the system settings screen.
+        SnackbarUtils.showErrorWithAction(
+          context,
+          'Location permission permanently denied. Open Settings to grant access.',
+          actionLabel: 'Settings',
+          onAction: locationService.openAppSettings,
+        );
+        return;
       }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
+      if (permission == LocationPermission.denied) {
         if (!mounted) return;
         SnackbarUtils.showError(context, 'Location permission denied.');
         return;
       }
-      final position = await Geolocator.getCurrentPosition();
+      final position = await locationService.getCurrentLocation();
+      if (position == null) {
+        if (!mounted) return;
+        SnackbarUtils.showError(context, "Couldn't fetch your location.");
+        return;
+      }
       widget.onLocationChanged(position.latitude, position.longitude);
       unawaited(_reverseGeocode(position.latitude, position.longitude));
-    } on Exception catch (_) {
-      if (!mounted) return;
-      SnackbarUtils.showError(context, "Couldn't fetch your location.");
     } finally {
       if (mounted) setState(() => _locating = false);
     }
@@ -119,26 +144,107 @@ class _LocationPickerState extends State<LocationPicker> {
 
   void _onMapTap(LatLng latLng) {
     if (!widget.editing) return;
+    _commitPin(latLng);
+  }
+
+  void _onMarkerDragEnd(LatLng latLng) {
+    if (!widget.editing) return;
+    _commitPin(latLng);
+  }
+
+  void _commitPin(LatLng latLng) {
     widget.onLocationChanged(latLng.latitude, latLng.longitude);
     unawaited(_reverseGeocode(latLng.latitude, latLng.longitude));
   }
 
   /// Best-effort reverse geocoding. Failures are silent — the user can
   /// still see the lat/lng values and edit the address manually.
+  /// Builds a comprehensive address from every placemark field that
+  /// contributes meaning, then dedupes case-insensitively to drop
+  /// repeated Plus Codes and `name == street` collisions.
   Future<void> _reverseGeocode(double lat, double lng) async {
     try {
       final placemarks = await placemarkFromCoordinates(lat, lng);
       if (placemarks.isEmpty || !mounted) return;
       final p = placemarks.first;
-      final parts = <String?>[
+      final raw = <String?>[
+        p.name,
+        p.subThoroughfare,
+        p.thoroughfare,
         p.street,
         p.subLocality,
         p.locality,
+        p.subAdministrativeArea,
         p.administrativeArea,
-      ].whereType<String>().where((s) => s.isNotEmpty);
-      widget.addressController.text = parts.join(', ');
+        p.postalCode,
+        p.country,
+      ].whereType<String>().map((s) => s.trim()).where((s) => s.isNotEmpty);
+
+      final seen = <String>{};
+      final deduped = <String>[];
+      for (final part in raw) {
+        if (seen.add(part.toLowerCase())) deduped.add(part);
+      }
+
+      widget.addressController.text = deduped.join(', ');
     } on Exception catch (_) {
       // best-effort
+    }
+  }
+
+  void _onSearchChanged(String value) {
+    if (!_googlePlacesEnabled || !widget.editing) return;
+    _debounce?.cancel();
+    final trimmed = value.trim();
+    if (trimmed.length < 2) {
+      if (_predictions.isNotEmpty) {
+        setState(() => _predictions = const <PlacePrediction>[]);
+      }
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      unawaited(_runAutocomplete(trimmed));
+    });
+  }
+
+  Future<void> _runAutocomplete(String query) async {
+    if (!mounted || _lastQuery == query) return;
+    _lastQuery = query;
+    final places = ref.read(googlePlacesServiceProvider);
+    final results = await places.getAutocompletePredictions(
+      query,
+      bias: LatLng(widget.latitude, widget.longitude),
+    );
+    if (!mounted || _lastQuery != query) return;
+    setState(() => _predictions = results);
+  }
+
+  Future<void> _onPredictionTap(PlacePrediction prediction) async {
+    // Hide the dropdown immediately so the user gets feedback while we
+    // fetch details — no jank if Places latency is high.
+    setState(() {
+      _predictions = const <PlacePrediction>[];
+      _lastQuery = prediction.mainText;
+    });
+    final places = ref.read(googlePlacesServiceProvider);
+    final details = await places.getPlaceDetails(prediction.placeId);
+    if (!mounted) return;
+    if (details == null) {
+      SnackbarUtils.showError(context, "Couldn't fetch place details.");
+      return;
+    }
+    widget.addressController.text = details.formattedAddress.isNotEmpty
+        ? details.formattedAddress
+        : details.name;
+    widget.onLocationChanged(
+      details.location.latitude,
+      details.location.longitude,
+    );
+    if (_mapController.isCompleted) {
+      final controller = await _mapController.future;
+      await controller.animateCamera(
+        CameraUpdate.newLatLngZoom(details.location, 17),
+      );
     }
   }
 
@@ -157,6 +263,7 @@ class _LocationPickerState extends State<LocationPicker> {
             prefixIcon: Icons.search,
             textInputAction: TextInputAction.search,
             enabled: widget.editing,
+            onChanged: _onSearchChanged,
             suffixWidget: value.text.isNotEmpty
                 ? IconButton(
                     icon: Icon(
@@ -165,12 +272,26 @@ class _LocationPickerState extends State<LocationPicker> {
                       color: AppColors.textSecondary,
                     ),
                     tooltip: 'Clear',
-                    onPressed: widget.addressController.clear,
+                    onPressed: () {
+                      widget.addressController.clear();
+                      _debounce?.cancel();
+                      setState(() {
+                        _predictions = const <PlacePrediction>[];
+                        _lastQuery = '';
+                      });
+                    },
                   )
                 : null,
             validator: widget.addressValidator,
           ),
         ),
+        if (_predictions.isNotEmpty) ...<Widget>[
+          SizedBox(height: 8.h),
+          _PredictionList(
+            predictions: _predictions,
+            onTap: _onPredictionTap,
+          ),
+        ],
         if (widget.editing) ...<Widget>[
           SizedBox(height: 12.h),
           CustomButton(
@@ -185,6 +306,7 @@ class _LocationPickerState extends State<LocationPicker> {
           target: LatLng(widget.latitude, widget.longitude),
           editing: widget.editing,
           onTap: _onMapTap,
+          onDragEnd: _onMarkerDragEnd,
           onMapCreated: (controller) {
             if (!_mapController.isCompleted) {
               _mapController.complete(controller);
@@ -231,12 +353,14 @@ class _MapPreview extends StatelessWidget {
     required this.target,
     required this.editing,
     required this.onTap,
+    required this.onDragEnd,
     required this.onMapCreated,
   });
 
   final LatLng target;
   final bool editing;
   final ValueChanged<LatLng> onTap;
+  final ValueChanged<LatLng> onDragEnd;
   final void Function(GoogleMapController) onMapCreated;
 
   @override
@@ -244,17 +368,23 @@ class _MapPreview extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(12.r),
       child: SizedBox(
-        height: 220.h,
-        child: kGoogleMapsEnabled
+        height: 300.h,
+        child: _googleMapsEnabled
             ? GoogleMap(
                 initialCameraPosition: CameraPosition(target: target, zoom: 14),
                 markers: <Marker>{
-                  Marker(markerId: const MarkerId('pinned'), position: target),
+                  Marker(
+                    markerId: const MarkerId('pinned'),
+                    position: target,
+                    draggable: editing,
+                    onDragEnd: editing ? onDragEnd : null,
+                  ),
                 },
                 onTap: editing ? onTap : null,
                 onMapCreated: onMapCreated,
+                myLocationEnabled: editing,
                 myLocationButtonEnabled: false,
-                compassEnabled: false,
+                minMaxZoomPreference: const MinMaxZoomPreference(5, 20),
               )
             : const _MapPlaceholder(),
       ),
@@ -359,6 +489,74 @@ class _InfoBanner extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PredictionList extends StatelessWidget {
+  const _PredictionList({required this.predictions, required this.onTap});
+
+  final List<PlacePrediction> predictions;
+  final ValueChanged<PlacePrediction> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surface,
+      elevation: 2,
+      borderRadius: BorderRadius.circular(12.r),
+      shadowColor: AppColors.shadow,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: 220.h),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12.r),
+          child: ListView.separated(
+            shrinkWrap: true,
+            padding: EdgeInsets.zero,
+            itemCount: predictions.length,
+            separatorBuilder: (_, __) => Divider(
+              height: 1,
+              thickness: 1,
+              color: AppColors.border.withValues(alpha: 0.3),
+            ),
+            itemBuilder: (_, index) {
+              final p = predictions[index];
+              return ListTile(
+                dense: true,
+                leading: Icon(
+                  Icons.place_outlined,
+                  size: 20.sp,
+                  color: AppColors.primary,
+                ),
+                title: Text(
+                  p.mainText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 14.sp,
+                    fontFamily: 'Poppins',
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                subtitle: p.secondaryText.isEmpty
+                    ? null
+                    : Text(
+                        p.secondaryText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12.sp,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+                onTap: () => onTap(p),
+              );
+            },
+          ),
+        ),
       ),
     );
   }

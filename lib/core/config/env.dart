@@ -7,6 +7,7 @@ class Env {
     required this.wsBaseUrl,
     required this.sentryDsn,
     required this.googleMapsAndroidKey,
+    required this.googlePlacesApiKey,
   });
 
   final Flavor flavor;
@@ -14,6 +15,7 @@ class Env {
   final String wsBaseUrl;
   final String sentryDsn;
   final String googleMapsAndroidKey;
+  final String googlePlacesApiKey;
 
   static const _flavor = String.fromEnvironment('FLAVOR');
   static const _apiBaseUrl = String.fromEnvironment('API_BASE_URL');
@@ -21,6 +23,8 @@ class Env {
   static const _sentryDsn = String.fromEnvironment('SENTRY_DSN');
   static const _googleMapsAndroidKey =
       String.fromEnvironment('GOOGLE_MAPS_ANDROID_KEY');
+  static const _googlePlacesApiKey =
+      String.fromEnvironment('GOOGLE_PLACES_API_KEY');
 
   static Env? _current;
 
@@ -46,6 +50,7 @@ class Env {
       wsBaseUrl: _wsBaseUrl,
       sentryDsn: _sentryDsn,
       googleMapsAndroidKey: _googleMapsAndroidKey,
+      googlePlacesApiKey: _googlePlacesApiKey,
     );
     _current = env;
     return env;

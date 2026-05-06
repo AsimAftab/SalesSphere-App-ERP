@@ -64,12 +64,35 @@ class SnackbarUtils {
     );
   }
 
+  /// Error snackbar with a trailing action button (e.g. "Settings" for
+  /// permission-denied flows). Uses the same styling pipeline as the
+  /// other variants so the look stays consistent.
+  static void showErrorWithAction(
+    BuildContext context,
+    String message, {
+    required String actionLabel,
+    required VoidCallback onAction,
+    Duration duration = const Duration(seconds: 5),
+  }) {
+    _showSnackbar(
+      context,
+      message: message,
+      icon: Icons.error_rounded,
+      backgroundColor: AppColors.error,
+      duration: duration,
+      actionLabel: actionLabel,
+      onAction: onAction,
+    );
+  }
+
   static void _showSnackbar(
     BuildContext context, {
     required String message,
     required IconData icon,
     required Color backgroundColor,
     required Duration duration,
+    String? actionLabel,
+    VoidCallback? onAction,
   }) {
     ScaffoldMessenger.of(context).clearSnackBars();
 
@@ -107,6 +130,13 @@ class SnackbarUtils {
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
       elevation: 4,
       dismissDirection: DismissDirection.horizontal,
+      action: (actionLabel != null && onAction != null)
+          ? SnackBarAction(
+              label: actionLabel,
+              textColor: Colors.white,
+              onPressed: onAction,
+            )
+          : null,
     );
 
     ScaffoldMessenger.of(context).showSnackBar(snackBar);

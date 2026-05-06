@@ -23,12 +23,14 @@ class SalesSphereApp extends ConsumerWidget {
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),
+          scrollBehavior: const _NoGlowScrollBehavior(),
           routerConfig: router,
           localizationsDelegates: AppL10n.localizationsDelegates,
           supportedLocales: AppL10n.supportedLocales,
           builder: (context, child) {
-            final clamped = MediaQuery.textScalerOf(context)
-                .clamp(minScaleFactor: 0.8, maxScaleFactor: 1.3);
+            final clamped = MediaQuery.textScalerOf(
+              context,
+            ).clamp(minScaleFactor: 0.8, maxScaleFactor: 1.3);
             return MediaQuery(
               data: MediaQuery.of(context).copyWith(textScaler: clamped),
               child: child ?? const SizedBox.shrink(),
@@ -38,4 +40,18 @@ class SalesSphereApp extends ConsumerWidget {
       },
     );
   }
+}
+
+/// Removes the Android overscroll glow app-wide. The default
+/// `GlowingOverscrollIndicator` paints a rectangular tint that bleeds past
+/// rounded card corners.
+class _NoGlowScrollBehavior extends MaterialScrollBehavior {
+  const _NoGlowScrollBehavior();
+
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) => child;
 }

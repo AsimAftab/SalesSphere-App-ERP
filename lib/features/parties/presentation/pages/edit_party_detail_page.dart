@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,17 +11,17 @@ import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/features/parties/data/parties_repository.dart';
 import 'package:sales_sphere_erp/features/parties/domain/party.dart';
 import 'package:sales_sphere_erp/features/parties/presentation/widgets/party_type_picker.dart';
-import 'package:sales_sphere_erp/shared/utils/app_date_picker.dart';
+import 'package:sales_sphere_erp/shared/utils/maps_launcher.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
-import 'package:sales_sphere_erp/shared/widgets/image_preview.dart';
+import 'package:sales_sphere_erp/shared/widgets/custom_date_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/location_picker.dart';
-import 'package:sales_sphere_erp/shared/widgets/no_glow_scroll_behavior.dart';
+import 'package:sales_sphere_erp/shared/widgets/primary_image_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/section_card.dart';
-import 'package:sales_sphere_erp/shared/widgets/skeleton.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 class EditPartyDetailPage extends ConsumerStatefulWidget {
   const EditPartyDetailPage({required this.id, this.initial, super.key});
@@ -35,7 +33,8 @@ class EditPartyDetailPage extends ConsumerStatefulWidget {
   final Party? initial;
 
   @override
-  ConsumerState<EditPartyDetailPage> createState() => _EditPartyDetailPageState();
+  ConsumerState<EditPartyDetailPage> createState() =>
+      _EditPartyDetailPageState();
 }
 
 class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
@@ -52,10 +51,15 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
 
   static const _maxImages = 2;
 
+  // Default camera target — Kathmandu. Used until the saved record's
+  // coords (or a fresh user pick) replace it.
+  static const _defaultLat = 27.7172;
+  static const _defaultLng = 85.3240;
+
   String? _partyType;
   DateTime? _dateJoined;
-  double _latitude = 0;
-  double _longitude = 0;
+  double _latitude = _defaultLat;
+  double _longitude = _defaultLng;
   final List<String> _imagePaths = <String>[];
 
   bool _editing = false;
@@ -115,10 +119,11 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
     _addressController.text = p.address;
     _partyType = p.partyType;
     _dateJoined = p.dateJoined;
-    _dateController.text =
-        p.dateJoined != null ? DateFormat.yMMMd().format(p.dateJoined!) : '';
-    _latitude = p.latitude ?? 0;
-    _longitude = p.longitude ?? 0;
+    _dateController.text = p.dateJoined != null
+        ? DateFormat('dd MMM yyyy').format(p.dateJoined!)
+        : '';
+    _latitude = p.latitude ?? _defaultLat;
+    _longitude = p.longitude ?? _defaultLng;
     _imagePaths
       ..clear()
       ..addAll(p.imagePaths);
@@ -134,22 +139,6 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
     if (saved != null) _populate(saved);
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _editing = false);
-  }
-
-  Future<void> _pickDate() async {
-    if (!_editing) return;
-    final now = DateTime.now();
-    final picked = await showAppDatePicker(
-      context: context,
-      initialDate: _dateJoined ?? now,
-      firstDate: DateTime(now.year - 50),
-      lastDate: DateTime(now.year + 5),
-    );
-    if (picked == null) return;
-    setState(() {
-      _dateJoined = picked;
-      _dateController.text = DateFormat.yMMMd().format(picked);
-    });
   }
 
   Future<void> _pickImage() async {
@@ -180,6 +169,18 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
     });
   }
 
+  Future<void> _openInMaps() async {
+    final launched = await openInMaps(
+      lat: _latitude,
+      lng: _longitude,
+      label: _nameController.text.trim().isNotEmpty
+          ? _nameController.text.trim()
+          : null,
+    );
+    if (!mounted || launched) return;
+    SnackbarUtils.showError(context, "Couldn't open Google Maps.");
+  }
+
   Future<void> _save() async {
     if (_formKey.currentState?.validate() != true) return;
     FocusManager.instance.primaryFocus?.unfocus();
@@ -208,20 +209,12 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
         _saving = false;
         _editing = false;
       });
-      SnackbarUtils.showSuccess(
-        context,
-        'Party details updated successfully.',
-      );
+      SnackbarUtils.showSuccess(context, 'Party details updated successfully.');
     } on Exception catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
       SnackbarUtils.showError(context, 'Could not save. Please try again.');
     }
-  }
-
-  void _previewImage(int index) {
-    if (index < 0 || index >= _imagePaths.length) return;
-    ImagePreview.show(context, _imagePaths[index]);
   }
 
   void _back() {
@@ -259,11 +252,7 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
                   Expanded(
                     child: Form(
                       key: _formKey,
-                      child: ScrollConfiguration(
-                        // Suppress Android's overscroll glow so it doesn't
-                        // paint a coloured rectangle behind the rounded cards.
-                        behavior: const NoGlowScrollBehavior(),
-                        child: SingleChildScrollView(
+                      child: SingleChildScrollView(
                         physics: const ClampingScrollPhysics(),
                         padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 16.h),
                         child: Column(
@@ -277,12 +266,7 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
                               builder: (_, __) => _NameAddressCard(
                                 name: _nameController.text,
                                 address: _addressController.text,
-                                onOpenMaps: () {
-                                  SnackbarUtils.showInfo(
-                                    context,
-                                    'External maps not wired yet.',
-                                  );
-                                },
+                                onOpenMaps: _openInMaps,
                               ),
                             ),
                             SizedBox(height: 20.h),
@@ -303,10 +287,8 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
                                   hintText: 'Enter party name',
                                   prefixIcon: Icons.business_outlined,
                                   enabled: _editing,
-                                  validator: (v) => Validators.requiredField(
-                                    v,
-                                    'Party name',
-                                  ),
+                                  validator: (v) =>
+                                      Validators.requiredField(v, 'Party name'),
                                 ),
                                 SizedBox(height: 12.h),
                                 PrimaryTextField(
@@ -315,10 +297,8 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
                                   hintText: 'Enter owner name',
                                   prefixIcon: Icons.person_outline,
                                   enabled: _editing,
-                                  validator: (v) => Validators.requiredField(
-                                    v,
-                                    'Owner name',
-                                  ),
+                                  validator: (v) =>
+                                      Validators.requiredField(v, 'Owner name'),
                                 ),
                                 SizedBox(height: 12.h),
                                 PrimaryTextField(
@@ -388,18 +368,17 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
                                       Validators.requiredField(v, 'Address'),
                                 ),
                                 SizedBox(height: 12.h),
-                                GestureDetector(
-                                  onTap: _pickDate,
-                                  child: AbsorbPointer(
-                                    child: PrimaryTextField(
-                                      controller: _dateController,
-                                      label: 'Date Joined',
-                                      hintText: 'Select date',
-                                      prefixIcon:
-                                          Icons.calendar_today_outlined,
-                                      enabled: _editing,
-                                    ),
-                                  ),
+                                CustomDatePicker(
+                                  controller: _dateController,
+                                  label: 'Date Joined',
+                                  hintText: 'Select date',
+                                  prefixIcon: Icons.calendar_today_outlined,
+                                  enabled: _editing,
+                                  initialDate: _dateJoined,
+                                  firstDate: DateTime(DateTime.now().year - 50),
+                                  lastDate: DateTime(DateTime.now().year + 5),
+                                  onDateSelected: (date) =>
+                                      setState(() => _dateJoined = date),
                                 ),
                                 SizedBox(height: 18.h),
                                 Row(
@@ -424,20 +403,19 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
                                   ],
                                 ),
                                 SizedBox(height: 10.h),
-                                _PartyImageStrip(
-                                  paths: _imagePaths,
+                                PrimaryImagePicker(
+                                  imagePaths: _imagePaths,
                                   maxImages: _maxImages,
-                                  editing: _editing,
-                                  onAdd: _pickImage,
+                                  enabled: _editing,
+                                  showLabel: false,
+                                  onPick: _pickImage,
                                   onRemove: _removeImageAt,
-                                  onPreview: _previewImage,
                                 ),
                               ],
                             ),
                             SizedBox(height: 8.h),
                           ],
                         ),
-                      ),
                       ),
                     ),
                   ),
@@ -512,10 +490,7 @@ class _DetailAppBar extends StatelessWidget {
             TextButton(
               onPressed: onCancel,
               style: TextButton.styleFrom(
-                padding: EdgeInsets.symmetric(
-                  horizontal: 12.w,
-                  vertical: 6.h,
-                ),
+                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
@@ -628,203 +603,6 @@ class _NameAddressCard extends StatelessWidget {
   }
 }
 
-/// Strip of party images. View mode: read-only thumbnails that open
-/// fullscreen preview on tap. Edit mode: thumbnails get a clear-X overlay
-/// and an "add image" tile fills the remaining slot up to [maxImages].
-class _PartyImageStrip extends StatelessWidget {
-  const _PartyImageStrip({
-    required this.paths,
-    required this.maxImages,
-    required this.editing,
-    required this.onAdd,
-    required this.onRemove,
-    required this.onPreview,
-  });
-
-  final List<String> paths;
-  final int maxImages;
-  final bool editing;
-  final VoidCallback onAdd;
-  final void Function(int index) onRemove;
-  final void Function(int index) onPreview;
-
-  @override
-  Widget build(BuildContext context) {
-    if (paths.isEmpty && !editing) {
-      return Container(
-        height: 160.h,
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(color: AppColors.border, width: 1.5),
-        ),
-        alignment: Alignment.center,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Icon(
-              Icons.image_outlined,
-              color: AppColors.textSecondary,
-              size: 48.sp,
-            ),
-            SizedBox(height: 8.h),
-            Text(
-              'No images attached',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 14.sp,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    final canAddMore = editing && paths.length < maxImages;
-    final tiles = <Widget>[
-      for (int i = 0; i < paths.length; i++)
-        Expanded(
-          child: _DetailImageTile(
-            path: paths[i],
-            editing: editing,
-            onClear: () => onRemove(i),
-            onPreview: () => onPreview(i),
-          ),
-        ),
-      if (canAddMore)
-        Expanded(child: _DetailAddTile(onTap: onAdd)),
-    ];
-
-    final separated = <Widget>[];
-    for (var i = 0; i < tiles.length; i++) {
-      if (i > 0) separated.add(SizedBox(width: 12.w));
-      separated.add(tiles[i]);
-    }
-    return SizedBox(
-      height: 160.h,
-      child: Row(children: separated),
-    );
-  }
-}
-
-class _DetailImageTile extends StatelessWidget {
-  const _DetailImageTile({
-    required this.path,
-    required this.editing,
-    required this.onClear,
-    required this.onPreview,
-  });
-
-  final String path;
-  final bool editing;
-  final VoidCallback onClear;
-  final VoidCallback onPreview;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: AppColors.border, width: 1.5),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        fit: StackFit.expand,
-        children: <Widget>[
-          GestureDetector(
-            onTap: onPreview,
-            child: Image.file(File(path), fit: BoxFit.cover),
-          ),
-          Positioned(
-            right: 8.w,
-            bottom: 8.h,
-            child: Material(
-              color: AppColors.overlay,
-              borderRadius: BorderRadius.circular(20.r),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(20.r),
-                onTap: onPreview,
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 8.w,
-                    vertical: 4.h,
-                  ),
-                  child: Icon(
-                    Icons.zoom_in,
-                    color: AppColors.textWhite,
-                    size: 16.sp,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          if (editing)
-            Positioned(
-              top: 6.h,
-              right: 6.w,
-              child: Material(
-                color: AppColors.overlay,
-                shape: const CircleBorder(),
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: onClear,
-                  child: Padding(
-                    padding: EdgeInsets.all(6.w),
-                    child: Icon(
-                      Icons.close,
-                      color: AppColors.textWhite,
-                      size: 18.sp,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DetailAddTile extends StatelessWidget {
-  const _DetailAddTile({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(color: AppColors.border, width: 1.5),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Icon(
-              Icons.add_photo_alternate_outlined,
-              color: AppColors.textSecondary,
-              size: 32.sp,
-            ),
-            SizedBox(height: 8.h),
-            Text(
-              'Tap to add image',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 12.sp,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _SubmitBar extends StatelessWidget {
   const _SubmitBar({
     required this.editing,
@@ -869,61 +647,60 @@ class _DetailSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DarkStatusBar(
-      child: Scaffold(
-        backgroundColor: AppColors.background,
-        bottomNavigationBar: Container(
-          decoration: const BoxDecoration(
-            color: AppColors.surface,
-            border: Border(top: BorderSide(color: AppColors.border)),
-          ),
-          child: SafeArea(
-            top: false,
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 12.h),
-              child: Skeleton(
-                width: double.infinity,
-                height: 60.h,
-                borderRadius: BorderRadius.circular(12.r),
+    return Skeletonizer(
+      child: DarkStatusBar(
+        child: Scaffold(
+          backgroundColor: AppColors.background,
+          bottomNavigationBar: Container(
+            decoration: const BoxDecoration(
+              color: AppColors.surface,
+              border: Border(top: BorderSide(color: AppColors.border)),
+            ),
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 12.h),
+                child: Bone(
+                  width: double.infinity,
+                  height: 60.h,
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
               ),
             ),
           ),
-        ),
-        body: Stack(
-          children: <Widget>[
-            const _CurvedHeader(),
-            SafeArea(
-              child: Column(
-                children: <Widget>[
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(4.w, 4.h, 16.w, 4.h),
-                    child: Row(
-                      children: <Widget>[
-                        IconButton(
-                          icon: Icon(
-                            Icons.arrow_back,
-                            color: AppColors.textdark,
-                            size: 20.sp,
+          body: Stack(
+            children: <Widget>[
+              const _CurvedHeader(),
+              SafeArea(
+                child: Column(
+                  children: <Widget>[
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(4.w, 4.h, 16.w, 4.h),
+                      child: Row(
+                        children: <Widget>[
+                          IconButton(
+                            icon: Icon(
+                              Icons.arrow_back,
+                              color: AppColors.textdark,
+                              size: 20.sp,
+                            ),
+                            tooltip: 'Back',
+                            onPressed: onBack,
                           ),
-                          tooltip: 'Back',
-                          onPressed: onBack,
-                        ),
-                        SizedBox(width: 4.w),
-                        Text(
-                          'Details',
-                          style: TextStyle(
-                            color: AppColors.primary,
-                            fontSize: 20.sp,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: -0.5,
+                          SizedBox(width: 4.w),
+                          Text(
+                            'Details',
+                            style: TextStyle(
+                              color: AppColors.primary,
+                              fontSize: 20.sp,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -0.5,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: ScrollConfiguration(
-                      behavior: const NoGlowScrollBehavior(),
+                    Expanded(
                       child: SingleChildScrollView(
                         physics: const ClampingScrollPhysics(),
                         padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 16.h),
@@ -932,8 +709,12 @@ class _DetailSkeleton extends StatelessWidget {
                           children: <Widget>[
                             // Name + address card placeholder.
                             Container(
-                              padding:
-                                  EdgeInsets.fromLTRB(20.w, 18.h, 12.w, 18.h),
+                              padding: EdgeInsets.fromLTRB(
+                                20.w,
+                                18.h,
+                                12.w,
+                                18.h,
+                              ),
                               decoration: BoxDecoration(
                                 color: AppColors.surface,
                                 borderRadius: BorderRadius.circular(16.r),
@@ -948,39 +729,52 @@ class _DetailSkeleton extends StatelessWidget {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: <Widget>[
-                                  Skeleton.line(width: 140.w, height: 20.h),
+                                  Bone(
+                                    width: 140.w,
+                                    height: 20.h,
+                                    uniRadius: 20.h / 2,
+                                  ),
                                   SizedBox(height: 14.h),
-                                  Skeleton.line(
+                                  Bone(
                                     width: double.infinity,
                                     height: 12.h,
+                                    uniRadius: 12.h / 2,
                                   ),
                                   SizedBox(height: 6.h),
-                                  Skeleton.line(width: 200.w, height: 12.h),
+                                  Bone(
+                                    width: 200.w,
+                                    height: 12.h,
+                                    uniRadius: 12.h / 2,
+                                  ),
                                 ],
                               ),
                             ),
                             SizedBox(height: 20.h),
-                            Skeleton.line(width: 90.w, height: 12.h),
+                            Bone(
+                              width: 90.w,
+                              height: 12.h,
+                              uniRadius: 12.h / 2,
+                            ),
                             SizedBox(height: 12.h),
                             // Form-fields card placeholder.
                             SectionCard(
                               children: <Widget>[
                                 for (var i = 0; i < 6; i++) ...<Widget>[
                                   if (i > 0) SizedBox(height: 12.h),
-                                  Skeleton(
+                                  Bone(
                                     width: double.infinity,
                                     height: 56.h,
                                     borderRadius: BorderRadius.circular(12.r),
                                   ),
                                 ],
                                 SizedBox(height: 16.h),
-                                Skeleton(
+                                Bone(
                                   width: double.infinity,
                                   height: 200.h,
                                   borderRadius: BorderRadius.circular(12.r),
                                 ),
                                 SizedBox(height: 14.h),
-                                Skeleton(
+                                Bone(
                                   width: double.infinity,
                                   height: 56.h,
                                   borderRadius: BorderRadius.circular(10.r),
@@ -991,11 +785,11 @@ class _DetailSkeleton extends StatelessWidget {
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1021,10 +815,7 @@ class _NotFoundScaffold extends StatelessWidget {
             child: Text(
               "Couldn't load this party — it may have been removed.",
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 14.sp,
-              ),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
             ),
           ),
         ),

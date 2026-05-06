@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
-import 'package:sales_sphere_erp/shared/widgets/no_glow_scroll_behavior.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 /// Reusable list view that:
 ///   * watches an [AsyncValue] of a list
@@ -50,53 +50,51 @@ class RefreshableList<T> extends StatelessWidget {
       onRefresh: onRefresh,
       color: AppColors.primary,
       backgroundColor: AppColors.surface,
-      child: ScrollConfiguration(
-        // Suppress the Android overscroll glow — it paints a coloured
-        // rectangle behind the cards on edge bounces.
-        behavior: const NoGlowScrollBehavior(),
-        child: async.when(
-          // Force the skeleton to show on pull-to-refresh too. Without this,
-          // Riverpod's default (`skipLoadingOnRefresh: true`) keeps the
-          // previous list visible while the new data is fetching.
-          skipLoadingOnRefresh: false,
-          loading: () => _buildSkeleton(context),
-          error: (error, stack) => _buildSingleChildScroll(
-            errorBuilder?.call(context, error, stack) ??
-                _DefaultErrorState(error: error),
-          ),
-          data: (rawItems) {
-            final items = filter?.call(rawItems) ?? rawItems;
-            if (items.isEmpty) {
-              return _buildSingleChildScroll(
-                emptyBuilder?.call(context) ?? const _DefaultEmptyState(),
-              );
-            }
-            return ListView.separated(
-              physics: const AlwaysScrollableScrollPhysics(
-                parent: ClampingScrollPhysics(),
-              ),
-              padding: padding ?? EdgeInsets.zero,
-              itemCount: items.length,
-              separatorBuilder: (_, __) =>
-                  separator ?? SizedBox(height: 12.h),
-              itemBuilder: (context, index) =>
-                  itemBuilder(context, items[index]),
-            );
-          },
+      child: async.when(
+        // Force the skeleton to show on pull-to-refresh too. Without this,
+        // Riverpod's default (`skipLoadingOnRefresh: true`) keeps the
+        // previous list visible while the new data is fetching.
+        skipLoadingOnRefresh: false,
+        loading: () => _buildSkeleton(context),
+        error: (error, stack) => _buildSingleChildScroll(
+          errorBuilder?.call(context, error, stack) ??
+              _DefaultErrorState(error: error),
         ),
+        data: (rawItems) {
+          final items = filter?.call(rawItems) ?? rawItems;
+          if (items.isEmpty) {
+            return _buildSingleChildScroll(
+              emptyBuilder?.call(context) ?? const _DefaultEmptyState(),
+            );
+          }
+          return ListView.separated(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: ClampingScrollPhysics(),
+            ),
+            padding: padding ?? EdgeInsets.zero,
+            itemCount: items.length,
+            separatorBuilder: (_, __) => separator ?? SizedBox(height: 12.h),
+            itemBuilder: (context, index) => itemBuilder(context, items[index]),
+          );
+        },
       ),
     );
   }
 
   Widget _buildSkeleton(BuildContext context) {
-    return ListView.separated(
-      physics: const AlwaysScrollableScrollPhysics(
-        parent: ClampingScrollPhysics(),
+    // One Skeletonizer wraps the whole loading list so every item shimmers
+    // in sync. Callers' `skeletonItemBuilder` can return real cards with
+    // placeholder data or hand-built bone layouts — both work.
+    return Skeletonizer(
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: ClampingScrollPhysics(),
+        ),
+        padding: padding ?? EdgeInsets.zero,
+        itemCount: skeletonItemCount,
+        separatorBuilder: (_, __) => separator ?? SizedBox(height: 12.h),
+        itemBuilder: skeletonItemBuilder,
       ),
-      padding: padding ?? EdgeInsets.zero,
-      itemCount: skeletonItemCount,
-      separatorBuilder: (_, __) => separator ?? SizedBox(height: 12.h),
-      itemBuilder: skeletonItemBuilder,
     );
   }
 
@@ -125,10 +123,7 @@ class _DefaultEmptyState extends StatelessWidget {
         child: Text(
           'Nothing to show yet.',
           textAlign: TextAlign.center,
-          style: TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 14.sp,
-          ),
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
         ),
       ),
     );
@@ -148,10 +143,7 @@ class _DefaultErrorState extends StatelessWidget {
         child: Text(
           "Couldn't load. Pull to retry.",
           textAlign: TextAlign.center,
-          style: TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 14.sp,
-          ),
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
         ),
       ),
     );
