@@ -1,22 +1,20 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/features/prospects/data/prospects_repository.dart';
 import 'package:sales_sphere_erp/features/prospects/domain/prospect.dart';
-import 'package:sales_sphere_erp/shared/utils/app_date_picker.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
+import 'package:sales_sphere_erp/shared/widgets/custom_date_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/interest_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/location_picker.dart';
+import 'package:sales_sphere_erp/shared/widgets/primary_image_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
@@ -28,10 +26,10 @@ class AddProspectPage extends ConsumerStatefulWidget {
 }
 
 class _AddProspectPageState extends ConsumerState<AddProspectPage> {
-  // Default camera target — Bengaluru. Replaced as soon as the user picks
+  // Default camera target — Kathmandu. Replaced as soon as the user picks
   // a point or taps "use my current location".
-  static const _defaultLat = 13.134965;
-  static const _defaultLng = 77.566811;
+  static const _defaultLat = 27.7172;
+  static const _defaultLng = 85.3240;
 
   final _formKey = GlobalKey<FormState>();
 
@@ -64,21 +62,6 @@ class _AddProspectPageState extends ConsumerState<AddProspectPage> {
     _notesController.dispose();
     _addressController.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickDate() async {
-    final now = DateTime.now();
-    final picked = await showAppDatePicker(
-      context: context,
-      initialDate: _dateJoined ?? now,
-      firstDate: DateTime(now.year - 50),
-      lastDate: DateTime(now.year + 5),
-    );
-    if (picked == null) return;
-    setState(() {
-      _dateJoined = picked;
-      _dateController.text = DateFormat.yMMMd().format(picked);
-    });
   }
 
   Future<void> _pickImage() async {
@@ -230,22 +213,16 @@ class _AddProspectPageState extends ConsumerState<AddProspectPage> {
                           validator: Validators.emailOptional,
                         ),
                         SizedBox(height: 14.h),
-                        // Date Joined — read-only, opens a date picker on tap.
-                        GestureDetector(
-                          onTap: _pickDate,
-                          child: AbsorbPointer(
-                            child: PrimaryTextField(
-                              controller: _dateController,
-                              label: 'Date Joined',
-                              hintText: 'Select date',
-                              prefixIcon: Icons.calendar_today_outlined,
-                              suffixWidget: Icon(
-                                Icons.calendar_month_outlined,
-                                color: AppColors.primary,
-                                size: 20.sp,
-                              ),
-                            ),
-                          ),
+                        CustomDatePicker(
+                          controller: _dateController,
+                          label: 'Date Joined',
+                          hintText: 'Select date',
+                          prefixIcon: Icons.calendar_today_outlined,
+                          initialDate: _dateJoined,
+                          firstDate: DateTime(DateTime.now().year - 50),
+                          lastDate: DateTime(DateTime.now().year + 5),
+                          onDateSelected: (date) =>
+                              setState(() => _dateJoined = date),
                         ),
                         SizedBox(height: 14.h),
                         Consumer(
@@ -318,10 +295,11 @@ class _AddProspectPageState extends ConsumerState<AddProspectPage> {
                           ],
                         ),
                         SizedBox(height: 10.h),
-                        _ImagePickerStrip(
-                          paths: _imagePaths,
+                        PrimaryImagePicker(
+                          imagePaths: _imagePaths,
                           maxImages: _maxImages,
-                          onAdd: _pickImage,
+                          showLabel: false,
+                          onPick: _pickImage,
                           onRemove: _removeImageAt,
                         ),
                       ],
@@ -381,125 +359,6 @@ class _Header extends StatelessWidget {
                 fontSize: 26.sp,
                 fontWeight: FontWeight.w800,
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Renders the picked images side-by-side with a "tap to add" placeholder
-/// in the next free slot. Supports up to [maxImages] entries.
-class _ImagePickerStrip extends StatelessWidget {
-  const _ImagePickerStrip({
-    required this.paths,
-    required this.maxImages,
-    required this.onAdd,
-    required this.onRemove,
-  });
-
-  final List<String> paths;
-  final int maxImages;
-  final VoidCallback onAdd;
-  final void Function(int index) onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    final canAddMore = paths.length < maxImages;
-    final tiles = <Widget>[
-      for (int i = 0; i < paths.length; i++)
-        Expanded(
-          child: _ImageTile(path: paths[i], onClear: () => onRemove(i)),
-        ),
-      if (canAddMore) Expanded(child: _AddImageTile(onTap: onAdd)),
-    ];
-
-    final separated = <Widget>[];
-    for (var i = 0; i < tiles.length; i++) {
-      if (i > 0) separated.add(SizedBox(width: 12.w));
-      separated.add(tiles[i]);
-    }
-    return SizedBox(
-      height: 150.h,
-      child: Row(children: separated),
-    );
-  }
-}
-
-class _ImageTile extends StatelessWidget {
-  const _ImageTile({required this.path, required this.onClear});
-
-  final String path;
-  final VoidCallback onClear;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: AppColors.border, width: 1.5),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        fit: StackFit.expand,
-        children: <Widget>[
-          Image.file(File(path), fit: BoxFit.cover),
-          Positioned(
-            top: 6.h,
-            right: 6.w,
-            child: Material(
-              color: AppColors.overlay,
-              shape: const CircleBorder(),
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: onClear,
-                child: Padding(
-                  padding: EdgeInsets.all(6.w),
-                  child: Icon(
-                    Icons.close,
-                    color: AppColors.textWhite,
-                    size: 18.sp,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AddImageTile extends StatelessWidget {
-  const _AddImageTile({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.background,
-          borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(color: AppColors.border, width: 1.5),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Icon(
-              Icons.add_photo_alternate_outlined,
-              color: AppColors.textSecondary,
-              size: 32.sp,
-            ),
-            SizedBox(height: 8.h),
-            Text(
-              'Tap to add image',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 12.sp),
             ),
           ],
         ),

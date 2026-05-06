@@ -11,7 +11,6 @@ import 'package:sales_sphere_erp/features/prospects/domain/prospect.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/refreshable_list.dart';
-import 'package:sales_sphere_erp/shared/widgets/skeleton.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
 class ProspectsListPage extends ConsumerStatefulWidget {
@@ -136,8 +135,10 @@ class _ProspectsListPageState extends ConsumerState<ProspectsListPage> {
                           extra: prospect,
                         ),
                       ),
-                      skeletonItemBuilder: (_, __) =>
-                          const _ProspectCardSkeleton(),
+                      skeletonItemBuilder: (_, __) => _ProspectCard(
+                        prospect: _placeholderProspect,
+                        onTap: () {},
+                      ),
                       emptyBuilder: (_) => const _EmptyState(),
                       errorBuilder: (_, __, ___) => const _ErrorState(),
                     ),
@@ -275,46 +276,14 @@ class _ProspectCard extends StatelessWidget {
   }
 }
 
-class _ProspectCardSkeleton extends StatelessWidget {
-  const _ProspectCardSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16.r),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: AppColors.shadow,
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
-      child: Row(
-        children: <Widget>[
-          Skeleton.circle(size: 52.r),
-          SizedBox(width: 14.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Skeleton.line(width: 90.w, height: 13.h),
-                SizedBox(height: 4.h),
-                Skeleton.line(width: 140.w, height: 10.h),
-              ],
-            ),
-          ),
-          SizedBox(width: 8.w),
-          Skeleton.circle(size: 36.r),
-        ],
-      ),
-    );
-  }
-}
+/// Sample prospect fed to [_ProspectCard] when the list is loading.
+/// Skeletonizer (wired in via `RefreshableList._buildSkeleton`) paints
+/// bones over the rendered text and avatars.
+const _placeholderProspect = Prospect(
+  id: '',
+  name: 'Loading prospect name',
+  address: 'Loading address line for placeholder',
+);
 
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
