@@ -7,7 +7,9 @@ class Routes {
   static const biometric = '/biometric';
 
   static const home = '/home';
-  static const attendance = '/attendance';
+  static const catalog = '/catalog';
+  static const billing = '/billing';
+  static const customers = '/customers';
   static const profile = '/profile';
   static const parties = '/parties';
   static const addParty = '/parties/add';
@@ -26,7 +28,9 @@ class Routes {
   static const forgotPasswordName = 'forgotPassword';
   static const biometricName = 'biometric';
   static const homeName = 'home';
-  static const attendanceName = 'attendance';
+  static const catalogName = 'catalog';
+  static const billingName = 'billing';
+  static const customersName = 'customers';
   static const profileName = 'profile';
   static const partiesName = 'parties';
   static const addPartyName = 'addParty';

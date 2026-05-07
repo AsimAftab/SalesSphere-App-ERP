@@ -5,11 +5,13 @@ import 'package:sales_sphere_erp/core/auth/auth_state.dart';
 import 'package:sales_sphere_erp/core/router/router_refresh.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/core/router/shell_scaffold.dart';
-import 'package:sales_sphere_erp/features/attendance/presentation/pages/attendance_page.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/pages/biometric_unlock_page.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/pages/forgot_password_page.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/pages/login_page.dart';
+import 'package:sales_sphere_erp/features/billing/presentation/pages/billing_page.dart';
+import 'package:sales_sphere_erp/features/catalog/presentation/pages/catalog_page.dart';
+import 'package:sales_sphere_erp/features/customers/presentation/pages/customers_hub_page.dart';
 import 'package:sales_sphere_erp/features/home/presentation/pages/home_page.dart';
 import 'package:sales_sphere_erp/features/parties/domain/party.dart';
 import 'package:sales_sphere_erp/features/parties/presentation/pages/add_party_page.dart';
@@ -91,9 +93,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const HomePage(),
           ),
           GoRoute(
-            path: Routes.attendance,
-            name: Routes.attendanceName,
-            builder: (_, __) => const AttendancePage(),
+            path: Routes.catalog,
+            name: Routes.catalogName,
+            builder: (_, __) => const CatalogPage(),
+          ),
+          GoRoute(
+            path: Routes.billing,
+            name: Routes.billingName,
+            builder: (_, __) => const BillingPage(),
+          ),
+          GoRoute(
+            path: Routes.customers,
+            name: Routes.customersName,
+            builder: (_, __) => const CustomersHubPage(),
           ),
           GoRoute(
             path: Routes.profile,
