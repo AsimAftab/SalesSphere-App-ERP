@@ -19,10 +19,14 @@ import 'package:sales_sphere_erp/features/parties/presentation/pages/edit_party_
 import 'package:sales_sphere_erp/features/parties/presentation/pages/parties_list_page.dart';
 import 'package:sales_sphere_erp/features/profile/presentation/pages/profile_page.dart';
 import 'package:sales_sphere_erp/features/prospects/domain/prospect.dart';
-import 'package:sales_sphere_erp/features/settings/presentation/pages/settings_page.dart';
 import 'package:sales_sphere_erp/features/prospects/presentation/pages/add_prospect_page.dart';
 import 'package:sales_sphere_erp/features/prospects/presentation/pages/edit_prospect_detail_page.dart';
 import 'package:sales_sphere_erp/features/prospects/presentation/pages/prospects_list_page.dart';
+import 'package:sales_sphere_erp/features/settings/presentation/pages/settings_page.dart';
+import 'package:sales_sphere_erp/features/sites/domain/site.dart';
+import 'package:sales_sphere_erp/features/sites/presentation/pages/add_site_page.dart';
+import 'package:sales_sphere_erp/features/sites/presentation/pages/edit_site_detail_page.dart';
+import 'package:sales_sphere_erp/features/sites/presentation/pages/sites_list_page.dart';
 import 'package:sales_sphere_erp/features/splash/splash_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -158,6 +162,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return EditProspectDetailPage(
             id: id,
             initial: extra is Prospect ? extra : null,
+          );
+        },
+      ),
+      GoRoute(
+        path: Routes.sites,
+        name: Routes.sitesName,
+        builder: (_, __) => const SitesListPage(),
+      ),
+      GoRoute(
+        path: Routes.addSite,
+        name: Routes.addSiteName,
+        builder: (_, __) => const AddSitePage(),
+      ),
+      GoRoute(
+        path: Routes.siteDetail,
+        name: Routes.siteDetailName,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          final extra = state.extra;
+          return EditSiteDetailPage(
+            id: id,
+            initial: extra is Site ? extra : null,
           );
         },
       ),

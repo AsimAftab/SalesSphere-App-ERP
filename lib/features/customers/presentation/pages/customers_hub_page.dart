@@ -70,11 +70,11 @@ class CustomersHubPage extends StatelessWidget {
                       onTap: () => context.push(Routes.prospects),
                     ),
                     SizedBox(height: 16.h),
-                    const _HubCard(
+                    _HubCard(
                       icon: Icons.location_city_outlined,
                       title: 'Sites',
                       subtitle: 'Customer locations and branches',
-                      comingSoon: true,
+                      onTap: () => context.push(Routes.sites),
                     ),
                   ],
                 ),
@@ -93,25 +93,21 @@ class _HubCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.onTap,
-    this.comingSoon = false,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final VoidCallback? onTap;
-  final bool comingSoon;
 
   @override
   Widget build(BuildContext context) {
-    final disabled = comingSoon || onTap == null;
+    final disabled = onTap == null;
     return Opacity(
       opacity: disabled ? 0.6 : 1,
       child: Material(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(20.r),
-        elevation: 0,
-        shadowColor: AppColors.primary.withValues(alpha: 0.06),
         child: Ink(
           decoration: BoxDecoration(
             color: AppColors.surface,
@@ -154,21 +150,13 @@ class _HubCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
-                        Row(
-                          children: <Widget>[
-                            Text(
-                              title,
-                              style: TextStyle(
-                                color: AppColors.textPrimary,
-                                fontSize: 16.sp,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            if (comingSoon) ...<Widget>[
-                              SizedBox(width: 8.w),
-                              const _ComingSoonBadge(),
-                            ],
-                          ],
+                        Text(
+                          title,
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                         SizedBox(height: 4.h),
                         Text(
@@ -191,29 +179,6 @@ class _HubCard extends StatelessWidget {
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ComingSoonBadge extends StatelessWidget {
-  const _ComingSoonBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
-      decoration: BoxDecoration(
-        color: AppColors.warning.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8.r),
-      ),
-      child: Text(
-        'Coming soon',
-        style: TextStyle(
-          color: AppColors.warning,
-          fontSize: 10.sp,
-          fontWeight: FontWeight.w600,
         ),
       ),
     );

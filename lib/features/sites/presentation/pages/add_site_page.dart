@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
-import 'package:sales_sphere_erp/features/prospects/domain/prospect.dart';
-import 'package:sales_sphere_erp/features/prospects/presentation/controllers/prospects_controller.dart';
-import 'package:sales_sphere_erp/features/prospects/presentation/providers/prospects_providers.dart';
+import 'package:sales_sphere_erp/features/sites/domain/site.dart';
+import 'package:sales_sphere_erp/features/sites/presentation/controllers/sites_controller.dart';
+import 'package:sales_sphere_erp/features/sites/presentation/providers/sites_providers.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
@@ -20,14 +19,14 @@ import 'package:sales_sphere_erp/shared/widgets/primary_image_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
-class AddProspectPage extends ConsumerStatefulWidget {
-  const AddProspectPage({super.key});
+class AddSitePage extends ConsumerStatefulWidget {
+  const AddSitePage({super.key});
 
   @override
-  ConsumerState<AddProspectPage> createState() => _AddProspectPageState();
+  ConsumerState<AddSitePage> createState() => _AddSitePageState();
 }
 
-class _AddProspectPageState extends ConsumerState<AddProspectPage> {
+class _AddSitePageState extends ConsumerState<AddSitePage> {
   // Default camera target — Kathmandu. Replaced as soon as the user picks
   // a point or taps "use my current location".
   static const _defaultLat = 27.7172;
@@ -46,7 +45,7 @@ class _AddProspectPageState extends ConsumerState<AddProspectPage> {
 
   static const _maxImages = 2;
 
-  List<Interest> _interests = const <Interest>[];
+  List<SiteInterest> _interests = const <SiteInterest>[];
   DateTime? _dateJoined;
   double _latitude = _defaultLat;
   double _longitude = _defaultLng;
@@ -98,7 +97,7 @@ class _AddProspectPageState extends ConsumerState<AddProspectPage> {
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _submitting = true);
     try {
-      final draft = Prospect(
+      final draft = Site(
         id: '',
         // assigned by the API mock
         name: _nameController.text.trim(),
@@ -108,15 +107,15 @@ class _AddProspectPageState extends ConsumerState<AddProspectPage> {
         phone: _phoneController.text.trim().nullIfEmpty(),
         email: _emailController.text.trim().nullIfEmpty(),
         dateJoined: _dateJoined,
-        interests: List<Interest>.unmodifiable(_interests),
+        interests: List<SiteInterest>.unmodifiable(_interests),
         notes: _notesController.text.trim().nullIfEmpty(),
         latitude: _latitude,
         longitude: _longitude,
         imagePaths: List<String>.unmodifiable(_imagePaths),
       );
-      await ref.read(prospectsControllerProvider).addProspect(draft);
+      await ref.read(sitesControllerProvider).addSite(draft);
       if (!mounted) return;
-      SnackbarUtils.showSuccess(context, 'Prospect added successfully.');
+      SnackbarUtils.showSuccess(context, 'Site added successfully.');
       context.pop();
     } on Exception catch (_) {
       if (!mounted) return;
@@ -157,12 +156,12 @@ class _AddProspectPageState extends ConsumerState<AddProspectPage> {
                       children: <Widget>[
                         PrimaryTextField(
                           controller: _nameController,
-                          label: 'Prospect Name',
-                          hintText: 'Enter prospect name',
+                          label: 'Site Name',
+                          hintText: 'Enter site name',
                           prefixIcon: Icons.business_outlined,
                           textInputAction: TextInputAction.next,
                           validator: (v) =>
-                              Validators.requiredField(v, 'Prospect name'),
+                              Validators.requiredField(v, 'Site name'),
                         ),
                         SizedBox(height: 16.h),
                         PrimaryTextField(
@@ -228,20 +227,19 @@ class _AddProspectPageState extends ConsumerState<AddProspectPage> {
                         Consumer(
                           builder: (context, ref, _) {
                             final catalogueAsync = ref.watch(
-                              prospectInterestsProvider,
+                              siteInterestsProvider,
                             );
                             final controller =
-                                ref.read(prospectsControllerProvider);
-                            return InterestPicker(
+                                ref.read(sitesControllerProvider);
+                            return SiteInterestPicker(
                               value: _interests,
                               catalogue:
                                   catalogueAsync.value ??
                                   const <String, List<String>>{},
                               enabled: true,
-                              label: 'Prospect Interest',
-                              hintText: 'Select prospect interest',
-                              onChanged: (next) =>
-                                  setState(() => _interests = next),
+                              onChanged: (next) => setState(
+                                () => _interests = next.cast<SiteInterest>(),
+                              ),
                               onAddCategory: controller.addInterestCategory,
                               onAddBrand: (cat, brand) =>
                                   controller.addInterestBrand(
@@ -275,7 +273,7 @@ class _AddProspectPageState extends ConsumerState<AddProspectPage> {
                         Row(
                           children: <Widget>[
                             Text(
-                              'Prospect Image (Optional)',
+                              'Site Image (Optional)',
                               style: TextStyle(
                                 color: AppColors.textPrimary,
                                 fontSize: 13.sp,
@@ -321,7 +319,7 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return ColoredBox(
       color: AppColors.primary,
       child: SafeArea(
         bottom: false,
@@ -346,7 +344,7 @@ class _Header extends StatelessWidget {
             ),
             SizedBox(height: 8.h),
             Text(
-              'New Prospect Incoming',
+              'New Site Incoming',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.8),
@@ -356,7 +354,7 @@ class _Header extends StatelessWidget {
             ),
             SizedBox(height: 4.h),
             Text(
-              'Add New Prospect',
+              'Add New Site',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white,
@@ -391,7 +389,7 @@ class _SubmitBar extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 12.h),
           child: PrimaryButton(
-            label: 'Add Prospect',
+            label: 'Add Site',
             leadingIcon: Icons.add_circle_outline,
             isLoading: isLoading,
             onPressed: onPressed,
