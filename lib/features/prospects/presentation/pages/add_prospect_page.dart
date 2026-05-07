@@ -6,8 +6,9 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
-import 'package:sales_sphere_erp/features/prospects/data/prospects_repository.dart';
 import 'package:sales_sphere_erp/features/prospects/domain/prospect.dart';
+import 'package:sales_sphere_erp/features/prospects/presentation/controllers/prospects_controller.dart';
+import 'package:sales_sphere_erp/features/prospects/presentation/providers/prospects_providers.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
@@ -96,7 +97,6 @@ class _AddProspectPageState extends ConsumerState<AddProspectPage> {
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _submitting = true);
     try {
-      final repo = ref.read(prospectsRepositoryProvider);
       final draft = Prospect(
         id: '',
         // assigned by the API mock
@@ -113,8 +113,7 @@ class _AddProspectPageState extends ConsumerState<AddProspectPage> {
         longitude: _longitude,
         imagePaths: List<String>.unmodifiable(_imagePaths),
       );
-      await repo.addProspect(draft);
-      ref.invalidate(prospectsListProvider);
+      await ref.read(prospectsControllerProvider).addProspect(draft);
       if (!mounted) return;
       SnackbarUtils.showSuccess(context, 'Prospect added successfully.');
       context.pop();
@@ -230,7 +229,8 @@ class _AddProspectPageState extends ConsumerState<AddProspectPage> {
                             final catalogueAsync = ref.watch(
                               prospectInterestsProvider,
                             );
-                            final repo = ref.read(prospectsRepositoryProvider);
+                            final controller =
+                                ref.read(prospectsControllerProvider);
                             return InterestPicker(
                               value: _interests,
                               catalogue:
@@ -241,14 +241,12 @@ class _AddProspectPageState extends ConsumerState<AddProspectPage> {
                               hintText: 'Select prospect interest',
                               onChanged: (next) =>
                                   setState(() => _interests = next),
-                              onAddCategory: (name) async {
-                                await repo.addInterestCategory(name);
-                                ref.invalidate(prospectInterestsProvider);
-                              },
-                              onAddBrand: (cat, brand) async {
-                                await repo.addInterestBrand(cat, brand);
-                                ref.invalidate(prospectInterestsProvider);
-                              },
+                              onAddCategory: controller.addInterestCategory,
+                              onAddBrand: (cat, brand) =>
+                                  controller.addInterestBrand(
+                                category: cat,
+                                brand: brand,
+                              ),
                             );
                           },
                         ),

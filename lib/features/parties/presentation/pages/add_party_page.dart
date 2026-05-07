@@ -6,8 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
-import 'package:sales_sphere_erp/features/parties/data/parties_repository.dart';
 import 'package:sales_sphere_erp/features/parties/domain/party.dart';
+import 'package:sales_sphere_erp/features/parties/presentation/controllers/parties_controller.dart';
 import 'package:sales_sphere_erp/features/parties/presentation/widgets/party_type_picker.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
@@ -96,7 +96,6 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _submitting = true);
     try {
-      final repo = ref.read(partiesRepositoryProvider);
       final draft = Party(
         id: '', // assigned by the API mock
         name: _nameController.text.trim(),
@@ -112,8 +111,7 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
         longitude: _longitude,
         imagePaths: List<String>.unmodifiable(_imagePaths),
       );
-      await repo.addParty(draft);
-      ref.invalidate(partiesListProvider);
+      await ref.read(partiesControllerProvider).addParty(draft);
       if (!mounted) return;
       SnackbarUtils.showSuccess(context, 'Party added.');
       context.pop();

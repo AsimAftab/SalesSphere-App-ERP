@@ -10,9 +10,7 @@ abstract class AuthUser with _$AuthUser {
     required String id,
     required String email,
     required String fullName,
-    String? phone,
-    String? organizationId,
-    String? roleId,
-    String? avatarUrl,
+    @Default(false) bool emailVerified,
+    String? systemRole,
   }) = _AuthUser;
 }

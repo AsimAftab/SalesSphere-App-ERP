@@ -11,11 +11,13 @@ import 'package:sales_sphere_erp/features/auth/data/auth_api.dart';
 import 'package:sales_sphere_erp/features/auth/data/dto/auth_user_dto.dart';
 import 'package:sales_sphere_erp/features/auth/data/dto/login_request_dto.dart';
 import 'package:sales_sphere_erp/features/auth/domain/auth_user.dart';
+import 'package:sales_sphere_erp/features/auth/domain/repositories/auth_repository.dart';
 
 /// Anti-corruption layer between the wire DTOs and the rest of the app.
-/// All DTO → domain mapping happens here, plus drift persistence.
-class AuthRepository {
-  AuthRepository({
+/// All DTO → domain mapping happens here, plus token persistence and the
+/// drift cache write.
+class AuthRepositoryImpl implements AuthRepository {
+  AuthRepositoryImpl({
     required AuthApi api,
     required TokenStorage tokens,
     required UsersDao users,
@@ -27,6 +29,7 @@ class AuthRepository {
   final TokenStorage _tokens;
   final UsersDao _users;
 
+  @override
   Future<AuthUser> login({
     required String email,
     required String password,
@@ -36,18 +39,18 @@ class AuthRepository {
         LoginRequestDto(email: email, password: password),
       );
       await _tokens.save(
-        accessToken: dto.accessToken,
-        refreshToken: dto.refreshToken,
-        expiresAt: dto.expiresAt,
+        accessToken: dto.tokens.access,
+        refreshToken: dto.tokens.refresh,
       );
       final user = _toDomain(dto.user);
       await _persist(user);
       return user;
     } on DioException catch (e) {
-      // The error interceptor stashes a typed [ApiException] in DioException.error.
-      // Unwrap it so the rest of the app never sees raw dio errors, and convert
-      // a login-time 401 into the more specific [BadCredentialsException] so the
-      // UI can distinguish it from a session-expired 401.
+      // The error interceptor stashes a typed [ApiException] in
+      // DioException.error. Unwrap it so the rest of the app never sees
+      // raw dio errors, and convert a login-time 401 into the more
+      // specific [BadCredentialsException] so the UI can distinguish it
+      // from a session-expired 401.
       final mapped = e.error;
       if (mapped is UnauthorizedException) {
         throw const BadCredentialsException();
@@ -57,8 +60,7 @@ class AuthRepository {
     }
   }
 
-  /// Re-fetches the authenticated user. Used after biometric unlock or app
-  /// foregrounding to confirm the session is still valid.
+  @override
   Future<AuthUser> me() async {
     final dto = await _api.me();
     final user = _toDomain(dto);
@@ -66,19 +68,20 @@ class AuthRepository {
     return user;
   }
 
+  @override
   Future<TokenPair?> refreshTokens(String refreshToken) async {
     try {
       final dto = await _api.refresh(refreshToken);
       return TokenPair(
-        accessToken: dto.accessToken,
-        refreshToken: dto.refreshToken,
-        expiresAt: dto.expiresAt,
+        accessToken: dto.tokens.access,
+        refreshToken: dto.tokens.refresh,
       );
     } catch (_) {
       return null;
     }
   }
 
+  @override
   Future<void> logout() async {
     try {
       await _api.logout();
@@ -89,6 +92,7 @@ class AuthRepository {
     await _users.deleteAll();
   }
 
+  @override
   Future<AuthUser?> cachedUser() async {
     final rows = await _users.findById(await _firstStoredUserId() ?? '');
     if (rows == null) return null;
@@ -96,13 +100,12 @@ class AuthRepository {
       id: rows.id,
       email: rows.email,
       fullName: rows.fullName,
-      phone: rows.phone,
-      organizationId: rows.organizationId,
-      roleId: rows.roleId,
-      avatarUrl: rows.avatarUrl,
+      emailVerified: rows.emailVerified,
+      systemRole: rows.systemRole,
     );
   }
 
+  @override
   Future<bool> hasSession() => _tokens.hasSession();
 
   // ── private ────────────────────────────────────────────────────────────────
@@ -111,11 +114,9 @@ class AuthRepository {
     return AuthUser(
       id: dto.id,
       email: dto.email,
-      fullName: dto.fullName,
-      phone: dto.phone,
-      organizationId: dto.organizationId,
-      roleId: dto.roleId,
-      avatarUrl: dto.avatarUrl,
+      fullName: dto.name,
+      emailVerified: dto.emailVerified,
+      systemRole: dto.systemRole,
     );
   }
 
@@ -125,10 +126,8 @@ class AuthRepository {
         id: Value(user.id),
         email: Value(user.email),
         fullName: Value(user.fullName),
-        phone: Value(user.phone),
-        organizationId: Value(user.organizationId),
-        roleId: Value(user.roleId),
-        avatarUrl: Value(user.avatarUrl),
+        emailVerified: Value(user.emailVerified),
+        systemRole: Value(user.systemRole),
         updatedAt: Value(DateTime.now()),
       ),
     );
@@ -142,8 +141,10 @@ class AuthRepository {
   }
 }
 
+/// Exposes the abstract type so consumers depend on the contract, not the
+/// impl class. Tests override this provider with a fake `AuthRepository`.
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return AuthRepository(
+  return AuthRepositoryImpl(
     api: ref.watch(authApiProvider),
     tokens: ref.watch(tokenStorageProvider),
     users: ref.watch(usersDaoProvider),

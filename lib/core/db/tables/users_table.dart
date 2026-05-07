@@ -5,10 +5,9 @@ class Users extends Table {
   TextColumn get id => text()();
   TextColumn get email => text()();
   TextColumn get fullName => text()();
-  TextColumn get phone => text().nullable()();
-  TextColumn get organizationId => text().nullable()();
-  TextColumn get roleId => text().nullable()();
-  TextColumn get avatarUrl => text().nullable()();
+  BoolColumn get emailVerified =>
+      boolean().withDefault(const Constant(false))();
+  TextColumn get systemRole => text().nullable()();
   DateTimeColumn get updatedAt => dateTime()();
 
   @override

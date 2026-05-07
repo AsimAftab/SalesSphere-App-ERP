@@ -19,7 +19,7 @@ class AuthApi {
       Endpoints.login,
       data: req.toJson(),
     );
-    return LoginResponseDto.fromJson(response.data!);
+    return LoginResponseDto.fromJson(_unwrap(response.data));
   }
 
   Future<RefreshResponseDto> refresh(String refreshToken) async {
@@ -27,16 +27,27 @@ class AuthApi {
       Endpoints.refresh,
       data: <String, String>{'refreshToken': refreshToken},
     );
-    return RefreshResponseDto.fromJson(response.data!);
+    return RefreshResponseDto.fromJson(_unwrap(response.data));
   }
 
   Future<AuthUserDto> me() async {
     final response = await _dio.get<Map<String, dynamic>>(Endpoints.me);
-    return AuthUserDto.fromJson(response.data!);
+    return AuthUserDto.fromJson(_unwrap(response.data));
   }
 
   Future<void> logout() async {
     await _dio.post<void>(Endpoints.logout);
+  }
+
+  // The backend wraps every payload in `{ success, data: {...} }`. Peel the
+  // envelope here so DTOs stay focused on the inner shape.
+  Map<String, dynamic> _unwrap(Map<String, dynamic>? body) {
+    if (body == null) {
+      throw const FormatException('Empty response body');
+    }
+    final inner = body['data'];
+    if (inner is Map<String, dynamic>) return inner;
+    return body;
   }
 }
 

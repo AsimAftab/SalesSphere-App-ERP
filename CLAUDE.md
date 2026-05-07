@@ -32,8 +32,16 @@ Three flavors: `dev`, `staging`, `prod`. Configure via `--dart-define-from-file=
 - **Hand-written client.** `core/api/dio_client.dart`, interceptors, `endpoints.dart`.
 - **Hand-written `<feature>_api.dart` per feature** — typed by generated DTOs.
 - **Hand-written domain models** in `features/<x>/domain/` — UI consumes these, not wire DTOs.
-- **Repository is the translation boundary** — DTO ↔ domain mapping + drift persistence + outbox enqueue.
+- **`*Repository` is an abstract interface** in `domain/repositories/`. The concrete `*RepositoryImpl` in `data/repositories/` is the translation boundary — DTO ↔ domain mapping + drift persistence + outbox enqueue. The Riverpod provider exposes the abstract type so consumers depend on the contract.
 - **Never use a generated client / service class.** `tool/gen_dto.sh` strips them automatically. Don't suggest `openapi-generator-cli` for clients, `retrofit`, `chopper`, etc.
+
+### Clean Architecture
+
+- **Layer dependencies**: presentation → domain (controllers, use cases, entities, repo interfaces) ← data (repo impls, APIs, DTOs). Domain knows nothing about data; data implements domain contracts.
+- **Controllers depend on use cases** for writes. Reactive cache providers (`*ListProvider`, `*ByIdProvider`) may depend on the abstract repository directly for reads — wrapping a one-line getter in a use case is dead weight.
+- **Use cases earn their place** when an action has business logic, side effects, or composes multiple repos. Trivial passthrough wrappers (e.g. `GetPartyByIdUseCase`) are not worth their weight; expose the read on the repo and consume it from the reactive provider. Use cases live in `domain/usecases/`, one file per class, expose a `call(...)` method, and have a co-located `@riverpod`-style provider.
+- **Pages never call repositories directly.** Writes → controller method → use case → repo. Reads → reactive provider → repo. The controller invalidates relevant reactive providers after a successful write so the UI refreshes.
+- **Naming**: `FooRepository` (abstract) + `FooRepositoryImpl` (concrete). No `IFoo` prefixes — idiomatic Dart, matches Riverpod docs.
 
 ### Offline-first
 
@@ -87,9 +95,22 @@ lib/
 │  ├─ theme/                           # AppTheme (flex_color_scheme + Poppins)
 │  └─ utils/                           # AppLogger
 └─ features/<feature>/
-   ├─ data/                            # <feature>_api.dart, dto/, <feature>_repository.dart
-   ├─ domain/                          # freezed UI models
-   └─ presentation/                    # controllers/, pages/, widgets/
+   ├─ data/
+   │  ├─ <feature>_api.dart            # raw HTTP calls, typed by wire DTOs
+   │  ├─ dto/                          # wire DTOs (freezed + json_serializable)
+   │  └─ repositories/
+   │     └─ <feature>_repository_impl.dart   # implements domain contract
+   ├─ domain/
+   │  ├─ <model>.dart                  # freezed entities (UI-facing)
+   │  ├─ repositories/
+   │  │  └─ <feature>_repository.dart  # abstract interface
+   │  └─ usecases/
+   │     └─ <verb>_<noun>_usecase.dart # one class per file, exposes `call(...)`
+   └─ presentation/
+      ├─ controllers/                  # AsyncNotifier/Notifier orchestrating use cases
+      ├─ providers/                    # reactive cache providers (list/byId/...)
+      ├─ pages/
+      └─ widgets/
 ```
 
 ---
@@ -128,11 +149,12 @@ flutter test          # all
 flutter analyze       # static
 ```
 
-Three layered patterns established by the scaffold:
+Four layered patterns established by the scaffold:
 
 - `test/db/users_dao_test.dart` — drift in-memory (`NativeDatabase.memory()`)
 - `test/auth/auth_state_test.dart` — Riverpod `ProviderContainer`
 - `test/widget/login_page_test.dart` — `ProviderScope.overrides` + widget pump
+- Use-case unit tests with hand-rolled fake repositories — that's the whole point of having interfaces in `domain/repositories/`. Override the `*RepositoryProvider` with a fake `implements` of the abstract.
 
 When importing both `drift/drift.dart` and `flutter_test/flutter_test.dart` in tests, hide drift's `isNotNull` / `isNull` to avoid the matcher collision: `import 'package:drift/drift.dart' hide isNotNull, isNull;`.
 
@@ -145,6 +167,7 @@ When importing both `drift/drift.dart` and `flutter_test/flutter_test.dart` in t
 - Don't use a generated API client. The `clients/*` and `rest_client.dart` from `swagger_parser` are stripped on purpose.
 - Don't use `flutter_dotenv`. Use `--dart-define-from-file` with the per-flavor `env/*.json`.
 - Don't fetch directly to the UI. UI reads from drift; repositories mediate.
+- Don't have presentation pages call repositories directly. Writes go through a controller + use case; reads through reactive providers in `presentation/providers/`.
 - Don't ship a feature without an offline path.
 - Don't add iOS-specific code. iOS comes later. (`flutter create --platforms=android` only.)
 - Don't extend `flutter_lints`. We're on `very_good_analysis`.

@@ -9,7 +9,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:sales_sphere_erp/app.dart';
 import 'package:sales_sphere_erp/core/config/env.dart';
 import 'package:sales_sphere_erp/core/providers/app_observer.dart';
-import 'package:sales_sphere_erp/features/auth/auth_controller.dart';
+import 'package:sales_sphere_erp/features/auth/presentation/controllers/auth_controller.dart';
 
 Future<void> bootstrap() async {
   await runZonedGuarded<Future<void>>(

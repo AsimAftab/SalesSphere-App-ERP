@@ -3,42 +3,50 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sales_sphere_erp/features/prospects/data/dto/prospect_dto.dart';
 import 'package:sales_sphere_erp/features/prospects/data/prospects_api.dart';
 import 'package:sales_sphere_erp/features/prospects/domain/prospect.dart';
+import 'package:sales_sphere_erp/features/prospects/domain/repositories/prospects_repository.dart';
 import 'package:sales_sphere_erp/shared/widgets/interest_picker.dart';
 
 /// Anti-corruption layer between the wire DTOs and the rest of the app.
-/// All DTO → domain mapping happens here. Drift persistence + outbox
+/// All DTO ↔ domain mapping happens here. Drift persistence + outbox
 /// enqueue will land alongside the real API.
-class ProspectsRepository {
-  ProspectsRepository({required ProspectsApi api}) : _api = api;
+class ProspectsRepositoryImpl implements ProspectsRepository {
+  ProspectsRepositoryImpl({required ProspectsApi api}) : _api = api;
 
   final ProspectsApi _api;
 
+  @override
   Future<List<Prospect>> getProspects() async {
     final dtos = await _api.list();
     return dtos.map(_toDomain).toList(growable: false);
   }
 
+  @override
   Future<Prospect> addProspect(Prospect draft) async {
     final created = await _api.create(_toDto(draft));
     return _toDomain(created);
   }
 
+  @override
   Future<Prospect> updateProspect(Prospect prospect) async {
     final updated = await _api.update(_toDto(prospect));
     return _toDomain(updated);
   }
 
+  @override
   Prospect? findById(String id) {
     final dto = _api.findById(id);
     return dto == null ? null : _toDomain(dto);
   }
 
+  @override
   Future<Map<String, List<String>>> getInterestCatalogue() =>
       _api.interestCatalogue();
 
+  @override
   Future<void> addInterestCategory(String category) =>
       _api.addInterestCategory(category);
 
+  @override
   Future<void> addInterestBrand(String category, String brand) =>
       _api.addInterestBrand(category, brand);
 
@@ -81,28 +89,8 @@ class ProspectsRepository {
       );
 }
 
+/// Exposes the abstract type so consumers depend on the contract, not the
+/// impl class. Tests override this provider with a fake `ProspectsRepository`.
 final prospectsRepositoryProvider = Provider<ProspectsRepository>((ref) {
-  return ProspectsRepository(api: ref.watch(prospectsApiProvider));
-});
-
-/// Convenience provider for screens that just need the current list.
-final prospectsListProvider = FutureProvider<List<Prospect>>((ref) async {
-  return ref.watch(prospectsRepositoryProvider).getProspects();
-});
-
-/// Resolves a single prospect by id from the in-memory store. Watches
-/// the list provider so it rebuilds whenever the list changes
-/// (add / update).
-final prospectByIdProvider = Provider.family<Prospect?, String>((ref, id) {
-  // Touch the list so rebuilds propagate when entries are added or updated.
-  ref.watch(prospectsListProvider);
-  return ref.watch(prospectsRepositoryProvider).findById(id);
-});
-
-/// Catalogue of categories → brands used by the interest picker. Backed
-/// by an in-memory map in the API today — swap to a real fetch when the
-/// backend ships it.
-final prospectInterestsProvider =
-    FutureProvider<Map<String, List<String>>>((ref) async {
-  return ref.watch(prospectsRepositoryProvider).getInterestCatalogue();
+  return ProspectsRepositoryImpl(api: ref.watch(prospectsApiProvider));
 });
