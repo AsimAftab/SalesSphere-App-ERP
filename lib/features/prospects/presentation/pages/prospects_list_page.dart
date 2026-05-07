@@ -12,6 +12,7 @@ import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/refreshable_list.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 class ProspectsListPage extends ConsumerStatefulWidget {
   const ProspectsListPage({super.key});
@@ -219,13 +220,16 @@ class _ProspectCard extends StatelessWidget {
             padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
             child: Row(
               children: <Widget>[
-                CircleAvatar(
-                  radius: 26.r,
-                  backgroundColor: AppColors.primary,
-                  child: Icon(
-                    Icons.person_outline,
-                    color: AppColors.textWhite,
-                    size: 26.sp,
+                Skeleton.replace(
+                  replacement: Bone.circle(size: 52.r),
+                  child: CircleAvatar(
+                    radius: 26.r,
+                    backgroundColor: AppColors.primary,
+                    child: Icon(
+                      Icons.person_outline,
+                      color: AppColors.textWhite,
+                      size: 26.sp,
+                    ),
                   ),
                 ),
                 SizedBox(width: 14.w),
@@ -258,13 +262,16 @@ class _ProspectCard extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: 8.w),
-                CircleAvatar(
-                  radius: 18.r,
-                  backgroundColor: AppColors.primary,
-                  child: Icon(
-                    Icons.chevron_right,
-                    color: AppColors.textWhite,
-                    size: 22.sp,
+                Skeleton.replace(
+                  replacement: Bone.circle(size: 36.r),
+                  child: CircleAvatar(
+                    radius: 18.r,
+                    backgroundColor: AppColors.primary,
+                    child: Icon(
+                      Icons.chevron_right,
+                      color: AppColors.textWhite,
+                      size: 22.sp,
+                    ),
                   ),
                 ),
               ],
@@ -277,8 +284,9 @@ class _ProspectCard extends StatelessWidget {
 }
 
 /// Sample prospect fed to [_ProspectCard] when the list is loading.
-/// Skeletonizer (wired in via `RefreshableList._buildSkeleton`) paints
-/// bones over the rendered text and avatars.
+/// Skeletonizer paints text bones over the rendered name/address; the
+/// colored avatars are swapped for circular bones via `Skeleton.replace`
+/// inside the card itself.
 const _placeholderProspect = Prospect(
   id: '',
   name: 'Loading prospect name',

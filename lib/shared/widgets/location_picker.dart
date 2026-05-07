@@ -314,6 +314,19 @@ class _LocationPickerState extends ConsumerState<LocationPicker> {
           },
         ),
         SizedBox(height: 14.h),
+        // Reflects whatever the search field / map tap / current-location
+        // fetch has resolved into the address controller. Hidden until a
+        // location actually exists so we never show an empty card.
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: widget.addressController,
+          builder: (_, value, __) {
+            if (value.text.trim().isEmpty) return const SizedBox.shrink();
+            return Padding(
+              padding: EdgeInsets.only(bottom: 14.h),
+              child: _FullAddressCard(address: value.text),
+            );
+          },
+        ),
         _InfoBanner(
           message: widget.editing
               ? 'Drag & pinch to navigate the map. Tap anywhere to '
@@ -460,6 +473,63 @@ class _MapPlaceholder extends StatelessWidget {
   }
 }
 
+// Darker shades used by the location picker's status cards. Pulled out
+// so the green/blue tints stay consistent across the address card and
+// info banner without scattering hex literals.
+const Color _kSuccessDark = Color(0xFF1B5E20); // Material green 900
+const Color _kInfoDark = Color(0xFF0D47A1); // Material blue 900
+
+class _FullAddressCard extends StatelessWidget {
+  const _FullAddressCard({required this.address});
+
+  final String address;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 14.h),
+      decoration: BoxDecoration(
+        color: AppColors.success.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(
+          color: AppColors.success.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(Icons.location_on, color: _kSuccessDark, size: 18.sp),
+              SizedBox(width: 8.w),
+              Text(
+                'Full Address',
+                style: TextStyle(
+                  color: _kSuccessDark,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            address,
+            style: TextStyle(
+              color: _kSuccessDark,
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w500,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _InfoBanner extends StatelessWidget {
   const _InfoBanner({required this.message});
 
@@ -470,20 +540,24 @@ class _InfoBanner extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(12.w),
       decoration: BoxDecoration(
-        color: AppColors.info.withValues(alpha: 0.10),
+        color: AppColors.info.withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(10.r),
+        border: Border.all(
+          color: AppColors.info.withValues(alpha: 0.5),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Icon(Icons.info_outline, color: AppColors.info, size: 20.sp),
+          Icon(Icons.info_outline, color: _kInfoDark, size: 20.sp),
           SizedBox(width: 10.w),
           Expanded(
             child: Text(
               message,
               style: TextStyle(
-                color: AppColors.info,
+                color: _kInfoDark,
                 fontSize: 13.sp,
+                fontWeight: FontWeight.w500,
                 height: 1.4,
               ),
             ),

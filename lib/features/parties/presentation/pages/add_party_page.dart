@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -297,45 +298,128 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      bottom: false,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(8.w, 4.h, 16.w, 24.h),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Align(
-              alignment: Alignment.centerLeft,
-              child: IconButton(
-                icon: Icon(
-                  Icons.arrow_back,
-                  color: AppColors.textWhite,
-                  size: 24.sp,
-                ),
-                onPressed: onBack,
-                tooltip: 'Back',
-              ),
-            ),
-            SizedBox(height: 4.h),
-            Text(
-              'New member in the Family',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textWhite.withValues(alpha: 0.8),
-                fontSize: 14.sp,
-              ),
-            ),
-            SizedBox(height: 4.h),
-            Text(
-              'Add New Party',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textWhite,
-                fontSize: 26.sp,
-                fontWeight: FontWeight.w800,
-              ),
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[
+            AppColors.primary,
+            Color.alphaBlend(
+              Colors.black.withValues(alpha: 0.18),
+              AppColors.primary,
             ),
           ],
+        ),
+      ),
+      child: Stack(
+        children: <Widget>[
+          Positioned(
+            top: 0,
+            right: 0,
+            child: Opacity(
+              opacity: 0.12,
+              child: SvgPicture.asset(
+                'assets/images/corner_bubble.svg',
+                width: 200.w,
+                colorFilter: const ColorFilter.mode(
+                  Colors.white,
+                  BlendMode.srcIn,
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 28.h),
+              child: Column(
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      _GlassIconButton(
+                        icon: Icons.arrow_back_rounded,
+                        onTap: onBack,
+                        tooltip: 'Back',
+                      ),
+                      const Spacer(),
+                    ],
+                  ),
+                  SizedBox(height: 18.h),
+                  Container(
+                    width: 68.w,
+                    height: 68.w,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.3),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.business_rounded,
+                      color: Colors.white,
+                      size: 32.sp,
+                    ),
+                  ),
+                  SizedBox(height: 14.h),
+                  Text(
+                    'New member in the Family',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.78),
+                      fontSize: 13.sp,
+                      letterSpacing: 0.4,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  SizedBox(height: 4.h),
+                  Text(
+                    'Add New Party',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 26.sp,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GlassIconButton extends StatelessWidget {
+  const _GlassIconButton({
+    required this.icon,
+    required this.onTap,
+    required this.tooltip,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+  final String tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.white.withValues(alpha: 0.15),
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: Padding(
+            padding: EdgeInsets.all(10.w),
+            child: Icon(icon, color: Colors.white, size: 20.sp),
+          ),
         ),
       ),
     );

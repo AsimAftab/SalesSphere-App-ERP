@@ -523,8 +523,16 @@ class _NameAddressCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final addressStyle = TextStyle(
+      color: AppColors.textSecondary,
+      fontSize: 13.sp,
+      fontWeight: FontWeight.w400,
+      height: 1.45,
+    );
+    final displayAddress = address.isEmpty ? '—' : address;
+
     return Container(
-      padding: EdgeInsets.fromLTRB(20.w, 20.h, 14.w, 20.h),
+      padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 18.h),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(20.r),
@@ -539,37 +547,14 @@ class _NameAddressCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  name.isEmpty ? '—' : name,
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 22.sp,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-              ),
-              Material(
-                color: AppColors.primary.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(10.r),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(10.r),
-                  onTap: onOpenMaps,
-                  child: Padding(
-                    padding: EdgeInsets.all(8.w),
-                    child: Icon(
-                      Icons.open_in_new,
-                      color: AppColors.primary,
-                      size: 18.sp,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+          Text(
+            name.isEmpty ? '—' : name,
+            style: TextStyle(
+              color: AppColors.primary,
+              fontSize: 22.sp,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.5,
+            ),
           ),
           SizedBox(height: 14.h),
           Row(
@@ -583,20 +568,56 @@ class _NameAddressCard extends StatelessWidget {
                   size: 18.sp,
                 ),
               ),
-              Expanded(
-                child: Text(
-                  address.isEmpty ? '—' : address,
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w400,
-                    height: 1.45,
-                  ),
+              Expanded(child: Text(displayAddress, style: addressStyle)),
+            ],
+          ),
+          SizedBox(height: 14.h),
+          _OpenInMapsButton(onTap: onOpenMaps),
+        ],
+      ),
+    );
+  }
+}
+
+class _OpenInMapsButton extends StatelessWidget {
+  const _OpenInMapsButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(12.r),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12.r),
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.primary, width: 1.2),
+            borderRadius: BorderRadius.circular(12.r),
+          ),
+          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 9.h),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(
+                Icons.map_outlined,
+                color: AppColors.primary,
+                size: 16.sp,
+              ),
+              SizedBox(width: 8.w),
+              Text(
+                'Open in Maps',
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -706,44 +727,55 @@ class _DetailSkeleton extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: <Widget>[
-                            // Name + address card placeholder.
+                            // Name + address + maps-button card placeholder.
                             Container(
                               padding: EdgeInsets.fromLTRB(
                                 20.w,
-                                18.h,
-                                12.w,
-                                18.h,
+                                20.h,
+                                20.w,
+                                16.h,
                               ),
                               decoration: BoxDecoration(
                                 color: AppColors.surface,
-                                borderRadius: BorderRadius.circular(16.r),
+                                borderRadius: BorderRadius.circular(20.r),
                                 boxShadow: <BoxShadow>[
                                   BoxShadow(
-                                    color: AppColors.shadow,
-                                    blurRadius: 12.r,
-                                    offset: const Offset(0, 2),
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.08,
+                                    ),
+                                    blurRadius: 20.r,
+                                    offset: const Offset(0, 4),
                                   ),
                                 ],
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: <Widget>[
-                                  Bone(
-                                    width: 140.w,
-                                    height: 20.h,
-                                    uniRadius: 20.h / 2,
+                                  Bone.text(words: 2, fontSize: 22.sp),
+                                  SizedBox(height: 12.h),
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: <Widget>[
+                                      Padding(
+                                        padding: EdgeInsets.only(
+                                          top: 2.h,
+                                          right: 8.w,
+                                        ),
+                                        child: Bone.icon(size: 18.sp),
+                                      ),
+                                      Expanded(
+                                        child: Bone.multiText(
+                                          fontSize: 13.sp,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                   SizedBox(height: 14.h),
                                   Bone(
-                                    width: double.infinity,
-                                    height: 12.h,
-                                    uniRadius: 12.h / 2,
-                                  ),
-                                  SizedBox(height: 6.h),
-                                  Bone(
-                                    width: 200.w,
-                                    height: 12.h,
-                                    uniRadius: 12.h / 2,
+                                    width: 150.w,
+                                    height: 36.h,
+                                    borderRadius: BorderRadius.circular(12.r),
                                   ),
                                 ],
                               ),

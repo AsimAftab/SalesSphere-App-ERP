@@ -226,6 +226,69 @@ class _EditProspectDetailPageState
     }
   }
 
+  Future<void> _transferToParty() async {
+    final displayName = _nameController.text.trim().isEmpty
+        ? 'this prospect'
+        : '"${_nameController.text.trim()}"';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.r),
+        ),
+        title: Text(
+          'Transfer to Party?',
+          style: TextStyle(
+            color: AppColors.primary,
+            fontSize: 18.sp,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to transfer $displayName to a party? This action cannot be undone.',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 14.sp,
+            height: 1.4,
+          ),
+        ),
+        actionsPadding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.textSecondary,
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+            ),
+            child: Text(
+              'Cancel',
+              style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w500),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.secondary,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10.r),
+              ),
+            ),
+            child: Text(
+              'Transfer',
+              style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+    SnackbarUtils.showInfo(context, 'Transfer to Party — coming soon.');
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return _DetailSkeleton(onBack: _back);
@@ -240,6 +303,7 @@ class _EditProspectDetailPageState
           editing: _editing,
           isLoading: _saving,
           onPressed: _editing ? _save : _toggleEdit,
+          onTransfer: _transferToParty,
         ),
         body: Stack(
           children: <Widget>[
@@ -552,8 +616,16 @@ class _NameAddressCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final addressStyle = TextStyle(
+      color: AppColors.textSecondary,
+      fontSize: 13.sp,
+      fontWeight: FontWeight.w400,
+      height: 1.45,
+    );
+    final displayAddress = address.isEmpty ? '—' : address;
+
     return Container(
-      padding: EdgeInsets.fromLTRB(20.w, 20.h, 14.w, 20.h),
+      padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 18.h),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(20.r),
@@ -568,37 +640,14 @@ class _NameAddressCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  name.isEmpty ? '—' : name,
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 22.sp,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-              ),
-              Material(
-                color: AppColors.primary.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(10.r),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(10.r),
-                  onTap: onOpenMaps,
-                  child: Padding(
-                    padding: EdgeInsets.all(8.w),
-                    child: Icon(
-                      Icons.open_in_new,
-                      color: AppColors.primary,
-                      size: 18.sp,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+          Text(
+            name.isEmpty ? '—' : name,
+            style: TextStyle(
+              color: AppColors.primary,
+              fontSize: 22.sp,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.5,
+            ),
           ),
           SizedBox(height: 14.h),
           Row(
@@ -612,20 +661,56 @@ class _NameAddressCard extends StatelessWidget {
                   size: 18.sp,
                 ),
               ),
-              Expanded(
-                child: Text(
-                  address.isEmpty ? '—' : address,
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w400,
-                    height: 1.45,
-                  ),
+              Expanded(child: Text(displayAddress, style: addressStyle)),
+            ],
+          ),
+          SizedBox(height: 14.h),
+          _OpenInMapsButton(onTap: onOpenMaps),
+        ],
+      ),
+    );
+  }
+}
+
+class _OpenInMapsButton extends StatelessWidget {
+  const _OpenInMapsButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(12.r),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12.r),
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.primary, width: 1.2),
+            borderRadius: BorderRadius.circular(12.r),
+          ),
+          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 9.h),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(
+                Icons.map_outlined,
+                color: AppColors.primary,
+                size: 16.sp,
+              ),
+              SizedBox(width: 8.w),
+              Text(
+                'Open in Maps',
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -636,11 +721,13 @@ class _SubmitBar extends StatelessWidget {
     required this.editing,
     required this.isLoading,
     required this.onPressed,
+    required this.onTransfer,
   });
 
   final bool editing;
   final bool isLoading;
   final VoidCallback onPressed;
+  final VoidCallback onTransfer;
 
   @override
   Widget build(BuildContext context) {
@@ -653,12 +740,44 @@ class _SubmitBar extends StatelessWidget {
         top: false,
         child: Padding(
           padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 12.h),
-          child: PrimaryButton(
-            label: editing ? 'Save Changes' : 'Edit Detail',
-            leadingIcon: editing ? Icons.check : Icons.edit,
-            isLoading: isLoading,
-            onPressed: onPressed,
-          ),
+          child: editing
+              ? PrimaryButton(
+                  label: 'Save Changes',
+                  leadingIcon: Icons.check,
+                  isLoading: isLoading,
+                  onPressed: onPressed,
+                )
+              : Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: PrimaryButton(
+                        label: 'Edit Detail',
+                        leadingIcon: Icons.edit,
+                        onPressed: onPressed,
+                        customFontSize: 13.sp,
+                        customIconSize: 16.sp,
+                        customPadding: EdgeInsets.symmetric(
+                          horizontal: 8.w,
+                          vertical: 12.h,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 12.w),
+                    Expanded(
+                      child: PrimaryButton(
+                        label: 'Transfer to Party',
+                        leadingIcon: Icons.swap_horiz_rounded,
+                        onPressed: onTransfer,
+                        customFontSize: 13.sp,
+                        customIconSize: 16.sp,
+                        customPadding: EdgeInsets.symmetric(
+                          horizontal: 8.w,
+                          vertical: 12.h,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
         ),
       ),
     );
@@ -735,44 +854,55 @@ class _DetailSkeleton extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: <Widget>[
-                            // Name + address card placeholder.
+                            // Name + address + maps-button card placeholder.
                             Container(
                               padding: EdgeInsets.fromLTRB(
                                 20.w,
-                                18.h,
-                                12.w,
-                                18.h,
+                                20.h,
+                                20.w,
+                                16.h,
                               ),
                               decoration: BoxDecoration(
                                 color: AppColors.surface,
-                                borderRadius: BorderRadius.circular(16.r),
+                                borderRadius: BorderRadius.circular(20.r),
                                 boxShadow: <BoxShadow>[
                                   BoxShadow(
-                                    color: AppColors.shadow,
-                                    blurRadius: 12.r,
-                                    offset: const Offset(0, 2),
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.08,
+                                    ),
+                                    blurRadius: 20.r,
+                                    offset: const Offset(0, 4),
                                   ),
                                 ],
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: <Widget>[
-                                  Bone(
-                                    width: 140.w,
-                                    height: 20.h,
-                                    uniRadius: 20.h / 2,
+                                  Bone.text(words: 2, fontSize: 22.sp),
+                                  SizedBox(height: 12.h),
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: <Widget>[
+                                      Padding(
+                                        padding: EdgeInsets.only(
+                                          top: 2.h,
+                                          right: 8.w,
+                                        ),
+                                        child: Bone.icon(size: 18.sp),
+                                      ),
+                                      Expanded(
+                                        child: Bone.multiText(
+                                          fontSize: 13.sp,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                   SizedBox(height: 14.h),
                                   Bone(
-                                    width: double.infinity,
-                                    height: 12.h,
-                                    uniRadius: 12.h / 2,
-                                  ),
-                                  SizedBox(height: 6.h),
-                                  Bone(
-                                    width: 200.w,
-                                    height: 12.h,
-                                    uniRadius: 12.h / 2,
+                                    width: 150.w,
+                                    height: 36.h,
+                                    borderRadius: BorderRadius.circular(12.r),
                                   ),
                                 ],
                               ),
