@@ -15,6 +15,12 @@ abstract class AuthRepository {
   /// is still valid.
   Future<AuthUser> me();
 
+  /// Lightweight access-token validity check. Returns true when the
+  /// backend reports `valid: true && mobileLoginAllowed: true`. Lets the
+  /// app skip a biometric prompt when the session is already dead and
+  /// the auth interceptor's refresh path can't recover it.
+  Future<bool> validateSession();
+
   Future<TokenPair?> refreshTokens(String refreshToken);
 
   Future<void> logout();

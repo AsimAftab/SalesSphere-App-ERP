@@ -6,6 +6,7 @@ import 'package:sales_sphere_erp/features/auth/data/dto/auth_user_dto.dart';
 import 'package:sales_sphere_erp/features/auth/data/dto/login_request_dto.dart';
 import 'package:sales_sphere_erp/features/auth/data/dto/login_response_dto.dart';
 import 'package:sales_sphere_erp/features/auth/data/dto/refresh_response_dto.dart';
+import 'package:sales_sphere_erp/features/auth/data/dto/session_response_dto.dart';
 
 /// Raw HTTP calls for the auth endpoints. Knows nothing about drift, secure
 /// storage, or domain models — the repository wires those in.
@@ -33,6 +34,14 @@ class AuthApi {
   Future<AuthUserDto> me() async {
     final response = await _dio.get<Map<String, dynamic>>(Endpoints.me);
     return AuthUserDto.fromJson(_unwrap(response.data));
+  }
+
+  /// Lightweight access-token validity check. The auth interceptor handles
+  /// 401-triggered refresh transparently — a thrown `DioException(401)` here
+  /// means both access AND refresh tokens are dead.
+  Future<SessionResponseDto> session() async {
+    final response = await _dio.get<Map<String, dynamic>>(Endpoints.session);
+    return SessionResponseDto.fromJson(_unwrap(response.data));
   }
 
   Future<void> logout() async {

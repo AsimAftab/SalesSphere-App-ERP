@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -5,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
+import 'package:sales_sphere_erp/features/auth/presentation/widgets/biometric_setup_gate.dart';
 
 class HomeShell extends StatelessWidget {
   const HomeShell({required this.child, super.key});
@@ -37,15 +40,21 @@ class HomeShell extends StatelessWidget {
       route: Routes.customers,
     ),
     _ShellTab(
-      label: 'Profile',
-      icon: Icons.person_outline,
-      activeIcon: Icons.person,
-      route: Routes.profile,
+      label: 'More',
+      icon: Icons.menu_outlined,
+      activeIcon: Icons.menu,
+      route: Routes.more,
     ),
   ];
 
   int _indexFor(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
+    // /profile and /settings are pushed from the More hub, so keep the
+    // More tab highlighted while the user is on either detail screen.
+    if (location.startsWith(Routes.profile) ||
+        location.startsWith(Routes.settings)) {
+      return _tabs.indexWhere((t) => t.route == Routes.more);
+    }
     final index = _tabs.indexWhere((t) => location.startsWith(t.route));
     return index < 0 ? 0 : index;
   }
@@ -59,8 +68,11 @@ class HomeShell extends StatelessWidget {
     final selected = _indexFor(context);
     return Scaffold(
       extendBody: true,
-      body: child,
-      bottomNavigationBar: _FloatingPillNav(
+      // The setup gate is a passthrough that fires the post-first-login
+      // biometric prompt once on fresh shell mount. It hosts no UI of
+      // its own — just wraps the shell content.
+      body: BiometricSetupGate(child: child),
+      bottomNavigationBar: _GlassBottomNav(
         tabs: _tabs,
         selectedIndex: selected,
         onTap: (i) => _onTap(context, i),
@@ -69,12 +81,12 @@ class HomeShell extends StatelessWidget {
   }
 }
 
-/// Floating bottom nav with a sliding indicator pill. Icon-only design —
-/// the pill is the only visual cue for the active tab, so the layout
-/// scales gracefully from 3 to 6 tabs without horizontal overflow at
-/// 360dp. Labels are exposed via tooltip + accessibility semantics.
-class _FloatingPillNav extends StatelessWidget {
-  const _FloatingPillNav({
+/// Frosted-glass bottom nav. Translucent surface backed by a runtime
+/// gaussian blur (`BackdropFilter`), a rim-light border, and a sliding
+/// indicator pill behind the active tab. Pure-icon design — labels are
+/// surfaced via tooltip + `Semantics` so the layout never overflows.
+class _GlassBottomNav extends StatelessWidget {
+  const _GlassBottomNav({
     required this.tabs,
     required this.selectedIndex,
     required this.onTap,
@@ -86,22 +98,21 @@ class _FloatingPillNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(32.r);
     return SafeArea(
       top: false,
       child: Padding(
         padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
-        child: Container(
-          height: 64.h,
+        child: DecoratedBox(
+          // Shadow lives on a sibling decoration so it doesn't bleed
+          // through the BackdropFilter's clip rect.
           decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(32.r),
-            // Two-layer shadow: a wide soft glow below + a tighter accent
-            // up top, so the bar reads as floating rather than pasted-on.
+            borderRadius: radius,
             boxShadow: <BoxShadow>[
               BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.08),
+                color: AppColors.primary.withValues(alpha: 0.10),
                 blurRadius: 32,
-                offset: const Offset(0, 12),
+                offset: const Offset(0, 14),
               ),
               BoxShadow(
                 color: AppColors.primary.withValues(alpha: 0.04),
@@ -110,57 +121,89 @@ class _FloatingPillNav extends StatelessWidget {
               ),
             ],
           ),
-          padding: EdgeInsets.all(8.h),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final tabWidth = constraints.maxWidth / tabs.length;
-              return Stack(
-                children: <Widget>[
-                  // Sliding indicator pill — sits behind the icons and
-                  // animates between slots when selectedIndex changes.
-                  AnimatedPositioned(
-                    duration: const Duration(milliseconds: 320),
-                    curve: Curves.easeOutCubic,
-                    left: tabWidth * selectedIndex,
-                    top: 0,
-                    bottom: 0,
-                    width: tabWidth,
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 4.w),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: <Color>[
-                              AppColors.secondary.withValues(alpha: 0.16),
-                              AppColors.secondary.withValues(alpha: 0.08),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(18.r),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Row(
-                    children: <Widget>[
-                      for (var i = 0; i < tabs.length; i++)
-                        Expanded(
-                          child: _NavItem(
-                            tab: tabs[i],
-                            selected: i == selectedIndex,
-                            onTap: () {
-                              if (i == selectedIndex) return;
-                              HapticFeedback.selectionClick();
-                              onTap(i);
-                            },
-                          ),
-                        ),
+          child: ClipRRect(
+            borderRadius: radius,
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+              child: Container(
+                height: 72.h,
+                decoration: BoxDecoration(
+                  // Frosted tint: surface at ~62% so the blurred page
+                  // content beneath shows through but text/icons stay
+                  // legible. Subtle gradient adds vertical depth.
+                  gradient: LinearGradient(
+                    colors: <Color>[
+                      AppColors.surface.withValues(alpha: 0.72),
+                      AppColors.surface.withValues(alpha: 0.56),
                     ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
                   ),
-                ],
-              );
-            },
+                  borderRadius: radius,
+                  // Rim-light: lifts the bar off the page beneath.
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.55),
+                  ),
+                ),
+                padding: EdgeInsets.all(8.h),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final tabWidth = constraints.maxWidth / tabs.length;
+                    return Stack(
+                      children: <Widget>[
+                        // Sliding indicator — slightly stronger tint than
+                        // the baseline since the frosted surface absorbs
+                        // saturation.
+                        AnimatedPositioned(
+                          duration: const Duration(milliseconds: 320),
+                          curve: Curves.easeOutCubic,
+                          left: tabWidth * selectedIndex,
+                          top: 0,
+                          bottom: 0,
+                          width: tabWidth,
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 4.w),
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: <Color>[
+                                    AppColors.secondary.withValues(alpha: 0.22),
+                                    AppColors.secondary.withValues(alpha: 0.10),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(18.r),
+                                border: Border.all(
+                                  color: AppColors.secondary
+                                      .withValues(alpha: 0.20),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Row(
+                          children: <Widget>[
+                            for (var i = 0; i < tabs.length; i++)
+                              Expanded(
+                                child: _NavItem(
+                                  tab: tabs[i],
+                                  selected: i == selectedIndex,
+                                  onTap: () {
+                                    if (i == selectedIndex) return;
+                                    HapticFeedback.selectionClick();
+                                    onTap(i);
+                                  },
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -181,26 +224,28 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fg = selected
+        ? AppColors.secondary
+        // Slightly bolder than baseline because the frosted surface
+        // eats some contrast.
+        : AppColors.textPrimary.withValues(alpha: 0.7);
     return Semantics(
       label: tab.label,
       selected: selected,
       button: true,
-      child: Tooltip(
-        message: tab.label,
-        waitDuration: const Duration(milliseconds: 600),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(18.r),
-            splashColor: AppColors.secondary.withValues(alpha: 0.12),
-            highlightColor: AppColors.secondary.withValues(alpha: 0.06),
-            child: AnimatedScale(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
-              scale: selected ? 1.08 : 1,
-              child: Center(
-                child: AnimatedSwitcher(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18.r),
+          splashColor: AppColors.secondary.withValues(alpha: 0.14),
+          highlightColor: AppColors.secondary.withValues(alpha: 0.06),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                AnimatedSwitcher(
                   duration: const Duration(milliseconds: 220),
                   transitionBuilder: (child, animation) => FadeTransition(
                     opacity: animation,
@@ -209,13 +254,29 @@ class _NavItem extends StatelessWidget {
                   child: Icon(
                     selected ? tab.activeIcon : tab.icon,
                     key: ValueKey<bool>(selected),
-                    color: selected
-                        ? AppColors.secondary
-                        : AppColors.textSecondary,
-                    size: 24.sp,
+                    color: fg,
+                    size: 22.sp,
                   ),
                 ),
-              ),
+                SizedBox(height: 2.h),
+                AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  style: TextStyle(
+                    color: fg,
+                    fontSize: 10.sp,
+                    height: 1.1,
+                    fontWeight:
+                        selected ? FontWeight.w600 : FontWeight.w500,
+                    letterSpacing: 0.1,
+                  ),
+                  child: Text(
+                    tab.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
           ),
         ),

@@ -6,19 +6,20 @@ import 'package:sales_sphere_erp/core/router/router_refresh.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/core/router/shell_scaffold.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/controllers/auth_controller.dart';
-import 'package:sales_sphere_erp/features/auth/presentation/pages/biometric_unlock_page.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/pages/forgot_password_page.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/pages/login_page.dart';
 import 'package:sales_sphere_erp/features/billing/presentation/pages/billing_page.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/pages/catalog_page.dart';
 import 'package:sales_sphere_erp/features/customers/presentation/pages/customers_hub_page.dart';
 import 'package:sales_sphere_erp/features/home/presentation/pages/home_page.dart';
+import 'package:sales_sphere_erp/features/more/presentation/pages/more_page.dart';
 import 'package:sales_sphere_erp/features/parties/domain/party.dart';
 import 'package:sales_sphere_erp/features/parties/presentation/pages/add_party_page.dart';
-import 'package:sales_sphere_erp/features/parties/presentation/pages/parties_list_page.dart';
 import 'package:sales_sphere_erp/features/parties/presentation/pages/edit_party_detail_page.dart';
+import 'package:sales_sphere_erp/features/parties/presentation/pages/parties_list_page.dart';
 import 'package:sales_sphere_erp/features/profile/presentation/pages/profile_page.dart';
 import 'package:sales_sphere_erp/features/prospects/domain/prospect.dart';
+import 'package:sales_sphere_erp/features/settings/presentation/pages/settings_page.dart';
 import 'package:sales_sphere_erp/features/prospects/presentation/pages/add_prospect_page.dart';
 import 'package:sales_sphere_erp/features/prospects/presentation/pages/edit_prospect_detail_page.dart';
 import 'package:sales_sphere_erp/features/prospects/presentation/pages/prospects_list_page.dart';
@@ -51,12 +52,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final inAuthZone =
               loc == Routes.login || loc == Routes.forgotPassword;
           return inAuthZone ? null : Routes.login;
-        case AuthStatus.awaitingBiometric:
-          return loc == Routes.biometric ? null : Routes.biometric;
         case AuthStatus.authenticated:
           final inAuthZone = loc == Routes.login ||
               loc == Routes.forgotPassword ||
-              loc == Routes.biometric ||
               loc == Routes.splash;
           return inAuthZone ? Routes.home : null;
         case AuthStatus.unknown:
@@ -78,11 +76,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.forgotPassword,
         name: Routes.forgotPasswordName,
         builder: (_, __) => const ForgotPasswordPage(),
-      ),
-      GoRoute(
-        path: Routes.biometric,
-        name: Routes.biometricName,
-        builder: (_, __) => const BiometricUnlockPage(),
       ),
       ShellRoute(
         builder: (context, state, child) => HomeShell(child: child),
@@ -108,9 +101,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const CustomersHubPage(),
           ),
           GoRoute(
+            path: Routes.more,
+            name: Routes.moreName,
+            builder: (_, __) => const MorePage(),
+          ),
+          GoRoute(
             path: Routes.profile,
             name: Routes.profileName,
             builder: (_, __) => const ProfilePage(),
+          ),
+          GoRoute(
+            path: Routes.settings,
+            name: Routes.settingsName,
+            builder: (_, __) => const SettingsPage(),
           ),
         ],
       ),

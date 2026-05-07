@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-enum AuthStatus { unknown, unauthenticated, authenticated, awaitingBiometric }
+enum AuthStatus { unknown, unauthenticated, authenticated }
 
 class AuthState {
   const AuthState({
@@ -12,8 +12,6 @@ class AuthState {
   const AuthState.unknown() : this(status: AuthStatus.unknown);
   const AuthState.unauthenticated({String? error})
       : this(status: AuthStatus.unauthenticated, error: error);
-  const AuthState.awaitingBiometric()
-      : this(status: AuthStatus.awaitingBiometric);
   const AuthState.authenticated({required String userId})
       : this(status: AuthStatus.authenticated, userId: userId);
 
