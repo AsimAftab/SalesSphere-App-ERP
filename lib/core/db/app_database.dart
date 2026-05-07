@@ -20,13 +20,20 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.test(super.connection);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) => m.createAll(),
         onUpgrade: (m, from, to) async {
-          // Add migrations as schemaVersion bumps.
+          if (from < 2) {
+            // Re-shape `users` to match what /auth/login actually returns:
+            // drop the placeholder profile columns, add emailVerified +
+            // systemRole. Cached rows are discarded — the session token
+            // plus /auth/me repopulates on next cold start.
+            await m.deleteTable('users');
+            await m.createTable(users);
+          }
         },
       );
 

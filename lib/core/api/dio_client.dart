@@ -36,13 +36,16 @@ final dioProvider = Provider<Dio>((ref) {
 
   final dio = Dio(
     BaseOptions(
-      baseUrl: env.apiBaseUrl,
+      // Path-version the API. `Env.apiBaseUrl` stays host-only so socket.io
+      // and similar non-REST consumers can reuse it without stripping.
+      baseUrl: '${env.apiBaseUrl}/api/v1',
       connectTimeout: const Duration(seconds: 15),
       sendTimeout: const Duration(seconds: 30),
       receiveTimeout: const Duration(seconds: 30),
       headers: <String, String>{
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        'x-client-type': 'mobile',
       },
     ),
   );

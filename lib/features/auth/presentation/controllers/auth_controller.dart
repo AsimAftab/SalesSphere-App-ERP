@@ -4,18 +4,30 @@ import 'package:sales_sphere_erp/core/api/dio_client.dart';
 import 'package:sales_sphere_erp/core/api/interceptors/auth_interceptor.dart';
 import 'package:sales_sphere_erp/core/auth/auth_state.dart';
 import 'package:sales_sphere_erp/core/auth/biometric_service.dart';
-import 'package:sales_sphere_erp/features/auth/data/auth_repository.dart';
 import 'package:sales_sphere_erp/features/auth/domain/auth_user.dart';
+import 'package:sales_sphere_erp/features/auth/domain/usecases/login_usecase.dart';
+import 'package:sales_sphere_erp/features/auth/domain/usecases/logout_usecase.dart';
+import 'package:sales_sphere_erp/features/auth/domain/usecases/refresh_session_usecase.dart';
+import 'package:sales_sphere_erp/features/auth/domain/usecases/refresh_tokens_usecase.dart';
+import 'package:sales_sphere_erp/features/auth/domain/usecases/restore_session_usecase.dart';
 
 /// Owns the auth lifecycle. Drives the router-visible [authStateProvider]
-/// and the dio interceptor's refresh handler.
+/// and the dio interceptor's refresh handler. Depends only on use cases.
 class AuthController extends Notifier<AsyncValue<AuthUser?>> {
-  late AuthRepository _repo;
+  late LoginUseCase _login;
+  late LogoutUseCase _logout;
+  late RefreshSessionUseCase _refreshSession;
+  late RefreshTokensUseCase _refreshTokens;
+  late RestoreSessionUseCase _restoreSession;
   late BiometricService _biometric;
 
   @override
   AsyncValue<AuthUser?> build() {
-    _repo = ref.read(authRepositoryProvider);
+    _login = ref.read(loginUseCaseProvider);
+    _logout = ref.read(logoutUseCaseProvider);
+    _refreshSession = ref.read(refreshSessionUseCaseProvider);
+    _refreshTokens = ref.read(refreshTokensUseCaseProvider);
+    _restoreSession = ref.read(restoreSessionUseCaseProvider);
     _biometric = ref.read(biometricServiceProvider);
 
     // Wire the dio refresh handler + failure sink to this controller.
@@ -28,24 +40,14 @@ class AuthController extends Notifier<AsyncValue<AuthUser?>> {
 
   // ── Startup flow ───────────────────────────────────────────────────────────
   Future<void> _resolveStartup() async {
-    final hasSession = await _repo.hasSession();
-    if (!hasSession) {
-      _emit(const AuthState.unauthenticated(), null);
-      return;
-    }
-
-    final cached = await _repo.cachedUser();
-    if (cached != null && await _biometric.isAvailable) {
-      _emit(const AuthState.awaitingBiometric(), cached);
-      return;
-    }
-
-    // Either no biometric available or no cached user — try a /me ping.
-    try {
-      final user = await _repo.me();
-      _emit(AuthState.authenticated(userId: user.id), user);
-    } catch (_) {
-      _emit(const AuthState.unauthenticated(), null);
+    final result = await _restoreSession();
+    switch (result) {
+      case RestoreSessionUnauthenticated():
+        _emit(const AuthState.unauthenticated(), null);
+      case RestoreSessionBiometric(:final cachedUser):
+        _emit(const AuthState.awaitingBiometric(), cachedUser);
+      case RestoreSessionAuthenticated(:final user):
+        _emit(AuthState.authenticated(userId: user.id), user);
     }
   }
 
@@ -57,7 +59,7 @@ class AuthController extends Notifier<AsyncValue<AuthUser?>> {
   }) async {
     state = const AsyncValue<AuthUser?>.loading();
     try {
-      final user = await _repo.login(email: email, password: password);
+      final user = await _login(email: email, password: password);
       _emit(AuthState.authenticated(userId: user.id), user);
     } catch (e, st) {
       state = AsyncValue<AuthUser?>.error(e, st);
@@ -73,7 +75,7 @@ class AuthController extends Notifier<AsyncValue<AuthUser?>> {
     );
     if (!ok) return;
     try {
-      final user = await _repo.me();
+      final user = await _refreshSession();
       _emit(AuthState.authenticated(userId: user.id), user);
     } catch (e, st) {
       state = AsyncValue<AuthUser?>.error(e, st);
@@ -82,14 +84,13 @@ class AuthController extends Notifier<AsyncValue<AuthUser?>> {
   }
 
   Future<void> logout() async {
-    await _repo.logout();
+    await _logout();
     _emit(const AuthState.unauthenticated(), null);
   }
 
   // ── Refresh handler hook (for AuthInterceptor) ────────────────────────────
-  Future<TokenPair?> _refreshHandler(String refreshToken) {
-    return _repo.refreshTokens(refreshToken);
-  }
+  Future<TokenPair?> _refreshHandler(String refreshToken) =>
+      _refreshTokens(refreshToken);
 
   void _onRefreshFailed() {
     _emit(const AuthState.unauthenticated(), null);
@@ -108,8 +109,9 @@ final authControllerProvider =
 );
 
 /// Provider override so `dioProvider`'s `tokenRefreshHandlerProvider`
-/// resolves to a function that delegates to the live AuthController.
-/// Apply this override at the ProviderScope root in `bootstrap()`.
+/// resolves to a function that delegates to the live AuthController
+/// (which in turn calls [RefreshTokensUseCase]). Apply this override at
+/// the ProviderScope root in `bootstrap()`.
 final authProviderOverrides = [
   tokenRefreshHandlerProvider.overrideWith(
     (ref) => (refreshToken) =>

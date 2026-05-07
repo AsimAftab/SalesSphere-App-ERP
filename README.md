@@ -54,13 +54,21 @@ lib/
 │  └─ utils/                       ← AppLogger
 └─ features/<feature>/
    ├─ data/
-   │  ├─ <feature>_api.dart        ← handwritten Dio calls
-   │  ├─ dto/                      ← handwritten request DTOs
-   │  └─ <feature>_repository.dart ← DTO ↔ domain mapping + drift writes
-   ├─ domain/                      ← UI-facing freezed models
+   │  ├─ <feature>_api.dart                       ← handwritten Dio calls
+   │  ├─ dto/                                     ← wire DTOs
+   │  └─ repositories/
+   │     └─ <feature>_repository_impl.dart        ← implements domain contract
+   ├─ domain/
+   │  ├─ <model>.dart                             ← UI-facing freezed entities
+   │  ├─ repositories/
+   │  │  └─ <feature>_repository.dart             ← abstract interface
+   │  └─ usecases/
+   │     └─ <verb>_<noun>_usecase.dart            ← one class per file, `call(...)`
    └─ presentation/
-      ├─ controllers/              ← Riverpod AsyncNotifiers
-      └─ pages/
+      ├─ controllers/                             ← orchestrate use cases
+      ├─ providers/                               ← reactive cache providers
+      ├─ pages/
+      └─ widgets/
 ```
 
 ---
@@ -136,7 +144,16 @@ ARB files live in `lib/l10n/`. Add new keys to `app_en.arb` first; `app_ne.arb` 
 - **Generated DTOs only.** Wire DTOs come from the backend's OpenAPI spec via `swagger_parser`. Never hand-edit `lib/core/api/generated/dto/`.
 - **Hand-written client.** `core/api/dio_client.dart`, interceptors, and `endpoints.dart` are owned and read by humans.
 - **Hand-written API per feature.** Each feature has a `<feature>_api.dart` with raw Dio calls typed by the generated DTOs.
-- **Hand-written domain models.** UI consumes `freezed` domain models (in `features/<x>/domain/`), never wire DTOs. The repository is the explicit translation boundary.
+- **Hand-written domain models.** UI consumes domain entities in `features/<x>/domain/`, never wire DTOs.
+- **`*Repository` is an abstract interface** in `domain/repositories/`. The concrete `*RepositoryImpl` in `data/repositories/` is the translation boundary — DTO ↔ domain mapping + drift persistence + outbox enqueue. The Riverpod provider exposes the abstract type so consumers depend on the contract.
+
+### Clean Architecture
+
+- **Layer dependencies**: presentation → domain (controllers, use cases, entities, repo interfaces) ← data (repo impls, APIs, DTOs). Domain knows nothing about data; data implements domain contracts.
+- **Controllers depend on use cases** for writes. Reactive cache providers (`*ListProvider`, `*ByIdProvider`) depend on the abstract repository directly for reads.
+- **Use cases earn their place** when an action has business logic, side effects, or composes multiple repos. Trivial passthrough wrappers (e.g. `GetPartyByIdUseCase`) are not worth their weight; expose the read on the repo and consume it from the reactive provider.
+- **Pages never call repositories directly.** Writes → controller method → use case → repo. Reads → reactive provider → repo. The controller invalidates relevant reactive providers after a successful write so the UI refreshes.
+- **Naming**: `FooRepository` (abstract) + `FooRepositoryImpl` (concrete). No `IFoo` prefixes — idiomatic Dart, matches Riverpod docs.
 
 ### Offline-first
 
@@ -179,6 +196,7 @@ Layered patterns:
 - **DAO tests** (`test/db/`): in-memory drift via `NativeDatabase.memory()` + `AppDatabase.test(...)`.
 - **Notifier tests** (`test/auth/`): `ProviderContainer` + `overrideWith` to swap in stubs.
 - **Widget tests** (`test/widget/`): `ProviderScope.overrides` for the controller, `MaterialApp(home: ...)` for the page under test.
+- **Use-case tests** (future): hand-rolled fake repositories that `implements` the abstract from `domain/repositories/`. That's the whole point of having interfaces — `mocktail` is overkill for the surface area we have.
 - **Repository / API tests** (future): `mocktail` + `http_mock_adapter` against a real Dio.
 
 ---

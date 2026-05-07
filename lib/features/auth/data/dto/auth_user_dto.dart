@@ -8,11 +8,10 @@ abstract class AuthUserDto with _$AuthUserDto {
   const factory AuthUserDto({
     required String id,
     required String email,
-    required String fullName,
-    String? phone,
-    String? organizationId,
-    String? roleId,
-    String? avatarUrl,
+    required String name,
+    @Default(false) bool emailVerified,
+    String? systemRole,
+    DateTime? createdAt,
   }) = _AuthUserDto;
 
   factory AuthUserDto.fromJson(Map<String, dynamic> json) =>

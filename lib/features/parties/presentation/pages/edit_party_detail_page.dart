@@ -8,8 +8,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
-import 'package:sales_sphere_erp/features/parties/data/parties_repository.dart';
 import 'package:sales_sphere_erp/features/parties/domain/party.dart';
+import 'package:sales_sphere_erp/features/parties/presentation/controllers/parties_controller.dart';
+import 'package:sales_sphere_erp/features/parties/presentation/providers/parties_providers.dart';
 import 'package:sales_sphere_erp/features/parties/presentation/widgets/party_type_picker.dart';
 import 'package:sales_sphere_erp/shared/utils/maps_launcher.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
@@ -186,7 +187,6 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _saving = true);
     try {
-      final repo = ref.read(partiesRepositoryProvider);
       final updated = Party(
         id: widget.id,
         name: _nameController.text.trim(),
@@ -202,8 +202,7 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
         longitude: _longitude,
         imagePaths: List<String>.unmodifiable(_imagePaths),
       );
-      await repo.updateParty(updated);
-      ref.invalidate(partiesListProvider);
+      await ref.read(partiesControllerProvider).updateParty(updated);
       if (!mounted) return;
       setState(() {
         _saving = false;

@@ -3,35 +3,41 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sales_sphere_erp/features/parties/data/dto/party_dto.dart';
 import 'package:sales_sphere_erp/features/parties/data/parties_api.dart';
 import 'package:sales_sphere_erp/features/parties/domain/party.dart';
+import 'package:sales_sphere_erp/features/parties/domain/repositories/parties_repository.dart';
 
 /// Anti-corruption layer between the wire DTOs and the rest of the app.
-/// All DTO → domain mapping happens here. Drift persistence + outbox
+/// All DTO ↔ domain mapping happens here. Drift persistence + outbox
 /// enqueue will land alongside the real API.
-class PartiesRepository {
-  PartiesRepository({required PartiesApi api}) : _api = api;
+class PartiesRepositoryImpl implements PartiesRepository {
+  PartiesRepositoryImpl({required PartiesApi api}) : _api = api;
 
   final PartiesApi _api;
 
+  @override
   Future<List<Party>> getParties() async {
     final dtos = await _api.list();
     return dtos.map(_toDomain).toList(growable: false);
   }
 
+  @override
   Future<Party> addParty(Party draft) async {
     final created = await _api.create(_toDto(draft));
     return _toDomain(created);
   }
 
+  @override
   Future<Party> updateParty(Party party) async {
     final updated = await _api.update(_toDto(party));
     return _toDomain(updated);
   }
 
+  @override
   Party? findById(String id) {
     final dto = _api.findById(id);
     return dto == null ? null : _toDomain(dto);
   }
 
+  @override
   Future<List<String>> getPartyTypes() => _api.partyTypes();
 
   Party _toDomain(PartyDto dto) => Party(
@@ -68,25 +74,8 @@ class PartiesRepository {
       );
 }
 
+/// Exposes the abstract type so consumers depend on the contract, not the
+/// impl class. Tests override this provider with a fake `PartiesRepository`.
 final partiesRepositoryProvider = Provider<PartiesRepository>((ref) {
-  return PartiesRepository(api: ref.watch(partiesApiProvider));
-});
-
-/// Convenience provider for screens that just need the current list.
-final partiesListProvider = FutureProvider<List<Party>>((ref) async {
-  return ref.watch(partiesRepositoryProvider).getParties();
-});
-
-/// Resolves a single party by id from the in-memory store. Watches the list
-/// provider so it rebuilds whenever the list changes (add / update).
-final partyByIdProvider = Provider.family<Party?, String>((ref, id) {
-  // Touch the list so rebuilds propagate when entries are added or updated.
-  ref.watch(partiesListProvider);
-  return ref.watch(partiesRepositoryProvider).findById(id);
-});
-
-/// Catalogue of party types used by the picker. Backed by a mock list in
-/// the API today — swap to a real fetch when the backend ships it.
-final partyTypesProvider = FutureProvider<List<String>>((ref) async {
-  return ref.watch(partiesRepositoryProvider).getPartyTypes();
+  return PartiesRepositoryImpl(api: ref.watch(partiesApiProvider));
 });

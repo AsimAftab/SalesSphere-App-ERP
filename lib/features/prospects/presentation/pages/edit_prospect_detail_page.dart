@@ -8,8 +8,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
-import 'package:sales_sphere_erp/features/prospects/data/prospects_repository.dart';
 import 'package:sales_sphere_erp/features/prospects/domain/prospect.dart';
+import 'package:sales_sphere_erp/features/prospects/presentation/controllers/prospects_controller.dart';
+import 'package:sales_sphere_erp/features/prospects/presentation/providers/prospects_providers.dart';
 import 'package:sales_sphere_erp/shared/utils/maps_launcher.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
@@ -187,7 +188,6 @@ class _EditProspectDetailPageState
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _saving = true);
     try {
-      final repo = ref.read(prospectsRepositoryProvider);
       final updated = Prospect(
         id: widget.id,
         name: _nameController.text.trim(),
@@ -203,8 +203,7 @@ class _EditProspectDetailPageState
         longitude: _longitude,
         imagePaths: List<String>.unmodifiable(_imagePaths),
       );
-      await repo.updateProspect(updated);
-      ref.invalidate(prospectsListProvider);
+      await ref.read(prospectsControllerProvider).updateProspect(updated);
       if (!mounted) return;
       setState(() {
         _saving = false;
@@ -352,8 +351,8 @@ class _EditProspectDetailPageState
                                       final catalogueAsync = ref.watch(
                                         prospectInterestsProvider,
                                       );
-                                      final repo = ref.read(
-                                        prospectsRepositoryProvider,
+                                      final controller = ref.read(
+                                        prospectsControllerProvider,
                                       );
                                       return InterestPicker(
                                         value: _interests,
@@ -365,21 +364,13 @@ class _EditProspectDetailPageState
                                         hintText: 'Select prospect interest',
                                         onChanged: (next) =>
                                             setState(() => _interests = next),
-                                        onAddCategory: (name) async {
-                                          await repo.addInterestCategory(name);
-                                          ref.invalidate(
-                                            prospectInterestsProvider,
-                                          );
-                                        },
-                                        onAddBrand: (cat, brand) async {
-                                          await repo.addInterestBrand(
-                                            cat,
-                                            brand,
-                                          );
-                                          ref.invalidate(
-                                            prospectInterestsProvider,
-                                          );
-                                        },
+                                        onAddCategory:
+                                            controller.addInterestCategory,
+                                        onAddBrand: (cat, brand) =>
+                                            controller.addInterestBrand(
+                                          category: cat,
+                                          brand: brand,
+                                        ),
                                       );
                                     },
                                   ),

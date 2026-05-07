@@ -6,7 +6,7 @@ import 'package:sales_sphere_erp/core/router/router_refresh.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/core/router/shell_scaffold.dart';
 import 'package:sales_sphere_erp/features/attendance/presentation/pages/attendance_page.dart';
-import 'package:sales_sphere_erp/features/auth/auth_controller.dart';
+import 'package:sales_sphere_erp/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/pages/biometric_unlock_page.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/pages/forgot_password_page.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/pages/login_page.dart';
@@ -32,26 +32,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.onDispose(refresh.dispose);
 
   return GoRouter(
-    initialLocation: Routes.prospects,
+    initialLocation: Routes.splash,
     debugLogDiagnostics: true,
     refreshListenable: refresh,
     redirect: (context, state) {
       final auth = ref.read(authStateProvider);
       final loc = state.matchedLocation;
 
-      // TEMP: preview the parties + prospects UI without going through
-      // auth. Remove this bypass once the auth-gated entry point is
-      // wired up again.
-      if (loc == Routes.parties ||
-          loc == Routes.addParty ||
-          loc.startsWith('/parties/detail/') ||
-          loc == Routes.prospects ||
-          loc == Routes.addProspect ||
-          loc.startsWith('/prospects/detail/')) {
-        return null;
-      }
-
-      // Unknown auth state → splash, unless we're already on splash.
+      // Unknown auth state → splash, unless we're already there.
       if (auth.status == AuthStatus.unknown) {
         return loc == Routes.splash ? null : Routes.splash;
       }

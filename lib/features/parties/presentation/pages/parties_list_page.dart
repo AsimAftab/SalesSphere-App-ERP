@@ -6,8 +6,8 @@ import 'package:go_router/go_router.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
-import 'package:sales_sphere_erp/features/parties/data/parties_repository.dart';
 import 'package:sales_sphere_erp/features/parties/domain/party.dart';
+import 'package:sales_sphere_erp/features/parties/presentation/providers/parties_providers.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/refreshable_list.dart';
