@@ -22,7 +22,7 @@ class SalesSphereApp extends ConsumerWidget {
           title: 'SalesSphere',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light(),
-          darkTheme: AppTheme.dark(),
+          themeMode: ThemeMode.light,
           scrollBehavior: const _NoGlowScrollBehavior(),
           routerConfig: router,
           localizationsDelegates: AppL10n.localizationsDelegates,
