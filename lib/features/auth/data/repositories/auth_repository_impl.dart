@@ -69,6 +69,18 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<bool> validateSession() async {
+    try {
+      final dto = await _api.session();
+      return dto.valid && dto.mobileLoginAllowed;
+    } catch (_) {
+      // Auth-interceptor's refresh path also failed, or network is dead.
+      // Treat as invalid — the controller will redirect to /login.
+      return false;
+    }
+  }
+
+  @override
   Future<TokenPair?> refreshTokens(String refreshToken) async {
     try {
       final dto = await _api.refresh(refreshToken);

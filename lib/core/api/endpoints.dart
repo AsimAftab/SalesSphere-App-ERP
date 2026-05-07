@@ -7,6 +7,7 @@ class Endpoints {
   static const logout = '/auth/logout';
   static const refresh = '/auth/refresh';
   static const me = '/auth/me';
+  static const session = '/auth/session';
 
   // ── Attendance ────────────────────────────────────────────────────────────
   static const attendanceCheckIn = '/attendance/check-in';

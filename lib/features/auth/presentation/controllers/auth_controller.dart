@@ -45,10 +45,38 @@ class AuthController extends Notifier<AsyncValue<AuthUser?>> {
       case RestoreSessionUnauthenticated():
         _emit(const AuthState.unauthenticated(), null);
       case RestoreSessionBiometric(:final cachedUser):
-        _emit(const AuthState.awaitingBiometric(), cachedUser);
+        await _attemptBiometricUnlock(cachedUser);
       case RestoreSessionAuthenticated(:final user):
         _emit(AuthState.authenticated(userId: user.id), user);
     }
+  }
+
+  /// Cold-start path when a cached session + biometric hardware are
+  /// available. Triggers the OS biometric prompt directly — there is no
+  /// custom Flutter page in between. On cancel/fail, falls through to
+  /// the unauthenticated state and the router redirects to /login.
+  ///
+  /// On biometric success, we already know the session is valid (the
+  /// upstream `RestoreSessionUseCase` validated it via `/auth/session`).
+  /// `/auth/me` is best-effort here — a 404, shape mismatch, network
+  /// blip, or any other failure isn't a reason to throw the user back to
+  /// /login. Fall back to the cached user so the home shell renders with
+  /// what we already have.
+  Future<void> _attemptBiometricUnlock(AuthUser cachedUser) async {
+    final ok = await _biometric.authenticate(
+      localizedReason: 'Unlock SalesSphere',
+    );
+    if (!ok) {
+      _emit(const AuthState.unauthenticated(), null);
+      return;
+    }
+    AuthUser user;
+    try {
+      user = await _refreshSession();
+    } catch (_) {
+      user = cachedUser;
+    }
+    _emit(AuthState.authenticated(userId: user.id), user);
   }
 
   // ── Public actions ────────────────────────────────────────────────────────
@@ -66,20 +94,6 @@ class AuthController extends Notifier<AsyncValue<AuthUser?>> {
       ref
           .read(authStateProvider.notifier)
           .set(AuthState.unauthenticated(error: e.toString()));
-    }
-  }
-
-  Future<void> unlockWithBiometrics() async {
-    final ok = await _biometric.authenticate(
-      localizedReason: 'Unlock SalesSphere',
-    );
-    if (!ok) return;
-    try {
-      final user = await _refreshSession();
-      _emit(AuthState.authenticated(userId: user.id), user);
-    } catch (e, st) {
-      state = AsyncValue<AuthUser?>.error(e, st);
-      ref.read(authStateProvider.notifier).set(const AuthState.unauthenticated());
     }
   }
 
