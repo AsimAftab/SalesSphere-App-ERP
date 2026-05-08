@@ -113,9 +113,9 @@ class _EditProspectDetailPageState
 
   void _populate(Prospect p) {
     _nameController.text = p.name;
-    _ownerController.text = p.ownerName ?? '';
+    _ownerController.text = p.ownerName;
+    _phoneController.text = p.phone;
     _panVatController.text = p.panVat ?? '';
-    _phoneController.text = p.phone ?? '';
     _emailController.text = p.email ?? '';
     _notesController.text = p.notes ?? '';
     _addressController.text = p.address;
@@ -192,9 +192,9 @@ class _EditProspectDetailPageState
         id: widget.id,
         name: _nameController.text.trim(),
         address: _addressController.text.trim(),
-        ownerName: _ownerController.text.trim().nullIfEmpty(),
+        ownerName: _ownerController.text.trim(),
+        phone: _phoneController.text.trim(),
         panVat: _panVatController.text.trim().nullIfEmpty(),
-        phone: _phoneController.text.trim().nullIfEmpty(),
         email: _emailController.text.trim().nullIfEmpty(),
         dateJoined: _dateJoined,
         interests: List<Interest>.unmodifiable(_interests),

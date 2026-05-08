@@ -27,16 +27,22 @@ class ProspectsApi {
       'id': '1',
       'name': 'Acme Corp',
       'address': '4HP8+2RJ, Avalahalli',
+      'ownerName': 'Anil Karki',
+      'phone': '9801234567',
     },
     <String, dynamic>{
       'id': '2',
       'name': 'Globex',
       'address': 'F77F+CP7, Biratnagar',
+      'ownerName': 'Sita Shrestha',
+      'phone': '9812345678',
     },
     <String, dynamic>{
       'id': '3',
       'name': 'Initech',
       'address': 'F77G+73R, Biratnagar',
+      'ownerName': 'Ramesh Thapa',
+      'phone': '9823456789',
     },
   ];
 

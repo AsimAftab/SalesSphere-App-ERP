@@ -103,9 +103,9 @@ class _AddProspectPageState extends ConsumerState<AddProspectPage> {
         // assigned by the API mock
         name: _nameController.text.trim(),
         address: _addressController.text.trim(),
-        ownerName: _ownerController.text.trim().nullIfEmpty(),
+        ownerName: _ownerController.text.trim(),
+        phone: _phoneController.text.trim(),
         panVat: _panVatController.text.trim().nullIfEmpty(),
-        phone: _phoneController.text.trim().nullIfEmpty(),
         email: _emailController.text.trim().nullIfEmpty(),
         dateJoined: _dateJoined,
         interests: List<Interest>.unmodifiable(_interests),

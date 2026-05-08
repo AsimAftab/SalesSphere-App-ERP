@@ -79,11 +79,17 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
     }
   }
 
-  /// Loads the site from the repository. Today the lookup is in-memory;
-  /// when the real API lands, replace the delay + lookup with
-  /// `await ref.read(siteByIdProvider(widget.id).future)`.
+  /// Loads the site from the repository. Awaits the list provider so
+  /// the synchronous `findById` lookup below sees a populated store —
+  /// previously this used a fixed 600 ms delay and would latch
+  /// `_notFound = true` whenever the list took longer than that.
   Future<void> _hydrate() async {
-    await Future<void>.delayed(const Duration(milliseconds: 600));
+    try {
+      await ref.read(sitesListProvider.future);
+    } on Object catch (_) {
+      // List failed; the findById call below returns null and the
+      // _notFound branch handles the user-facing error state.
+    }
     if (!mounted) return;
     final site = ref.read(siteByIdProvider(widget.id));
     if (site != null) {
@@ -112,9 +118,9 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
 
   void _populate(Site s) {
     _nameController.text = s.name;
-    _ownerController.text = s.ownerName ?? '';
+    _ownerController.text = s.ownerName;
+    _phoneController.text = s.phone;
     _panVatController.text = s.panVat ?? '';
-    _phoneController.text = s.phone ?? '';
     _emailController.text = s.email ?? '';
     _notesController.text = s.notes ?? '';
     _addressController.text = s.address;
@@ -191,9 +197,9 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
         id: widget.id,
         name: _nameController.text.trim(),
         address: _addressController.text.trim(),
-        ownerName: _ownerController.text.trim().nullIfEmpty(),
+        ownerName: _ownerController.text.trim(),
+        phone: _phoneController.text.trim(),
         panVat: _panVatController.text.trim().nullIfEmpty(),
-        phone: _phoneController.text.trim().nullIfEmpty(),
         email: _emailController.text.trim().nullIfEmpty(),
         dateJoined: _dateJoined,
         interests: List<SiteInterest>.unmodifiable(_interests),
@@ -359,10 +365,11 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
                                             catalogueAsync.value ??
                                             const <String, List<String>>{},
                                         enabled: _editing,
-                                        onChanged: (next) => setState(
-                                          () => _interests =
-                                              next.cast<SiteInterest>(),
-                                        ),
+                                        onChanged: (next) => setState(() {
+                                          _interests = next
+                                              .whereType<SiteInterest>()
+                                              .toList(growable: false);
+                                        }),
                                         onAddCategory:
                                             controller.addInterestCategory,
                                         onAddBrand: (cat, brand) =>

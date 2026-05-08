@@ -102,9 +102,9 @@ class _AddSitePageState extends ConsumerState<AddSitePage> {
         // assigned by the API mock
         name: _nameController.text.trim(),
         address: _addressController.text.trim(),
-        ownerName: _ownerController.text.trim().nullIfEmpty(),
+        ownerName: _ownerController.text.trim(),
+        phone: _phoneController.text.trim(),
         panVat: _panVatController.text.trim().nullIfEmpty(),
-        phone: _phoneController.text.trim().nullIfEmpty(),
         email: _emailController.text.trim().nullIfEmpty(),
         dateJoined: _dateJoined,
         interests: List<SiteInterest>.unmodifiable(_interests),
@@ -237,9 +237,11 @@ class _AddSitePageState extends ConsumerState<AddSitePage> {
                                   catalogueAsync.value ??
                                   const <String, List<String>>{},
                               enabled: true,
-                              onChanged: (next) => setState(
-                                () => _interests = next.cast<SiteInterest>(),
-                              ),
+                              onChanged: (next) => setState(() {
+                                _interests = next
+                                    .whereType<SiteInterest>()
+                                    .toList(growable: false);
+                              }),
                               onAddCategory: controller.addInterestCategory,
                               onAddBrand: (cat, brand) =>
                                   controller.addInterestBrand(

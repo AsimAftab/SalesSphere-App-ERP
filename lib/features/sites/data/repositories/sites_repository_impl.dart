@@ -54,9 +54,13 @@ class SitesRepositoryImpl implements SitesRepository {
         id: dto.id,
         name: dto.name,
         address: dto.address,
-        ownerName: dto.ownerName,
+        // DTOs stay nullable for wire compatibility; the domain marks
+        // owner + phone non-null because the form's validators require
+        // them. Legacy / seed records without these surface as empty
+        // strings and the form forces the user to fill them on save.
+        ownerName: dto.ownerName ?? '',
+        phone: dto.phone ?? '',
         panVat: dto.panVat,
-        phone: dto.phone,
         email: dto.email,
         dateJoined: dto.dateJoined,
         interests: dto.interests

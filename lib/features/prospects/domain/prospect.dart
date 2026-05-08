@@ -8,9 +8,9 @@ class Prospect {
     required this.id,
     required this.name,
     required this.address,
-    this.ownerName,
+    required this.ownerName,
+    required this.phone,
     this.panVat,
-    this.phone,
     this.email,
     this.dateJoined,
     this.interests = const <Interest>[],
@@ -24,10 +24,14 @@ class Prospect {
   final String name;
   final String address;
 
-  // Optional details captured by the add-prospect form.
-  final String? ownerName;
+  /// Required by the form's `Validators.requiredField` / `phone10` on
+  /// both add and edit — kept non-nullable here so the form contract
+  /// and the domain shape agree.
+  final String ownerName;
+  final String phone;
+
+  // Other optional details captured by the add-prospect form.
   final String? panVat;
-  final String? phone;
   final String? email;
   final DateTime? dateJoined;
 

@@ -14,9 +14,11 @@ class SitesApi {
   }
 
   /// In-memory category → brands catalogue backing the interest picker.
-  /// Replaced by a real network fetch once the backend exposes a
-  /// `/site-interests` endpoint.
-  static final Map<String, List<String>> _catalogue = <String, List<String>>{
+  /// Per-instance so additions made via [addInterestCategory] /
+  /// [addInterestBrand] don't leak across `SitesApi` instances or
+  /// between tests. Replaced by a real network fetch once the backend
+  /// exposes a `/site-interests` endpoint.
+  final Map<String, List<String>> _catalogue = <String, List<String>>{
     'Hardware': <String>['HP', 'Dell', 'Lenovo'],
     'Software': <String>['Microsoft', 'Adobe', 'JetBrains'],
     'Services': <String>['Consulting', 'Support'],
@@ -27,16 +29,22 @@ class SitesApi {
       'id': '1',
       'name': 'Acme Warehouse',
       'address': '4HP8+2RJ, Avalahalli',
+      'ownerName': 'Anil Karki',
+      'phone': '9801234567',
     },
     <String, dynamic>{
       'id': '2',
       'name': 'Globex Branch',
       'address': 'F77F+CP7, Biratnagar',
+      'ownerName': 'Sita Shrestha',
+      'phone': '9812345678',
     },
     <String, dynamic>{
       'id': '3',
       'name': 'Initech Office',
       'address': 'F77G+73R, Biratnagar',
+      'ownerName': 'Ramesh Thapa',
+      'phone': '9823456789',
     },
   ];
 
