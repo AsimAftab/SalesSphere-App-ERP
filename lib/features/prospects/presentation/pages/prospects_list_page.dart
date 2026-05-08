@@ -291,6 +291,8 @@ const _placeholderProspect = Prospect(
   id: '',
   name: 'Loading prospect name',
   address: 'Loading address line for placeholder',
+  ownerName: 'Loading owner',
+  phone: '0000000000',
 );
 
 class _EmptyState extends StatelessWidget {
