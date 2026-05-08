@@ -24,6 +24,12 @@ class Routes {
 
   static String prospectDetailPath(String id) => '/prospects/detail/$id';
 
+  static const sites = '/sites';
+  static const addSite = '/sites/add';
+  static const siteDetail = '/sites/detail/:id';
+
+  static String siteDetailPath(String id) => '/sites/detail/$id';
+
   static const splashName = 'splash';
   static const loginName = 'login';
   static const forgotPasswordName = 'forgotPassword';
@@ -40,4 +46,7 @@ class Routes {
   static const prospectsName = 'prospects';
   static const addProspectName = 'addProspect';
   static const prospectDetailName = 'prospectDetail';
+  static const sitesName = 'sites';
+  static const addSiteName = 'addSite';
+  static const siteDetailName = 'siteDetail';
 }

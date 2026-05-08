@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +19,7 @@ import 'package:sales_sphere_erp/shared/widgets/custom_date_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/location_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_image_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
+import 'package:sales_sphere_erp/shared/widgets/section_card.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
 class AddPartyPage extends ConsumerStatefulWidget {
@@ -141,7 +144,7 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
                 decoration: BoxDecoration(
                   color: AppColors.surface,
                   borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(28.r),
+                    top: Radius.circular(32.r),
                   ),
                 ),
                 clipBehavior: Clip.antiAlias,
@@ -149,7 +152,7 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
                   key: _formKey,
                   child: SingleChildScrollView(
                     physics: const ClampingScrollPhysics(),
-                    padding: EdgeInsets.fromLTRB(20.w, 28.h, 20.w, 24.h),
+                    padding: EdgeInsets.fromLTRB(24.w, 32.h, 24.w, 32.h),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[
@@ -162,7 +165,7 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
                           validator: (v) =>
                               Validators.requiredField(v, 'Party name'),
                         ),
-                        SizedBox(height: 14.h),
+                        SizedBox(height: 16.h),
                         PrimaryTextField(
                           controller: _ownerController,
                           label: 'Owner Name',
@@ -172,7 +175,7 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
                           validator: (v) =>
                               Validators.requiredField(v, 'Owner name'),
                         ),
-                        SizedBox(height: 14.h),
+                        SizedBox(height: 16.h),
                         PrimaryTextField(
                           controller: _panVatController,
                           label: 'PAN/VAT Number',
@@ -186,7 +189,7 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
                           ],
                           validator: Validators.panVat,
                         ),
-                        SizedBox(height: 14.h),
+                        SizedBox(height: 16.h),
                         PrimaryTextField(
                           controller: _phoneController,
                           label: 'Phone Number',
@@ -200,7 +203,7 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
                           ],
                           validator: Validators.phone10,
                         ),
-                        SizedBox(height: 14.h),
+                        SizedBox(height: 16.h),
                         PrimaryTextField(
                           controller: _emailController,
                           label: 'Email Address',
@@ -210,7 +213,7 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
                           textInputAction: TextInputAction.next,
                           validator: Validators.emailOptional,
                         ),
-                        SizedBox(height: 14.h),
+                        SizedBox(height: 16.h),
                         CustomDatePicker(
                           controller: _dateController,
                           label: 'Date Joined',
@@ -222,13 +225,13 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
                           onDateSelected: (date) =>
                               setState(() => _dateJoined = date),
                         ),
-                        SizedBox(height: 14.h),
+                        SizedBox(height: 16.h),
                         PartyTypePicker(
                           value: _partyType,
                           enabled: true,
                           onChanged: (v) => setState(() => _partyType = v),
                         ),
-                        SizedBox(height: 14.h),
+                        SizedBox(height: 16.h),
                         PrimaryTextField(
                           controller: _notesController,
                           label: 'Notes',
@@ -238,7 +241,7 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
                           maxLines: 4,
                           textInputAction: TextInputAction.newline,
                         ),
-                        SizedBox(height: 14.h),
+                        SizedBox(height: 16.h),
                         LocationPicker(
                           addressController: _addressController,
                           latitude: _latitude,
@@ -248,15 +251,15 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
                           addressValidator: (v) =>
                               Validators.requiredField(v, 'Address'),
                         ),
-                        SizedBox(height: 18.h),
+                        SizedBox(height: 20.h),
                         Row(
                           children: <Widget>[
                             Text(
                               'Party Image (Optional)',
                               style: TextStyle(
-                                color: AppColors.primary,
-                                fontSize: 12.sp,
-                                fontWeight: FontWeight.w400,
+                                color: AppColors.textPrimary,
+                                fontSize: 13.sp,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                             const Spacer(),
@@ -264,7 +267,7 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
                               '${_imagePaths.length}/$_maxImages',
                               style: TextStyle(
                                 color: AppColors.textSecondary,
-                                fontSize: 11.sp,
+                                fontSize: 12.sp,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -299,127 +302,51 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: <Color>[
-            AppColors.primary,
-            Color.alphaBlend(
-              Colors.black.withValues(alpha: 0.18),
-              AppColors.primary,
-            ),
-          ],
-        ),
-      ),
-      child: Stack(
-        children: <Widget>[
-          Positioned(
-            top: 0,
-            right: 0,
-            child: Opacity(
-              opacity: 0.12,
-              child: SvgPicture.asset(
-                'assets/images/corner_bubble.svg',
-                width: 200.w,
-                colorFilter: const ColorFilter.mode(
-                  Colors.white,
-                  BlendMode.srcIn,
-                ),
-              ),
-            ),
-          ),
-          SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 28.h),
-              child: Column(
+      color: AppColors.primary,
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          children: <Widget>[
+            Padding(
+              padding: EdgeInsets.fromLTRB(4.w, 4.h, 16.w, 0),
+              child: Row(
                 children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      _GlassIconButton(
-                        icon: Icons.arrow_back_rounded,
-                        onTap: onBack,
-                        tooltip: 'Back',
-                      ),
-                      const Spacer(),
-                    ],
-                  ),
-                  SizedBox(height: 18.h),
-                  Container(
-                    width: 68.w,
-                    height: 68.w,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.3),
-                        width: 1.5,
-                      ),
-                    ),
-                    child: Icon(
-                      Icons.business_rounded,
+                  IconButton(
+                    icon: Icon(
+                      Icons.arrow_back_rounded,
                       color: Colors.white,
-                      size: 32.sp,
+                      size: 24.sp,
                     ),
+                    onPressed: onBack,
+                    tooltip: 'Back',
                   ),
-                  SizedBox(height: 14.h),
-                  Text(
-                    'New member in the Family',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.78),
-                      fontSize: 13.sp,
-                      letterSpacing: 0.4,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  SizedBox(height: 4.h),
-                  Text(
-                    'Add New Party',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 26.sp,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
+                  const Spacer(),
                 ],
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GlassIconButton extends StatelessWidget {
-  const _GlassIconButton({
-    required this.icon,
-    required this.onTap,
-    required this.tooltip,
-  });
-
-  final IconData icon;
-  final VoidCallback onTap;
-  final String tooltip;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: Colors.white.withValues(alpha: 0.15),
-        shape: const CircleBorder(),
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: onTap,
-          child: Padding(
-            padding: EdgeInsets.all(10.w),
-            child: Icon(icon, color: Colors.white, size: 20.sp),
-          ),
+            SizedBox(height: 8.h),
+            Text(
+              'New member in the family',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.8),
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+            SizedBox(height: 4.h),
+            Text(
+              'Add New Party',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 28.sp,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+              ),
+            ),
+            SizedBox(height: 32.h),
+          ],
         ),
       ),
     );
