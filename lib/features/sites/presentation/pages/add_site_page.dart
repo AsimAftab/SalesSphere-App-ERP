@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/features/sites/domain/site.dart';
+import 'package:sales_sphere_erp/features/sites/domain/site_interest.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/controllers/sites_controller.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/providers/sites_providers.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
@@ -113,7 +114,7 @@ class _AddSitePageState extends ConsumerState<AddSitePage> {
         longitude: _longitude,
         imagePaths: List<String>.unmodifiable(_imagePaths),
       );
-      await ref.read(sitesControllerProvider).addSite(draft);
+      await ref.read(sitesControllerProvider.notifier).addSite(draft);
       if (!mounted) return;
       SnackbarUtils.showSuccess(context, 'Site added successfully.');
       context.pop();
@@ -230,7 +231,7 @@ class _AddSitePageState extends ConsumerState<AddSitePage> {
                               siteInterestsProvider,
                             );
                             final controller =
-                                ref.read(sitesControllerProvider);
+                                ref.read(sitesControllerProvider.notifier);
                             return SiteInterestPicker(
                               value: _interests,
                               catalogue:

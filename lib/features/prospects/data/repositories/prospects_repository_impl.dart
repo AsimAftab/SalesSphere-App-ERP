@@ -4,7 +4,7 @@ import 'package:sales_sphere_erp/features/prospects/data/dto/prospect_dto.dart';
 import 'package:sales_sphere_erp/features/prospects/data/prospects_api.dart';
 import 'package:sales_sphere_erp/features/prospects/domain/prospect.dart';
 import 'package:sales_sphere_erp/features/prospects/domain/repositories/prospects_repository.dart';
-import 'package:sales_sphere_erp/shared/widgets/interest_picker.dart';
+import 'package:sales_sphere_erp/shared/domain/interest.dart';
 
 /// Anti-corruption layer between the wire DTOs and the rest of the app.
 /// All DTO ↔ domain mapping happens here. Drift persistence + outbox
