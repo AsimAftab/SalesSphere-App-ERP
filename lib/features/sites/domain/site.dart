@@ -1,4 +1,4 @@
-import 'package:sales_sphere_erp/shared/widgets/interest_picker.dart';
+import 'package:sales_sphere_erp/features/sites/domain/site_interest.dart';
 
 /// UI-facing site model. Decoupled from wire DTOs so backend renames
 /// don't ripple into widgets. Will be promoted to freezed once the
@@ -37,9 +37,9 @@ class Site {
 
   /// Multi-select category + brand pairs. Each entry also carries its
   /// own list of (name, phone) contacts captured inside the same
-  /// picker sheet via [SiteInterestPicker]. Sites embed contacts on the
-  /// interest entries themselves so the (category → contacts) link is
-  /// explicit at the data shape.
+  /// picker sheet via `SiteInterestPicker`. Sites embed contacts on
+  /// the interest entries themselves so the (category → contacts)
+  /// link is explicit at the data shape.
   final List<SiteInterest> interests;
 
   final String? notes;

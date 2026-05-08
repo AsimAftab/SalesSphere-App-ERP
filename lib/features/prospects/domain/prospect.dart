@@ -1,4 +1,4 @@
-import 'package:sales_sphere_erp/shared/widgets/interest_picker.dart';
+import 'package:sales_sphere_erp/shared/domain/interest.dart';
 
 /// UI-facing prospect model. Decoupled from wire DTOs so backend renames
 /// don't ripple into widgets. Will be promoted to freezed once the

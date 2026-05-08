@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/features/sites/domain/site.dart';
+import 'package:sales_sphere_erp/features/sites/domain/site_interest.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/controllers/sites_controller.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/providers/sites_providers.dart';
 import 'package:sales_sphere_erp/shared/utils/maps_launcher.dart';
@@ -208,7 +209,7 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
         longitude: _longitude,
         imagePaths: List<String>.unmodifiable(_imagePaths),
       );
-      await ref.read(sitesControllerProvider).updateSite(updated);
+      await ref.read(sitesControllerProvider.notifier).updateSite(updated);
       if (!mounted) return;
       setState(() {
         _saving = false;
@@ -357,7 +358,7 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
                                         siteInterestsProvider,
                                       );
                                       final controller = ref.read(
-                                        sitesControllerProvider,
+                                        sitesControllerProvider.notifier,
                                       );
                                       return SiteInterestPicker(
                                         value: _interests,

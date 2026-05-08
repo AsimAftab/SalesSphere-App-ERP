@@ -3,75 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/features/sites/domain/site_interest.dart';
+import 'package:sales_sphere_erp/shared/domain/interest.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
-
-/// A category + brand pair surfaced by [InterestPicker]. `==` and
-/// `hashCode` are overridden so equal interests dedupe in `Set` / `List`
-/// operations the picker performs internally.
-@immutable
-class Interest {
-  const Interest({required this.category, required this.brand});
-
-  final String category;
-  final String brand;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is Interest && other.category == category && other.brand == brand);
-
-  @override
-  int get hashCode => Object.hash(category, brand);
-
-  @override
-  String toString() => '$category · $brand';
-}
-
-/// Site-level point-of-contact: a name + phone pair captured inside
-/// the interest sheet's third step (entered via "Next: Contacts" from
-/// the brands view). `==` / `hashCode` use both fields so equal
-/// contacts dedupe inside `Set` / `List` ops.
-@immutable
-class SiteContact {
-  const SiteContact({required this.name, required this.phone});
-
-  final String name;
-  final String phone;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is SiteContact && other.name == name && other.phone == phone);
-
-  @override
-  int get hashCode => Object.hash(name, phone);
-
-  @override
-  String toString() => '$name ($phone)';
-}
-
-/// Sites variant of [Interest]. Carries the same (category, brand)
-/// identity as the base — equality and hashing fall through to the
-/// parent so a `SiteInterest(c, b, [...])` interchanges cleanly with
-/// `Interest(c, b)` inside selection sets — but adds a `contacts` list
-/// for the (category → contacts) link the sites form needs to capture.
-///
-/// All `SiteInterest` entries that share a category typically carry
-/// the same contacts list (the picker copies the active category's
-/// working contacts onto every selected entry of that category on
-/// each commit), so callers reading contacts off any one entry get a
-/// representative view of the category's contacts.
-class SiteInterest extends Interest {
-  const SiteInterest({
-    required super.category,
-    required super.brand,
-    this.contacts = const <SiteContact>[],
-  });
-
-  final List<SiteContact> contacts;
-}
 
 /// Multi-select picker that walks the user through categories first and
 /// brands second. Designed to be reused across features — the parent
