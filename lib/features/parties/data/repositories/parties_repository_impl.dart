@@ -44,9 +44,14 @@ class PartiesRepositoryImpl implements PartiesRepository {
         id: dto.id,
         name: dto.name,
         address: dto.address,
-        ownerName: dto.ownerName,
-        panVat: dto.panVat,
-        phone: dto.phone,
+        // DTOs stay nullable for wire compatibility; the domain marks
+        // owner + phone + panVat non-null because the form's validators
+        // require them. Legacy / seed records without these surface as
+        // empty strings and the form forces the user to fill them on
+        // save.
+        ownerName: dto.ownerName ?? '',
+        panVat: dto.panVat ?? '',
+        phone: dto.phone ?? '',
         email: dto.email,
         dateJoined: dto.dateJoined,
         partyType: dto.partyType,

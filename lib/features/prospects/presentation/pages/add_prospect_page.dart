@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -115,7 +114,7 @@ class _AddProspectPageState extends ConsumerState<AddProspectPage> {
         longitude: _longitude,
         imagePaths: List<String>.unmodifiable(_imagePaths),
       );
-      await ref.read(prospectsControllerProvider).addProspect(draft);
+      await ref.read(prospectsControllerProvider.notifier).addProspect(draft);
       if (!mounted) return;
       SnackbarUtils.showSuccess(context, 'Prospect added successfully.');
       context.pop();
@@ -232,7 +231,7 @@ class _AddProspectPageState extends ConsumerState<AddProspectPage> {
                               prospectInterestsProvider,
                             );
                             final controller =
-                                ref.read(prospectsControllerProvider);
+                                ref.read(prospectsControllerProvider.notifier);
                             return InterestPicker(
                               value: _interests,
                               catalogue:
@@ -322,7 +321,7 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return ColoredBox(
       color: AppColors.primary,
       child: SafeArea(
         bottom: false,

@@ -12,6 +12,7 @@ import 'package:sales_sphere_erp/features/sites/domain/site.dart';
 import 'package:sales_sphere_erp/features/sites/domain/site_interest.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/controllers/sites_controller.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/providers/sites_providers.dart';
+import 'package:sales_sphere_erp/features/sites/presentation/widgets/sub_organization_picker.dart';
 import 'package:sales_sphere_erp/shared/utils/maps_launcher.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
@@ -44,7 +45,6 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
 
   final _nameController = TextEditingController();
   final _ownerController = TextEditingController();
-  final _panVatController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _notesController = TextEditingController();
@@ -59,6 +59,7 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
   static const _defaultLng = 85.3240;
 
   List<SiteInterest> _interests = const <SiteInterest>[];
+  String? _subOrganizationId;
   DateTime? _dateJoined;
   double _latitude = _defaultLat;
   double _longitude = _defaultLng;
@@ -108,7 +109,6 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
   void dispose() {
     _nameController.dispose();
     _ownerController.dispose();
-    _panVatController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
     _notesController.dispose();
@@ -121,7 +121,7 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
     _nameController.text = s.name;
     _ownerController.text = s.ownerName;
     _phoneController.text = s.phone;
-    _panVatController.text = s.panVat ?? '';
+    _subOrganizationId = s.subOrganizationId;
     _emailController.text = s.email ?? '';
     _notesController.text = s.notes ?? '';
     _addressController.text = s.address;
@@ -200,7 +200,7 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
         address: _addressController.text.trim(),
         ownerName: _ownerController.text.trim(),
         phone: _phoneController.text.trim(),
-        panVat: _panVatController.text.trim().nullIfEmpty(),
+        subOrganizationId: _subOrganizationId,
         email: _emailController.text.trim().nullIfEmpty(),
         dateJoined: _dateJoined,
         interests: List<SiteInterest>.unmodifiable(_interests),
@@ -232,6 +232,69 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
     }
   }
 
+  Future<void> _transferToParty() async {
+    final displayName = _nameController.text.trim().isEmpty
+        ? 'this site'
+        : '"${_nameController.text.trim()}"';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.r),
+        ),
+        title: Text(
+          'Transfer to Party?',
+          style: TextStyle(
+            color: AppColors.primary,
+            fontSize: 18.sp,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to transfer $displayName to a party? This action cannot be undone.',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 14.sp,
+            height: 1.4,
+          ),
+        ),
+        actionsPadding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.textSecondary,
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+            ),
+            child: Text(
+              'Cancel',
+              style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w500),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.secondary,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10.r),
+              ),
+            ),
+            child: Text(
+              'Transfer',
+              style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+    SnackbarUtils.showInfo(context, 'Transfer to Party — coming soon.');
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return _DetailSkeleton(onBack: _back);
@@ -246,6 +309,7 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
           editing: _editing,
           isLoading: _saving,
           onPressed: _editing ? _save : _toggleEdit,
+          onTransfer: _transferToParty,
         ),
         body: Stack(
           children: <Widget>[
@@ -312,18 +376,12 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
                                       Validators.requiredField(v, 'Owner name'),
                                 ),
                                 SizedBox(height: 12.h),
-                                PrimaryTextField(
-                                  controller: _panVatController,
-                                  label: 'PAN/VAT Number',
-                                  hintText: 'Enter PAN or VAT number',
-                                  prefixIcon: Icons.receipt_long_outlined,
-                                  keyboardType: TextInputType.number,
+                                SubOrganizationPicker(
+                                  value: _subOrganizationId,
                                   enabled: _editing,
-                                  maxLength: 9,
-                                  inputFormatters: <TextInputFormatter>[
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
-                                  validator: Validators.panVatOptional,
+                                  onChanged: (next) => setState(
+                                    () => _subOrganizationId = next,
+                                  ),
                                 ),
                                 SizedBox(height: 12.h),
                                 PrimaryTextField(
@@ -664,11 +722,13 @@ class _SubmitBar extends StatelessWidget {
     required this.editing,
     required this.isLoading,
     required this.onPressed,
+    required this.onTransfer,
   });
 
   final bool editing;
   final bool isLoading;
   final VoidCallback onPressed;
+  final VoidCallback onTransfer;
 
   @override
   Widget build(BuildContext context) {
@@ -681,12 +741,44 @@ class _SubmitBar extends StatelessWidget {
         top: false,
         child: Padding(
           padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 12.h),
-          child: PrimaryButton(
-            label: editing ? 'Save Changes' : 'Edit Detail',
-            leadingIcon: editing ? Icons.check : Icons.edit,
-            isLoading: isLoading,
-            onPressed: onPressed,
-          ),
+          child: editing
+              ? PrimaryButton(
+                  label: 'Save Changes',
+                  leadingIcon: Icons.check,
+                  isLoading: isLoading,
+                  onPressed: onPressed,
+                )
+              : Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: PrimaryButton(
+                        label: 'Edit Detail',
+                        leadingIcon: Icons.edit,
+                        onPressed: onPressed,
+                        customFontSize: 13.sp,
+                        customIconSize: 16.sp,
+                        customPadding: EdgeInsets.symmetric(
+                          horizontal: 8.w,
+                          vertical: 12.h,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 12.w),
+                    Expanded(
+                      child: PrimaryButton(
+                        label: 'Transfer to Party',
+                        leadingIcon: Icons.swap_horiz_rounded,
+                        onPressed: onTransfer,
+                        customFontSize: 13.sp,
+                        customIconSize: 16.sp,
+                        customPadding: EdgeInsets.symmetric(
+                          horizontal: 8.w,
+                          vertical: 12.h,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
         ),
       ),
     );

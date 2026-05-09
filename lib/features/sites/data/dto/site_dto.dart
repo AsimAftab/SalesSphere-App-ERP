@@ -7,7 +7,7 @@ class SiteDto {
     required this.name,
     required this.address,
     this.ownerName,
-    this.panVat,
+    this.subOrganizationId,
     this.phone,
     this.email,
     this.dateJoined,
@@ -23,7 +23,7 @@ class SiteDto {
         name: json['name'] as String,
         address: json['address'] as String,
         ownerName: json['ownerName'] as String?,
-        panVat: json['panVat'] as String?,
+        subOrganizationId: json['subOrganizationId'] as String?,
         phone: json['phone'] as String?,
         email: json['email'] as String?,
         dateJoined: (json['dateJoined'] as String?) != null
@@ -47,7 +47,7 @@ class SiteDto {
   final String name;
   final String address;
   final String? ownerName;
-  final String? panVat;
+  final String? subOrganizationId;
   final String? phone;
   final String? email;
   final DateTime? dateJoined;
@@ -62,7 +62,7 @@ class SiteDto {
         'name': name,
         'address': address,
         if (ownerName != null) 'ownerName': ownerName,
-        if (panVat != null) 'panVat': panVat,
+        if (subOrganizationId != null) 'subOrganizationId': subOrganizationId,
         if (phone != null) 'phone': phone,
         if (email != null) 'email': email,
         if (dateJoined != null) 'dateJoined': dateJoined!.toIso8601String(),

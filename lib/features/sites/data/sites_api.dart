@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:sales_sphere_erp/features/sites/data/dto/site_dto.dart';
+import 'package:sales_sphere_erp/features/sites/data/dto/sub_organization_dto.dart';
 
 /// Raw data source for the sites endpoints. Currently backed by a
 /// mutable in-memory list seeded from mock JSON — swap for Dio calls
@@ -24,6 +25,17 @@ class SitesApi {
     'Services': <String>['Consulting', 'Support'],
   };
 
+  /// In-memory sub-organization (branch / division) catalogue powering
+  /// the dropdown on the add/edit forms. Per-instance so test overrides
+  /// stay clean. Swap to a real fetch once the backend exposes a
+  /// `/sub-organizations` endpoint.
+  final List<SubOrganizationDto> _subOrganizations = <SubOrganizationDto>[
+    const SubOrganizationDto(id: 'so-hq', name: 'Headquarters'),
+    const SubOrganizationDto(id: 'so-east', name: 'Eastern Region'),
+    const SubOrganizationDto(id: 'so-west', name: 'Western Region'),
+    const SubOrganizationDto(id: 'so-central', name: 'Central Region'),
+  ];
+
   static final List<Map<String, dynamic>> _seed = <Map<String, dynamic>>[
     <String, dynamic>{
       'id': '1',
@@ -31,6 +43,7 @@ class SitesApi {
       'address': '4HP8+2RJ, Avalahalli',
       'ownerName': 'Anil Karki',
       'phone': '9801234567',
+      'subOrganizationId': 'so-hq',
     },
     <String, dynamic>{
       'id': '2',
@@ -38,6 +51,7 @@ class SitesApi {
       'address': 'F77F+CP7, Biratnagar',
       'ownerName': 'Sita Shrestha',
       'phone': '9812345678',
+      'subOrganizationId': 'so-east',
     },
     <String, dynamic>{
       'id': '3',
@@ -45,6 +59,7 @@ class SitesApi {
       'address': 'F77G+73R, Biratnagar',
       'ownerName': 'Ramesh Thapa',
       'phone': '9823456789',
+      'subOrganizationId': 'so-east',
     },
   ];
 
@@ -63,7 +78,7 @@ class SitesApi {
       name: draft.name,
       address: draft.address,
       ownerName: draft.ownerName,
-      panVat: draft.panVat,
+      subOrganizationId: draft.subOrganizationId,
       phone: draft.phone,
       email: draft.email,
       dateJoined: draft.dateJoined,
@@ -112,6 +127,12 @@ class SitesApi {
     await Future<void>.delayed(const Duration(milliseconds: 100));
     final list = _catalogue.putIfAbsent(category, () => <String>[]);
     if (!list.contains(brand)) list.add(brand);
+  }
+
+  Future<List<SubOrganizationDto>> subOrganizations() async {
+    // Simulated round-trip so callers exercise the loading state path.
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    return List<SubOrganizationDto>.unmodifiable(_subOrganizations);
   }
 }
 

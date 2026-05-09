@@ -16,7 +16,13 @@ part 'sites_controller.g.dart';
 /// `build()` returns void — the controller has no observable state of
 /// its own, it just exposes write methods. Consumers call
 /// `ref.read(sitesControllerProvider.notifier).addSite(...)`.
-@riverpod
+///
+/// Marked `keepAlive: true` so the notifier survives across the
+/// `await` inside its write methods. Without it, the controller is
+/// auto-disposed mid-call (no listeners hold it open) and the
+/// follow-up `ref.invalidate(...)` after the await fails because
+/// the underlying provider element is already gone.
+@Riverpod(keepAlive: true)
 class SitesController extends _$SitesController {
   @override
   void build() {}

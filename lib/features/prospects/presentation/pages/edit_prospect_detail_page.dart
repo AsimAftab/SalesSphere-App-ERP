@@ -204,7 +204,7 @@ class _EditProspectDetailPageState
         longitude: _longitude,
         imagePaths: List<String>.unmodifiable(_imagePaths),
       );
-      await ref.read(prospectsControllerProvider).updateProspect(updated);
+      await ref.read(prospectsControllerProvider.notifier).updateProspect(updated);
       if (!mounted) return;
       setState(() {
         _saving = false;
@@ -417,7 +417,7 @@ class _EditProspectDetailPageState
                                         prospectInterestsProvider,
                                       );
                                       final controller = ref.read(
-                                        prospectsControllerProvider,
+                                        prospectsControllerProvider.notifier,
                                       );
                                       return InterestPicker(
                                         value: _interests,

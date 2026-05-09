@@ -112,9 +112,9 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
 
   void _populate(Party p) {
     _nameController.text = p.name;
-    _ownerController.text = p.ownerName ?? '';
-    _panVatController.text = p.panVat ?? '';
-    _phoneController.text = p.phone ?? '';
+    _ownerController.text = p.ownerName;
+    _panVatController.text = p.panVat;
+    _phoneController.text = p.phone;
     _emailController.text = p.email ?? '';
     _notesController.text = p.notes ?? '';
     _addressController.text = p.address;
@@ -191,9 +191,9 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
         id: widget.id,
         name: _nameController.text.trim(),
         address: _addressController.text.trim(),
-        ownerName: _ownerController.text.trim().nullIfEmpty(),
-        panVat: _panVatController.text.trim().nullIfEmpty(),
-        phone: _phoneController.text.trim().nullIfEmpty(),
+        ownerName: _ownerController.text.trim(),
+        panVat: _panVatController.text.trim(),
+        phone: _phoneController.text.trim(),
         email: _emailController.text.trim().nullIfEmpty(),
         dateJoined: _dateJoined,
         partyType: _partyType,
@@ -202,7 +202,7 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
         longitude: _longitude,
         imagePaths: List<String>.unmodifiable(_imagePaths),
       );
-      await ref.read(partiesControllerProvider).updateParty(updated);
+      await ref.read(partiesControllerProvider.notifier).updateParty(updated);
       if (!mounted) return;
       setState(() {
         _saving = false;

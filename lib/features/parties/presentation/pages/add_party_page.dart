@@ -1,10 +1,7 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -19,7 +16,6 @@ import 'package:sales_sphere_erp/shared/widgets/custom_date_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/location_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_image_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
-import 'package:sales_sphere_erp/shared/widgets/section_card.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
 class AddPartyPage extends ConsumerStatefulWidget {
@@ -104,9 +100,9 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
         id: '', // assigned by the API mock
         name: _nameController.text.trim(),
         address: _addressController.text.trim(),
-        ownerName: _ownerController.text.trim().nullIfEmpty(),
-        panVat: _panVatController.text.trim().nullIfEmpty(),
-        phone: _phoneController.text.trim().nullIfEmpty(),
+        ownerName: _ownerController.text.trim(),
+        panVat: _panVatController.text.trim(),
+        phone: _phoneController.text.trim(),
         email: _emailController.text.trim().nullIfEmpty(),
         dateJoined: _dateJoined,
         partyType: _partyType,
@@ -115,7 +111,7 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
         longitude: _longitude,
         imagePaths: List<String>.unmodifiable(_imagePaths),
       );
-      await ref.read(partiesControllerProvider).addParty(draft);
+      await ref.read(partiesControllerProvider.notifier).addParty(draft);
       if (!mounted) return;
       SnackbarUtils.showSuccess(context, 'Party added.');
       context.pop();
@@ -301,7 +297,7 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return ColoredBox(
       color: AppColors.primary,
       child: SafeArea(
         bottom: false,

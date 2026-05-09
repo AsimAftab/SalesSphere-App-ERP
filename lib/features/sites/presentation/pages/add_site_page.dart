@@ -10,6 +10,7 @@ import 'package:sales_sphere_erp/features/sites/domain/site.dart';
 import 'package:sales_sphere_erp/features/sites/domain/site_interest.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/controllers/sites_controller.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/providers/sites_providers.dart';
+import 'package:sales_sphere_erp/features/sites/presentation/widgets/sub_organization_picker.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
@@ -37,7 +38,6 @@ class _AddSitePageState extends ConsumerState<AddSitePage> {
 
   final _nameController = TextEditingController();
   final _ownerController = TextEditingController();
-  final _panVatController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _dateController = TextEditingController();
@@ -47,6 +47,7 @@ class _AddSitePageState extends ConsumerState<AddSitePage> {
   static const _maxImages = 2;
 
   List<SiteInterest> _interests = const <SiteInterest>[];
+  String? _subOrganizationId;
   DateTime? _dateJoined;
   double _latitude = _defaultLat;
   double _longitude = _defaultLng;
@@ -57,7 +58,6 @@ class _AddSitePageState extends ConsumerState<AddSitePage> {
   void dispose() {
     _nameController.dispose();
     _ownerController.dispose();
-    _panVatController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
     _dateController.dispose();
@@ -105,7 +105,7 @@ class _AddSitePageState extends ConsumerState<AddSitePage> {
         address: _addressController.text.trim(),
         ownerName: _ownerController.text.trim(),
         phone: _phoneController.text.trim(),
-        panVat: _panVatController.text.trim().nullIfEmpty(),
+        subOrganizationId: _subOrganizationId,
         email: _emailController.text.trim().nullIfEmpty(),
         dateJoined: _dateJoined,
         interests: List<SiteInterest>.unmodifiable(_interests),
@@ -175,18 +175,10 @@ class _AddSitePageState extends ConsumerState<AddSitePage> {
                               Validators.requiredField(v, 'Owner name'),
                         ),
                         SizedBox(height: 16.h),
-                        PrimaryTextField(
-                          controller: _panVatController,
-                          label: 'PAN/VAT Number',
-                          hintText: 'Enter PAN or VAT number',
-                          prefixIcon: Icons.receipt_long_outlined,
-                          keyboardType: TextInputType.number,
-                          textInputAction: TextInputAction.next,
-                          maxLength: 9,
-                          inputFormatters: <TextInputFormatter>[
-                            FilteringTextInputFormatter.digitsOnly,
-                          ],
-                          validator: Validators.panVatOptional,
+                        SubOrganizationPicker(
+                          value: _subOrganizationId,
+                          onChanged: (next) =>
+                              setState(() => _subOrganizationId = next),
                         ),
                         SizedBox(height: 16.h),
                         PrimaryTextField(
