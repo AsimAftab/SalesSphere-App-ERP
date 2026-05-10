@@ -7,8 +7,10 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/features/parties/domain/party.dart';
+import 'package:sales_sphere_erp/features/parties/domain/repositories/parties_repository.dart';
 import 'package:sales_sphere_erp/features/parties/presentation/controllers/parties_controller.dart';
 import 'package:sales_sphere_erp/features/parties/presentation/widgets/party_type_picker.dart';
+import 'package:sales_sphere_erp/shared/utils/image_validation.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
@@ -71,8 +73,23 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
       final file = await picker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 80,
+        // Cap the longest side so a 12MP phone photo doesn't land
+        // above the backend's 5MB ceiling. Native resize on device.
+        maxWidth: kPickerMaxDimension,
+        maxHeight: kPickerMaxDimension,
       );
       if (file == null) return;
+      if (!isAllowedImageFile(file.path)) {
+        if (!mounted) return;
+        SnackbarUtils.showError(context, kUnsupportedImageMessage);
+        return;
+      }
+      final bytes = await imageFileBytes(file.path);
+      if (bytes != null && bytes > kMaxImageBytes) {
+        if (!mounted) return;
+        SnackbarUtils.showError(context, imageTooLargeMessage(bytes));
+        return;
+      }
       setState(() => _imagePaths.add(file.path));
     } on Exception catch (_) {
       if (!mounted) return;
@@ -114,6 +131,18 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
       await ref.read(partiesControllerProvider.notifier).addParty(draft);
       if (!mounted) return;
       SnackbarUtils.showSuccess(context, 'Party added.');
+      context.pop();
+    } on PartialImageUploadException catch (e) {
+      // Customer was saved; one or more images didn't upload. Still
+      // pop back — the user has a row to look at and can re-attach
+      // the missing slots from the edit page.
+      if (!mounted) return;
+      final n = e.failedSlots.length;
+      SnackbarUtils.showError(
+        context,
+        "Party added, but $n image${n == 1 ? '' : 's'} didn't upload: "
+        '${e.firstMessage}',
+      );
       context.pop();
     } on Exception catch (_) {
       if (!mounted) return;

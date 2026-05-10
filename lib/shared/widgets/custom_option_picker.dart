@@ -99,10 +99,15 @@ class _CustomOptionPickerState extends State<CustomOptionPicker> {
   @override
   void didUpdateWidget(CustomOptionPicker oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // While the user is mid-add-new, every keystroke round-trips through
+    // the parent's `value` (the picker live-binds `onAddNew` to the
+    // form's setter). Ignore those echoes — otherwise the inline
+    // TextField unmounts after the first character.
+    if (_addingNew) return;
     // External update from the parent (e.g. detail page hydrating from
-    // the saved entity) cancels the add-new flow.
+    // the saved entity). Clear any stale add-new buffer so a future
+    // re-entry into the flow starts clean.
     if (oldWidget.value != widget.value && widget.value != null) {
-      _addingNew = false;
       _newController.text = '';
     }
   }

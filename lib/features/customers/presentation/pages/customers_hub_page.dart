@@ -198,15 +198,22 @@ class _HubTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 SizedBox(height: 4.h),
-                Text(
-                  spec.subtitle,
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12.sp,
-                    height: 1.3,
+                // `Flexible` lets the subtitle clip to whatever vertical
+                // room is left after the icon + title + gaps. Without it,
+                // the Column tries to render two 12sp lines + 1.3 line
+                // height, which on tighter screens crowds past the
+                // parent's bounded height and trips a RenderFlex overflow.
+                Flexible(
+                  child: Text(
+                    spec.subtitle,
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12.sp,
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),

@@ -1,6 +1,22 @@
-/// UI-facing party model. Decoupled from wire DTOs so backend renames don't
-/// ripple into widgets. Will be promoted to freezed once the parties API
-/// + drift table land.
+/// UI-facing party model. Decoupled from wire DTOs so backend renames
+/// don't ripple into widgets.
+///
+/// Naming asymmetry: the wire calls this field `panNo`; we keep `panVat`
+/// here because the form's labels, validators and the existing test
+/// corpus all reference that name. The repository mapper does the
+/// translation.
+///
+/// `imagePaths` is form-only state: the add/edit pages let the user
+/// attach gallery photos locally. The list/detail pages show icons; the
+/// mobile UI never renders fetched image URLs, so this list is always
+/// empty for parties that came from the network.
+///
+/// `syncPending` / `syncError` carry per-row sync state from the
+/// mutation outbox. Server-fetched rows always have `syncPending=false`;
+/// optimistically-inserted rows (offline writes) start with
+/// `syncPending=true` and flip back to false in the sync handler's
+/// onSuccess transaction. A non-null `syncError` means the row's
+/// queued mutation dead-lettered.
 class Party {
   const Party({
     required this.id,
@@ -16,6 +32,9 @@ class Party {
     this.latitude,
     this.longitude,
     this.imagePaths = const <String>[],
+    this.status,
+    this.syncPending = false,
+    this.syncError,
   });
 
   final String id;
@@ -32,12 +51,55 @@ class Party {
   // Other optional details captured by the add-party form.
   final String? email;
   final DateTime? dateJoined;
+
+  /// Mobile picker-driven categorisation. Backed by the wire
+  /// `customerType.name` on read; sent as a flat string on write
+  /// (`PartyDto.toJson` flattens it to `customerType: "<name>"` and the
+  /// backend auto-upserts the corresponding row).
   final String? partyType;
   final String? notes;
   final double? latitude;
   final double? longitude;
 
-  /// Up to two attached image paths (gallery picks). Empty when none have
-  /// been added.
+  /// Local file paths from the add/edit form's image picker. Always
+  /// empty for parties hydrated from the API or drift cache.
   final List<String> imagePaths;
+
+  /// `ACTIVE` | `INACTIVE`. Server-driven; null only for in-flight form
+  /// drafts that haven't been sent yet.
+  final String? status;
+
+  /// True while an outbox-queued mutation hasn't yet been confirmed by
+  /// the server.
+  final bool syncPending;
+
+  /// Last sync failure for this row (dead-letter only). Null when
+  /// `syncPending` is true but no failure has occurred yet, or when the
+  /// row is server-authoritative.
+  final String? syncError;
+
+  Party copyWith({
+    bool? syncPending,
+    String? syncError,
+    bool clearSyncError = false,
+  }) {
+    return Party(
+      id: id,
+      name: name,
+      address: address,
+      ownerName: ownerName,
+      phone: phone,
+      panVat: panVat,
+      email: email,
+      dateJoined: dateJoined,
+      partyType: partyType,
+      notes: notes,
+      latitude: latitude,
+      longitude: longitude,
+      imagePaths: imagePaths,
+      status: status,
+      syncPending: syncPending ?? this.syncPending,
+      syncError: clearSyncError ? null : (syncError ?? this.syncError),
+    );
+  }
 }

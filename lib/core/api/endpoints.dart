@@ -9,6 +9,16 @@ class Endpoints {
   static const me = '/auth/me';
   static const session = '/auth/session';
 
+  // ── Customers (parties on the mobile side) ────────────────────────────────
+  static const customers = '/customers';
+  static String customerById(String id) => '/customers/$id';
+  static String customerImages(String id) => '/customers/$id/images';
+  static String customerImageSlot(String id, int slot) =>
+      '/customers/$id/images/$slot';
+
+  // ── Customer types (party-type picker) ────────────────────────────────────
+  static const customerTypes = '/customer-types';
+
   // ── Attendance ────────────────────────────────────────────────────────────
   static const attendanceCheckIn = '/attendance/check-in';
   static const attendanceCheckOut = '/attendance/check-out';
