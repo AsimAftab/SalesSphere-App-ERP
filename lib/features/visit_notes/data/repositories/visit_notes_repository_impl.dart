@@ -63,10 +63,13 @@ class VisitNotesRepositoryImpl implements VisitNotesRepository {
       case 'site':
         return VisitNoteLinkType.site;
       default:
-        // Defensive: a future link type from the backend shouldn't
-        // crash the list. Fall through to `party`; the DTO's display
-        // name still renders correctly.
-        return VisitNoteLinkType.party;
+        // Surface unknown link types loudly: silently coercing to
+        // `party` would misclassify the row in the UI and — worse —
+        // overwrite the backend with `'party'` on the next update.
+        // If/when the backend grows a fourth link type, this will
+        // crash and force us to extend the enum + mapping rather than
+        // rotting unnoticed.
+        throw FormatException('Unsupported VisitNote linkType: $wire');
     }
   }
 

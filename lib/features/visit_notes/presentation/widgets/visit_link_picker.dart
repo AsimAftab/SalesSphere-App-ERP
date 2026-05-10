@@ -57,6 +57,27 @@ const Color _partyAccent = AppColors.secondary;
 const Color _prospectAccent = AppColors.warning;
 const Color _siteAccent = AppColors.green500;
 
+/// Generic name+address contains-filter shared by the three tab lists.
+/// Short-circuits when [query] is empty (returns [source] verbatim) so
+/// callers don't have to duplicate that branch. The two accessors let
+/// each entity type keep its own typed shape — Party/Prospect/Site all
+/// happen to expose `name`+`address` but aren't related by interface.
+List<T> _filterByNameAndAddress<T>(
+  List<T> source,
+  String query,
+  String Function(T) getName,
+  String Function(T) getAddress,
+) {
+  if (query.isEmpty) return source;
+  return source
+      .where(
+        (item) =>
+            getName(item).toLowerCase().contains(query) ||
+            getAddress(item).toLowerCase().contains(query),
+      )
+      .toList(growable: false);
+}
+
 class _VisitLinkPickerSheet extends StatelessWidget {
   const _VisitLinkPickerSheet({this.current});
 
@@ -238,9 +259,9 @@ class _TabShellState extends State<_TabShell> {
                     onPressed: () {
                       _searchController.clear();
                       setState(() => _query = '');
-                        FocusManager.instance.primaryFocus?.unfocus();
-                      },
-                    ),
+                      FocusManager.instance.primaryFocus?.unfocus();
+                    },
+                  ),
           ),
         ),
         Expanded(
@@ -305,16 +326,8 @@ class _PartiesTab extends ConsumerWidget {
     );
   }
 
-  List<Party> _filterParties(List<Party> source, String q) {
-    if (q.isEmpty) return source;
-    return source
-        .where(
-          (p) =>
-              p.name.toLowerCase().contains(q) ||
-              p.address.toLowerCase().contains(q),
-        )
-        .toList(growable: false);
-  }
+  List<Party> _filterParties(List<Party> source, String q) =>
+      _filterByNameAndAddress(source, q, (p) => p.name, (p) => p.address);
 }
 
 class _ProspectsTab extends ConsumerWidget {
@@ -372,16 +385,8 @@ class _ProspectsTab extends ConsumerWidget {
     );
   }
 
-  List<Prospect> _filterProspects(List<Prospect> source, String q) {
-    if (q.isEmpty) return source;
-    return source
-        .where(
-          (p) =>
-              p.name.toLowerCase().contains(q) ||
-              p.address.toLowerCase().contains(q),
-        )
-        .toList(growable: false);
-  }
+  List<Prospect> _filterProspects(List<Prospect> source, String q) =>
+      _filterByNameAndAddress(source, q, (p) => p.name, (p) => p.address);
 }
 
 class _SitesTab extends ConsumerWidget {
@@ -438,16 +443,8 @@ class _SitesTab extends ConsumerWidget {
     );
   }
 
-  List<Site> _filterSites(List<Site> source, String q) {
-    if (q.isEmpty) return source;
-    return source
-        .where(
-          (s) =>
-              s.name.toLowerCase().contains(q) ||
-              s.address.toLowerCase().contains(q),
-        )
-        .toList(growable: false);
-  }
+  List<Site> _filterSites(List<Site> source, String q) =>
+      _filterByNameAndAddress(source, q, (s) => s.name, (s) => s.address);
 }
 
 class _LinkRow extends StatelessWidget {

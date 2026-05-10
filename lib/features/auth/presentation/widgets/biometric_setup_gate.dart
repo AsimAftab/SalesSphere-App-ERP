@@ -130,7 +130,7 @@ class _BiometricSetupSheet extends StatelessWidget {
             ),
             SizedBox(height: 10.h),
             Text(
-              'Use your fingerprint or face to sign in faster next time. '
+              'Use your fingerprint to sign in faster next time. '
               'You can change this anytime under More → Settings.',
               textAlign: TextAlign.center,
               style: TextStyle(

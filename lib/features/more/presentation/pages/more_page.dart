@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
@@ -9,173 +8,55 @@ import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
-/// "More" tab landing screen — surfaces account-adjacent destinations
-/// (Profile today, settings/notifications/help in the future) and the
-/// sign-out action. Profile lives at its own `/profile` route; this
-/// screen pushes onto it so the back arrow returns here.
+/// "More" tab landing screen — surfaces account-adjacent destinations.
+/// Mirrors `CustomersHubPage`'s chrome (large header, 2-col tile grid,
+/// soft-shadow flat surface, per-module accent colour) so both
+/// bottom-nav landing surfaces read as the same family.
+///
+/// Today only the Settings tile is wired; the second column waits for
+/// future tiles (notifications, help & support, about, language…).
+/// Profile and Sign out both live one level deeper, inside Settings.
 class MorePage extends ConsumerWidget {
   const MorePage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authControllerProvider).value;
+    final subtitle = (user?.fullName.isNotEmpty ?? false)
+        ? 'Signed in as ${user!.fullName}'
+        : 'Account & settings';
 
     return DarkStatusBar(
       child: Scaffold(
         backgroundColor: AppColors.background,
-        body: Stack(
-          children: <Widget>[
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: SvgPicture.asset(
-                'assets/images/corner_bubble.svg',
-                fit: BoxFit.cover,
-                height: 180.h,
-              ),
-            ),
-            SafeArea(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 16.h),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    SizedBox(height: 8.h),
-                    Text(
-                      'More',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 22.sp,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    SizedBox(height: 4.h),
-                    Text(
-                      (user?.fullName.isNotEmpty ?? false)
-                          ? 'Signed in as ${user!.fullName}'
-                          : 'Account & settings',
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13.sp,
-                      ),
-                    ),
-                    SizedBox(height: 28.h),
-                    _MoreCard(
-                      icon: Icons.person_outline,
-                      title: 'Profile',
-                      subtitle: 'Account details and personal info',
-                      onTap: () => context.push(Routes.profile),
-                    ),
-                    SizedBox(height: 16.h),
-                    _MoreCard(
-                      icon: Icons.settings_outlined,
-                      title: 'Settings',
-                      subtitle: 'Biometric unlock, notifications, more',
-                      onTap: () => context.push(Routes.settings),
-                    ),
-                    const Spacer(),
-                    _SignOutButton(
-                      onPressed: () => ref
-                          .read(authControllerProvider.notifier)
-                          .logout(),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MoreCard extends StatelessWidget {
-  const _MoreCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(20.r),
-      child: Ink(
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(20.r),
-          boxShadow: <BoxShadow>[
-            BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.06),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(20.r),
+        body: SafeArea(
           child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: 16.w,
-              vertical: 18.h,
-            ),
-            child: Row(
+            padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 24.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                Container(
-                  width: 48.r,
-                  height: 48.r,
-                  decoration: BoxDecoration(
-                    color: AppColors.secondary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(14.r),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(
-                    icon,
-                    color: AppColors.secondary,
-                    size: 24.sp,
+                SizedBox(height: 8.h),
+                Text(
+                  'More',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 28.sp,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.6,
+                    height: 1.1,
                   ),
                 ),
-                SizedBox(width: 14.w),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      Text(
-                        title,
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      SizedBox(height: 4.h),
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12.sp,
-                        ),
-                      ),
-                    ],
+                SizedBox(height: 6.h),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
-                Icon(
-                  Icons.chevron_right,
-                  color: AppColors.textSecondary,
-                  size: 22.sp,
-                ),
+                SizedBox(height: 28.h),
+                _MoreGrid(specs: _tileSpecs(context)),
               ],
             ),
           ),
@@ -183,55 +64,136 @@ class _MoreCard extends StatelessWidget {
       ),
     );
   }
+
+  /// Built per-build so the closures can capture the current `context`
+  /// for navigation. Append to this list as future tiles land — the
+  /// 2-col grid auto-flows.
+  List<_TileSpec> _tileSpecs(BuildContext context) => <_TileSpec>[
+        _TileSpec(
+          icon: Icons.settings_outlined,
+          title: 'Settings',
+          subtitle: 'Profile, biometric unlock & more',
+          // Settings is account chrome rather than a domain module, so
+          // it picks up a neutral grey accent instead of one of the
+          // hub palette colours (blue / orange / green / red).
+          iconColor: AppColors.textSecondary,
+          onTap: () => context.push(Routes.settings),
+        ),
+      ];
 }
 
-/// Destructive action — separated from the regular card list with a red
-/// border + icon so the eye picks it up immediately, but kept the same
-/// height/shape as a card so the layout reads as one column.
-class _SignOutButton extends StatelessWidget {
-  const _SignOutButton({required this.onPressed});
+/// Static description of one tile. The page builds these per-frame
+/// so `onTap` closures can capture a live `BuildContext`.
+@immutable
+class _TileSpec {
+  const _TileSpec({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.iconColor,
+    required this.onTap,
+  });
 
-  final VoidCallback onPressed;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color iconColor;
+  final VoidCallback onTap;
+}
+
+class _MoreGrid extends StatelessWidget {
+  const _MoreGrid({required this.specs});
+
+  final List<_TileSpec> specs;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(20.r),
-      child: Ink(
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(20.r),
-          border: Border.all(
-            color: AppColors.error.withValues(alpha: 0.25),
-          ),
+    return GridView.count(
+      crossAxisCount: 2,
+      crossAxisSpacing: 14.w,
+      mainAxisSpacing: 14.h,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      children: <Widget>[
+        for (final spec in specs) _MoreTile(spec: spec),
+      ],
+    );
+  }
+}
+
+class _MoreTile extends StatelessWidget {
+  const _MoreTile({required this.spec});
+
+  final _TileSpec spec;
+
+  @override
+  Widget build(BuildContext context) {
+    // Single decoration source: a `DecoratedBox` paints the white
+    // surface, the per-module border, and the soft shadow. The
+    // Material above is transparent so it doesn't paint a second
+    // rectangle behind the rounded card.
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(
+          color: spec.iconColor.withValues(alpha: 0.25),
         ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(20.r),
         child: InkWell(
-          onTap: onPressed,
+          onTap: spec.onTap,
           borderRadius: BorderRadius.circular(20.r),
-          splashColor: AppColors.error.withValues(alpha: 0.12),
-          highlightColor: AppColors.error.withValues(alpha: 0.06),
           child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: 16.w,
-              vertical: 16.h,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            padding: EdgeInsets.fromLTRB(18.w, 20.h, 18.w, 18.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Icon(
-                  Icons.logout,
-                  color: AppColors.error,
-                  size: 20.sp,
-                ),
-                SizedBox(width: 10.w),
-                Text(
-                  'Sign out',
-                  style: TextStyle(
-                    color: AppColors.error,
-                    fontSize: 15.sp,
-                    fontWeight: FontWeight.w600,
+                Container(
+                  width: 48.r,
+                  height: 48.r,
+                  decoration: BoxDecoration(
+                    color: spec.iconColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14.r),
                   ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    spec.icon,
+                    color: spec.iconColor,
+                    size: 24.sp,
+                  ),
+                ),
+                SizedBox(height: 12.h),
+                Text(
+                  spec.title,
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.2,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  spec.subtitle,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12.sp,
+                    height: 1.3,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
