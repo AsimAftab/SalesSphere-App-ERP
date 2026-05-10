@@ -265,7 +265,7 @@ class _CustomOptionPickerShell extends StatelessWidget {
             fontFamily: 'Poppins',
           ),
           floatingLabelStyle: TextStyle(
-            color: isReadOnly ? AppColors.textPrimary : AppColors.secondary,
+            color: isReadOnly ? AppColors.textSecondary : AppColors.secondary,
             fontSize: 13.sp,
             fontFamily: 'Poppins',
             fontWeight: FontWeight.w500,
@@ -280,16 +280,20 @@ class _CustomOptionPickerShell extends StatelessWidget {
               ? null
               : Icon(
                   prefixIcon,
+                  color: isReadOnly
+                      ? AppColors.textSecondary.withValues(alpha: 0.4)
+                      : AppColors.textSecondary,
+                  size: 20.sp,
+                ),
+          suffixIcon: isReadOnly
+              ? null
+              : Icon(
+                  Icons.keyboard_arrow_down,
                   color: AppColors.textSecondary,
                   size: 20.sp,
                 ),
-          suffixIcon: Icon(
-            isReadOnly ? Icons.lock_outline : Icons.keyboard_arrow_down,
-            color: AppColors.textSecondary,
-            size: 20.sp,
-          ),
           filled: true,
-          fillColor: isReadOnly ? AppColors.background : AppColors.surface,
+          fillColor: isReadOnly ? Colors.grey.shade100 : AppColors.surface,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12.r),
             borderSide:
@@ -317,7 +321,9 @@ class _CustomOptionPickerShell extends StatelessWidget {
             ? Text(
                 value!,
                 style: TextStyle(
-                  color: AppColors.textPrimary,
+                  color: isReadOnly
+                      ? AppColors.textSecondary.withValues(alpha: 0.6)
+                      : AppColors.textPrimary,
                   fontSize: 15.sp,
                   fontFamily: 'Poppins',
                   fontWeight: FontWeight.w500,

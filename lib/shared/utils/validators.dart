@@ -43,6 +43,15 @@ class Validators {
     return (value?.trim().isEmpty ?? true) ? '$label is required' : null;
   }
 
+  /// Required-text validator that surfaces a custom message verbatim
+  /// instead of the default `"$label is required"` form. Use for
+  /// picker fields where instructional copy reads better than a
+  /// generic label (e.g. "Please link this note to a party,
+  /// prospect, or site").
+  static String? requiredFieldCustom(String? value, String message) {
+    return (value?.trim().isEmpty ?? true) ? message : null;
+  }
+
   /// Exactly 10 digits — Nepal mobile-number format used on the parties
   /// add/edit forms.
   static String? phone10(String? value) {

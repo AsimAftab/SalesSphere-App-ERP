@@ -28,6 +28,10 @@ import 'package:sales_sphere_erp/features/sites/presentation/pages/add_site_page
 import 'package:sales_sphere_erp/features/sites/presentation/pages/edit_site_detail_page.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/pages/sites_list_page.dart';
 import 'package:sales_sphere_erp/features/splash/splash_page.dart';
+import 'package:sales_sphere_erp/features/visit_notes/domain/visit_note.dart';
+import 'package:sales_sphere_erp/features/visit_notes/presentation/pages/add_visit_note_page.dart';
+import 'package:sales_sphere_erp/features/visit_notes/presentation/pages/edit_visit_note_detail_page.dart';
+import 'package:sales_sphere_erp/features/visit_notes/presentation/pages/visit_notes_list_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   // Eagerly instantiate the auth controller so its startup resolution runs.
@@ -184,6 +188,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return EditSiteDetailPage(
             id: id,
             initial: extra is Site ? extra : null,
+          );
+        },
+      ),
+      GoRoute(
+        path: Routes.visitNotes,
+        name: Routes.visitNotesName,
+        builder: (_, __) => const VisitNotesListPage(),
+      ),
+      GoRoute(
+        path: Routes.addVisitNote,
+        name: Routes.addVisitNoteName,
+        builder: (_, __) => const AddVisitNotePage(),
+      ),
+      GoRoute(
+        path: Routes.visitNoteDetail,
+        name: Routes.visitNoteDetailName,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          final extra = state.extra;
+          return EditVisitNoteDetailPage(
+            id: id,
+            initial: extra is VisitNote ? extra : null,
           );
         },
       ),

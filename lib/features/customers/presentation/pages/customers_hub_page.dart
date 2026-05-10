@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
@@ -8,9 +7,15 @@ import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
 /// Hub screen surfaced from the bottom-nav "Customers" tab. Groups
-/// Parties + Prospects + Sites under one entry so the user picks which
-/// list to drill into. `context.push` (not `go`) keeps the navbar visible
-/// and lets the destination's back arrow return here.
+/// Parties + Prospects + Sites + (placeholder) Visit Notes under one
+/// entry so the user picks which list to drill into. `context.push`
+/// (not `go`) keeps the navbar visible and lets the destination's
+/// back arrow return here.
+///
+/// Tiles share a flat white surface; identity comes from a per-module
+/// icon colour (blue / orange / green / red) tinted into a soft
+/// rounded icon block. Visit Notes carries a small gold "Soon" pill
+/// in its title row to mark it as a placeholder.
 class CustomersHubPage extends StatelessWidget {
   const CustomersHubPage({super.key});
 
@@ -19,164 +24,191 @@ class CustomersHubPage extends StatelessWidget {
     return DarkStatusBar(
       child: Scaffold(
         backgroundColor: AppColors.background,
-        body: Stack(
-          children: <Widget>[
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: SvgPicture.asset(
-                'assets/images/corner_bubble.svg',
-                fit: BoxFit.cover,
-                height: 180.h,
-              ),
-            ),
-            SafeArea(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 16.h),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    SizedBox(height: 8.h),
-                    Text(
-                      'Customers',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 22.sp,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    SizedBox(height: 4.h),
-                    Text(
-                      'Choose where to begin.',
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13.sp,
-                      ),
-                    ),
-                    SizedBox(height: 28.h),
-                    _HubCard(
-                      icon: Icons.business_outlined,
-                      title: 'Parties',
-                      subtitle: 'Active customers and accounts',
-                      onTap: () => context.push(Routes.parties),
-                    ),
-                    SizedBox(height: 16.h),
-                    _HubCard(
-                      icon: Icons.person_search_outlined,
-                      title: 'Prospects',
-                      subtitle: 'Potential customers in your pipeline',
-                      onTap: () => context.push(Routes.prospects),
-                    ),
-                    SizedBox(height: 16.h),
-                    _HubCard(
-                      icon: Icons.location_city_outlined,
-                      title: 'Sites',
-                      subtitle: 'Customer locations and branches',
-                      onTap: () => context.push(Routes.sites),
-                    ),
-                  ],
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 24.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                SizedBox(height: 8.h),
+                Text(
+                  'Customers',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 28.sp,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.6,
+                    height: 1.1,
+                  ),
                 ),
-              ),
+                SizedBox(height: 6.h),
+                Text(
+                  'Tap any tile to manage that module.',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                SizedBox(height: 28.h),
+                _HubGrid(specs: _tileSpecs(context)),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
+
+  /// Built per-build so the closures can capture the current `context`
+  /// for navigation + snackbar.
+  List<_TileSpec> _tileSpecs(BuildContext context) => <_TileSpec>[
+        _TileSpec(
+          icon: Icons.storefront_outlined,
+          title: 'Parties',
+          subtitle: 'Manage business partners',
+          iconColor: AppColors.secondary,
+          onTap: () => context.push(Routes.parties),
+        ),
+        _TileSpec(
+          icon: Icons.person_search_outlined,
+          title: 'Prospects',
+          subtitle: 'Manage potential customers',
+          iconColor: AppColors.warning,
+          onTap: () => context.push(Routes.prospects),
+        ),
+        _TileSpec(
+          icon: Icons.location_city_outlined,
+          title: 'Sites',
+          subtitle: 'Manage potential business locations',
+          iconColor: AppColors.green500,
+          onTap: () => context.push(Routes.sites),
+        ),
+        _TileSpec(
+          icon: Icons.event_note_outlined,
+          title: 'Visit Notes',
+          subtitle: 'Log discussions,   feedback & issues',
+          iconColor: AppColors.red500,
+          onTap: () => context.push(Routes.visitNotes),
+        ),
+      ];
 }
 
-class _HubCard extends StatelessWidget {
-  const _HubCard({
+/// Static description of one hub tile. The page builds these per-frame
+/// so the `onTap` closures can capture a live `BuildContext`.
+@immutable
+class _TileSpec {
+  const _TileSpec({
     required this.icon,
     required this.title,
     required this.subtitle,
-    this.onTap,
+    required this.iconColor,
+    required this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
-  final VoidCallback? onTap;
+  final Color iconColor;
+  final VoidCallback onTap;
+}
+
+class _HubGrid extends StatelessWidget {
+  const _HubGrid({required this.specs});
+
+  final List<_TileSpec> specs;
 
   @override
   Widget build(BuildContext context) {
-    final disabled = onTap == null;
-    return Opacity(
-      opacity: disabled ? 0.6 : 1,
-      child: Material(
+    return GridView.count(
+      crossAxisCount: 2,
+      crossAxisSpacing: 14.w,
+      mainAxisSpacing: 14.h,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      children: <Widget>[
+        for (final spec in specs) _HubTile(spec: spec),
+      ],
+    );
+  }
+}
+
+class _HubTile extends StatelessWidget {
+  const _HubTile({required this.spec});
+
+  final _TileSpec spec;
+
+  @override
+  Widget build(BuildContext context) {
+    // Single decoration source: a `DecoratedBox` paints the white
+    // surface, the per-module border, and the soft shadow. The
+    // Material above is transparent so it doesn't paint a second
+    // rectangle behind the rounded card — that double-painting is
+    // what was leaking rectangular edges around the rounded shape.
+    return DecoratedBox(
+      decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(20.r),
-        child: Ink(
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(20.r),
-            boxShadow: <BoxShadow>[
-              BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.06),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-            ],
+        border: Border.all(
+          color: spec.iconColor.withValues(alpha: 0.25),
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
           ),
-          child: InkWell(
-            onTap: disabled ? null : onTap,
-            borderRadius: BorderRadius.circular(20.r),
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: 16.w,
-                vertical: 18.h,
-              ),
-              child: Row(
-                children: <Widget>[
-                  Container(
-                    width: 48.r,
-                    height: 48.r,
-                    decoration: BoxDecoration(
-                      color: AppColors.secondary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(14.r),
-                    ),
-                    alignment: Alignment.center,
-                    child: Icon(
-                      icon,
-                      color: AppColors.secondary,
-                      size: 24.sp,
-                    ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(20.r),
+        child: InkWell(
+          onTap: spec.onTap,
+          borderRadius: BorderRadius.circular(20.r),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(18.w, 20.h, 18.w, 18.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Container(
+                  width: 48.r,
+                  height: 48.r,
+                  decoration: BoxDecoration(
+                    color: spec.iconColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14.r),
                   ),
-                  SizedBox(width: 14.w),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Text(
-                          title,
-                          style: TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 16.sp,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        SizedBox(height: 4.h),
-                        Text(
-                          subtitle,
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 12.sp,
-                          ),
-                        ),
-                      ],
-                    ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    spec.icon,
+                    color: spec.iconColor,
+                    size: 24.sp,
                   ),
-                  if (!disabled)
-                    Icon(
-                      Icons.chevron_right,
-                      color: AppColors.textSecondary,
-                      size: 22.sp,
-                    ),
-                ],
-              ),
+                ),
+                SizedBox(height: 12.h),
+                Text(
+                  spec.title,
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.2,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  spec.subtitle,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12.sp,
+                    height: 1.3,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
           ),
         ),

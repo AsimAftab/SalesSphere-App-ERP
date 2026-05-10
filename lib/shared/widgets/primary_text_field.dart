@@ -13,6 +13,7 @@ import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 /// Both are optional; you can use either, both, or neither.
 class PrimaryTextField extends StatefulWidget {
   final IconData? prefixIcon;
+  final Color? prefixIconColor;
   final Widget? suffixWidget;
   final String? hintText;
   final String? label;
@@ -34,12 +35,23 @@ class PrimaryTextField extends StatefulWidget {
   final int? maxLines;
   final bool showCounter;
 
+  /// When true, the field can't be edited by the user but can still
+  /// be tapped (cursor doesn't appear). Combined with [onTap] this
+  /// turns the field into a "tap to pick" surface — useful for
+  /// pickers that want the field's exact height + decoration.
+  final bool readOnly;
+
+  /// Fired when the user taps the field. Use with [readOnly] for
+  /// picker-style fields. Ignored when [enabled] is false.
+  final VoidCallback? onTap;
+
   const PrimaryTextField({
     required this.controller,
     super.key,
     this.hintText,
     this.label,
     this.prefixIcon,
+    this.prefixIconColor,
     this.suffixWidget,
     this.labelStyle,
     this.validator,
@@ -57,6 +69,8 @@ class PrimaryTextField extends StatefulWidget {
     this.minLines,
     this.maxLines,
     this.showCounter = false,
+    this.readOnly = false,
+    this.onTap,
   });
 
   @override
@@ -93,6 +107,8 @@ class _PrimaryTextFieldState extends State<PrimaryTextField> {
           maxLength: widget.maxLength,
           autofillHints: widget.autofillHints,
           enabled: isEnabled,
+          readOnly: widget.readOnly,
+          onTap: isEnabled ? widget.onTap : null,
           textInputAction: widget.textInputAction,
           minLines: widget.minLines,
           maxLines: (widget.obscureText ?? false) ? 1 : (widget.maxLines ?? 1),
@@ -156,9 +172,10 @@ class _PrimaryTextFieldState extends State<PrimaryTextField> {
                     widget.prefixIcon,
                     color: hasError
                         ? AppColors.error
-                        : (shouldShowGreyStyle
-                              ? AppColors.textSecondary.withValues(alpha: 0.4)
-                              : AppColors.textSecondary),
+                        : (widget.prefixIconColor ??
+                            (shouldShowGreyStyle
+                                ? AppColors.textSecondary.withValues(alpha: 0.4)
+                                : AppColors.textSecondary)),
                     size: 20.sp,
                   )
                 : null,

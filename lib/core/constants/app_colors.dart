@@ -14,6 +14,11 @@ class AppColors {
   static const Color secondaryDark = Color(0xFF018786);
   static const Color secondaryLight = Color(0xFF66FFF9);
 
+  // Tertiary (gold) — matches the FlexColorScheme tertiary in app_theme.
+  // Used as a sparing accent: the "Soon" pill on hub placeholder tiles,
+  // and per-tile identity for opportunity-flavoured modules.
+  static const Color tertiary = Color(0xFFE2A93D);
+
   // Background Colors
   static const Color background = Color(0xFFF1F4FC);
   static const Color backgroundDark = Color(0xFF121212);
