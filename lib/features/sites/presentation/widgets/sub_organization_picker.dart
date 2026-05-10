@@ -32,26 +32,38 @@ class SubOrganizationPicker extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncOrgs = ref.watch(siteSubOrganizationsProvider);
     final orgs = asyncOrgs.value ?? const <SubOrganization>[];
+
+    // Build a stable label→id map from the same snapshot used to render
+    // the option list, then close over it in `onChanged`. No `ref.read`
+    // inside the callback — that earlier shape could (a) silently pick
+    // the wrong id when two sub-orgs share a display name, and (b)
+    // resolve to null if the catalogue refreshed between the sheet
+    // opening and the user's tap. Duplicate names are disambiguated by
+    // suffixing the id on the second-and-later occurrences.
+    final labelToId = <String, String>{};
+    final nameCounts = <String, int>{};
+    for (final org in orgs) {
+      final count = (nameCounts[org.name] ?? 0) + 1;
+      nameCounts[org.name] = count;
+      final label = count == 1 ? org.name : '${org.name} (${org.id})';
+      labelToId[label] = org.id;
+    }
     // If the saved id no longer matches anything in the catalogue (e.g.
     // it was removed server-side), pass null so the field shows the
     // placeholder rather than a stale value.
-    final selectedName = orgs._firstWhereOrNull((o) => o.id == value)?.name;
-    final options = orgs.map((o) => o.name).toList(growable: false);
+    final selectedName =
+        labelToId.entries._firstWhereOrNull((e) => e.value == value)?.key;
+    final options = labelToId.keys.toList(growable: false);
 
     return CustomOptionPicker(
       value: selectedName,
       options: options,
-      onChanged: (name) {
-        if (name == null) {
+      onChanged: (label) {
+        if (label == null) {
           onChanged(null);
           return;
         }
-        // Resolve back to id from the freshest catalogue captured by
-        // this build's `orgs`.
-        final latest = (ref.read(siteSubOrganizationsProvider).value ??
-                const <SubOrganization>[])
-            ._firstWhereOrNull((o) => o.name == name);
-        onChanged(latest?.id);
+        onChanged(labelToId[label]);
       },
       // Loads the catalogue before the sheet opens (mock API has a
       // 200ms delay) so the names are always there to be picked.

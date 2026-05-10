@@ -10,7 +10,5 @@ abstract class PartiesRepository {
 
   Future<Party> updateParty(Party party);
 
-  Party? findById(String id);
-
   Future<List<String>> getPartyTypes();
 }

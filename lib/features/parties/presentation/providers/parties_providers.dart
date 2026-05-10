@@ -11,12 +11,16 @@ Future<List<Party>> partiesList(Ref ref) async {
   return ref.watch(partiesRepositoryProvider).getParties();
 }
 
-/// Resolves a single party by id from the in-memory store. Watches the
-/// list provider so it rebuilds whenever entries are added or updated.
+/// Resolves a single party by id. Derived from the list provider's
+/// `AsyncValue` so loading and error states propagate to consumers
+/// instead of collapsing into `null`.
 @riverpod
-Party? partyById(Ref ref, String id) {
-  ref.watch(partiesListProvider);
-  return ref.watch(partiesRepositoryProvider).findById(id);
+Future<Party?> partyById(Ref ref, String id) async {
+  final parties = await ref.watch(partiesListProvider.future);
+  for (final party in parties) {
+    if (party.id == id) return party;
+  }
+  return null;
 }
 
 /// Catalogue of party types used by the picker. Backed by a mock list in

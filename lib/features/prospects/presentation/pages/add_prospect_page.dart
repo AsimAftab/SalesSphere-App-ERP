@@ -10,6 +10,7 @@ import 'package:sales_sphere_erp/features/prospects/domain/prospect.dart';
 import 'package:sales_sphere_erp/features/prospects/presentation/controllers/prospects_controller.dart';
 import 'package:sales_sphere_erp/features/prospects/presentation/providers/prospects_providers.dart';
 import 'package:sales_sphere_erp/shared/domain/interest.dart';
+import 'package:sales_sphere_erp/shared/domain/interest_catalogue.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
@@ -234,9 +235,8 @@ class _AddProspectPageState extends ConsumerState<AddProspectPage> {
                                 ref.read(prospectsControllerProvider.notifier);
                             return InterestPicker(
                               value: _interests,
-                              catalogue:
-                                  catalogueAsync.value ??
-                                  const <String, List<String>>{},
+                              catalogue: catalogueAsync.value ??
+                                  InterestCatalogue.empty(),
                               enabled: true,
                               label: 'Prospect Interest',
                               hintText: 'Select prospect interest',

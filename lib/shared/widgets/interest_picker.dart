@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/features/sites/domain/site_interest.dart';
 import 'package:sales_sphere_erp/shared/domain/interest.dart';
+import 'package:sales_sphere_erp/shared/domain/interest_catalogue.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
@@ -34,9 +35,9 @@ class InterestPicker extends StatefulWidget {
   final ValueChanged<List<Interest>> onChanged;
 
   /// Source of truth for which categories exist and which brands sit
-  /// underneath each. Empty map = nothing pre-defined; the user can
-  /// still add new categories from the sheet.
-  final Map<String, List<String>> catalogue;
+  /// underneath each. Empty catalogue = nothing pre-defined; the user
+  /// can still add new categories from the sheet.
+  final InterestCatalogue catalogue;
   final ValueChanged<String> onAddCategory;
   final void Function(String category, String brand) onAddBrand;
   final bool enabled;
@@ -89,7 +90,9 @@ class _InterestPickerState extends State<InterestPicker> {
       backgroundColor: Colors.transparent,
       builder: (_) => _InterestSheet(
         initialSelections: widget.value,
-        catalogue: widget.catalogue,
+        catalogue: <String, List<String>>{
+          for (final c in widget.catalogue.categories) c.name: c.brands,
+        },
         onCommit: widget.onChanged,
         onAddCategory: widget.onAddCategory,
         onAddBrand: widget.onAddBrand,

@@ -12,6 +12,7 @@ import 'package:sales_sphere_erp/features/prospects/domain/prospect.dart';
 import 'package:sales_sphere_erp/features/prospects/presentation/controllers/prospects_controller.dart';
 import 'package:sales_sphere_erp/features/prospects/presentation/providers/prospects_providers.dart';
 import 'package:sales_sphere_erp/shared/domain/interest.dart';
+import 'package:sales_sphere_erp/shared/domain/interest_catalogue.dart';
 import 'package:sales_sphere_erp/shared/utils/maps_launcher.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
@@ -81,13 +82,20 @@ class _EditProspectDetailPageState
     }
   }
 
-  /// Loads the prospect from the repository. Today the lookup is
-  /// in-memory; when the real API lands, replace the delay + lookup with
-  /// `await ref.read(prospectByIdProvider(widget.id).future)`.
+  /// Loads the prospect by awaiting the byId provider's future, which
+  /// derives from the list AsyncValue. Replaced an earlier fixed
+  /// `Future.delayed(600 ms)` + sync `findById` shape that couldn't
+  /// distinguish loading from not-found and would latch `_notFound`
+  /// whenever the list took longer than the delay.
   Future<void> _hydrate() async {
-    await Future<void>.delayed(const Duration(milliseconds: 600));
+    Prospect? prospect;
+    try {
+      prospect = await ref.read(prospectByIdProvider(widget.id).future);
+    } on Object catch (_) {
+      // List failed to load; fall through to the not-found branch
+      // below (the user-facing copy is "couldn't load this prospect").
+    }
     if (!mounted) return;
-    final prospect = ref.read(prospectByIdProvider(widget.id));
     if (prospect != null) {
       _populate(prospect);
       setState(() => _loading = false);
@@ -138,7 +146,11 @@ class _EditProspectDetailPageState
 
   void _cancelEdit() {
     // Reset every field back to the saved prospect and exit edit mode.
-    final saved = ref.read(prospectByIdProvider(widget.id)) ?? widget.initial;
+    // byId is now async, so read its already-cached AsyncValue and
+    // fall through to the route's `extra` if the future hasn't
+    // resolved or has errored.
+    final saved =
+        ref.read(prospectByIdProvider(widget.id)).value ?? widget.initial;
     if (saved != null) _populate(saved);
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _editing = false);
@@ -421,9 +433,8 @@ class _EditProspectDetailPageState
                                       );
                                       return InterestPicker(
                                         value: _interests,
-                                        catalogue:
-                                            catalogueAsync.value ??
-                                            const <String, List<String>>{},
+                                        catalogue: catalogueAsync.value ??
+                                            InterestCatalogue.empty(),
                                         enabled: _editing,
                                         label: 'Prospect Interest',
                                         hintText: 'Select prospect interest',

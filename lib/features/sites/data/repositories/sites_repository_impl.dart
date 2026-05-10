@@ -6,6 +6,7 @@ import 'package:sales_sphere_erp/features/sites/domain/repositories/sites_reposi
 import 'package:sales_sphere_erp/features/sites/domain/site.dart';
 import 'package:sales_sphere_erp/features/sites/domain/site_interest.dart';
 import 'package:sales_sphere_erp/features/sites/domain/sub_organization.dart';
+import 'package:sales_sphere_erp/shared/domain/interest_catalogue.dart';
 
 /// Anti-corruption layer between the wire DTOs and the rest of the app.
 /// All DTO ↔ domain mapping happens here. Drift persistence + outbox
@@ -34,14 +35,10 @@ class SitesRepositoryImpl implements SitesRepository {
   }
 
   @override
-  Site? findById(String id) {
-    final dto = _api.findById(id);
-    return dto == null ? null : _toDomain(dto);
+  Future<InterestCatalogue> getInterestCatalogue() async {
+    final raw = await _api.interestCatalogue();
+    return InterestCatalogue.fromMap(raw);
   }
-
-  @override
-  Future<Map<String, List<String>>> getInterestCatalogue() =>
-      _api.interestCatalogue();
 
   @override
   Future<void> addInterestCategory(String category) =>

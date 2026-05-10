@@ -2,6 +2,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:sales_sphere_erp/features/prospects/data/repositories/prospects_repository_impl.dart';
 import 'package:sales_sphere_erp/features/prospects/domain/prospect.dart';
+import 'package:sales_sphere_erp/shared/domain/interest_catalogue.dart';
 
 part 'prospects_providers.g.dart';
 
@@ -11,19 +12,25 @@ Future<List<Prospect>> prospectsList(Ref ref) async {
   return ref.watch(prospectsRepositoryProvider).getProspects();
 }
 
-/// Resolves a single prospect by id from the in-memory store. Watches
-/// the list provider so it rebuilds whenever entries are added or
-/// updated.
+/// Resolves a single prospect by id. Derived from the list provider's
+/// `AsyncValue` so loading and error states propagate to consumers
+/// instead of collapsing into `null`. The previous shape called the
+/// repo's synchronous `findById` directly, which couldn't distinguish
+/// "still loading" from "actually not found" and made the async
+/// `_hydrate` flows on detail pages unreliable.
 @riverpod
-Prospect? prospectById(Ref ref, String id) {
-  ref.watch(prospectsListProvider);
-  return ref.watch(prospectsRepositoryProvider).findById(id);
+Future<Prospect?> prospectById(Ref ref, String id) async {
+  final prospects = await ref.watch(prospectsListProvider.future);
+  for (final prospect in prospects) {
+    if (prospect.id == id) return prospect;
+  }
+  return null;
 }
 
-/// Catalogue of categories → brands used by the interest picker. Backed
-/// by an in-memory map in the API today — swap to a real fetch when the
-/// backend ships it.
+/// Catalogue of categories → brands used by the interest picker.
+/// Repository returns the domain `InterestCatalogue`; the raw map
+/// shape stays inside `ProspectsApi`.
 @riverpod
-Future<Map<String, List<String>>> prospectInterests(Ref ref) async {
+Future<InterestCatalogue> prospectInterests(Ref ref) async {
   return ref.watch(prospectsRepositoryProvider).getInterestCatalogue();
 }

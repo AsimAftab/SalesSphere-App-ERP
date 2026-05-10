@@ -1,4 +1,5 @@
 import 'package:sales_sphere_erp/features/prospects/domain/prospect.dart';
+import 'package:sales_sphere_erp/shared/domain/interest_catalogue.dart';
 
 /// Domain-side contract for prospects data. The concrete implementation
 /// (DTO mapping, drift persistence, outbox enqueue) lives in
@@ -10,9 +11,7 @@ abstract class ProspectsRepository {
 
   Future<Prospect> updateProspect(Prospect prospect);
 
-  Prospect? findById(String id);
-
-  Future<Map<String, List<String>>> getInterestCatalogue();
+  Future<InterestCatalogue> getInterestCatalogue();
 
   Future<void> addInterestCategory(String category);
 

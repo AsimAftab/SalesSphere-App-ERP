@@ -1,5 +1,6 @@
 import 'package:sales_sphere_erp/features/sites/domain/site.dart';
 import 'package:sales_sphere_erp/features/sites/domain/sub_organization.dart';
+import 'package:sales_sphere_erp/shared/domain/interest_catalogue.dart';
 
 /// Domain-side contract for sites data. The concrete implementation
 /// (DTO mapping, drift persistence, outbox enqueue) lives in
@@ -11,9 +12,7 @@ abstract class SitesRepository {
 
   Future<Site> updateSite(Site site);
 
-  Site? findById(String id);
-
-  Future<Map<String, List<String>>> getInterestCatalogue();
+  Future<InterestCatalogue> getInterestCatalogue();
 
   Future<void> addInterestCategory(String category);
 

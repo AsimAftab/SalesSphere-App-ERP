@@ -79,13 +79,17 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
     }
   }
 
-  /// Loads the party from the repository. Today the lookup is in-memory;
-  /// when the real API lands, replace the delay + lookup with
-  /// `await ref.read(partyByIdProvider(widget.id).future)`.
+  /// Loads the party by awaiting the byId provider's future, which
+  /// derives from the list AsyncValue. Falls through to the
+  /// not-found branch if the list errors.
   Future<void> _hydrate() async {
-    await Future<void>.delayed(const Duration(milliseconds: 600));
+    Party? party;
+    try {
+      party = await ref.read(partyByIdProvider(widget.id).future);
+    } on Object catch (_) {
+      // List failed to load; surface as the not-found state below.
+    }
     if (!mounted) return;
-    final party = ref.read(partyByIdProvider(widget.id));
     if (party != null) {
       _populate(party);
       setState(() => _loading = false);
@@ -136,7 +140,8 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
 
   void _cancelEdit() {
     // Reset every field back to the saved party and exit edit mode.
-    final saved = ref.read(partyByIdProvider(widget.id)) ?? widget.initial;
+    final saved =
+        ref.read(partyByIdProvider(widget.id)).value ?? widget.initial;
     if (saved != null) _populate(saved);
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _editing = false);

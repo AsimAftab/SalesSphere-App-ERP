@@ -5,6 +5,7 @@ import 'package:sales_sphere_erp/features/prospects/data/prospects_api.dart';
 import 'package:sales_sphere_erp/features/prospects/domain/prospect.dart';
 import 'package:sales_sphere_erp/features/prospects/domain/repositories/prospects_repository.dart';
 import 'package:sales_sphere_erp/shared/domain/interest.dart';
+import 'package:sales_sphere_erp/shared/domain/interest_catalogue.dart';
 
 /// Anti-corruption layer between the wire DTOs and the rest of the app.
 /// All DTO ↔ domain mapping happens here. Drift persistence + outbox
@@ -33,14 +34,10 @@ class ProspectsRepositoryImpl implements ProspectsRepository {
   }
 
   @override
-  Prospect? findById(String id) {
-    final dto = _api.findById(id);
-    return dto == null ? null : _toDomain(dto);
+  Future<InterestCatalogue> getInterestCatalogue() async {
+    final raw = await _api.interestCatalogue();
+    return InterestCatalogue.fromMap(raw);
   }
-
-  @override
-  Future<Map<String, List<String>>> getInterestCatalogue() =>
-      _api.interestCatalogue();
 
   @override
   Future<void> addInterestCategory(String category) =>
