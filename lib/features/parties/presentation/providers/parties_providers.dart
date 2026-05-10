@@ -3,6 +3,13 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:sales_sphere_erp/features/parties/data/repositories/parties_repository_impl.dart';
 import 'package:sales_sphere_erp/features/parties/domain/party.dart';
 
+// Re-export the repository provider so downstream consumers
+// (controllers, tests) can depend on the contract surface without
+// importing from `data/`. The impl import above stays because this
+// file actually uses the provider in its own watch calls.
+export 'package:sales_sphere_erp/features/parties/data/repositories/parties_repository_impl.dart'
+    show partiesRepositoryProvider;
+
 part 'parties_providers.g.dart';
 
 /// Convenience provider for screens that just need the current list.

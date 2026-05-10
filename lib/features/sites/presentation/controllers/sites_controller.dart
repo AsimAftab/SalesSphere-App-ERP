@@ -1,7 +1,8 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import 'package:sales_sphere_erp/features/sites/data/repositories/sites_repository_impl.dart';
 import 'package:sales_sphere_erp/features/sites/domain/site.dart';
+// `sites_providers.dart` re-exports `sitesRepositoryProvider` so the
+// controller stays out of `features/.../data/`.
 import 'package:sales_sphere_erp/features/sites/presentation/providers/sites_providers.dart';
 
 part 'sites_controller.g.dart';

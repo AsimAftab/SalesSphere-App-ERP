@@ -1,10 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:sales_sphere_erp/core/api/dio_client.dart';
-import 'package:sales_sphere_erp/core/api/interceptors/auth_interceptor.dart';
 import 'package:sales_sphere_erp/core/auth/auth_state.dart';
 import 'package:sales_sphere_erp/core/auth/biometric_service.dart';
 import 'package:sales_sphere_erp/features/auth/domain/auth_user.dart';
+import 'package:sales_sphere_erp/features/auth/domain/token_pair.dart';
 import 'package:sales_sphere_erp/features/auth/domain/usecases/login_usecase.dart';
 import 'package:sales_sphere_erp/features/auth/domain/usecases/logout_usecase.dart';
 import 'package:sales_sphere_erp/features/auth/domain/usecases/refresh_session_usecase.dart';

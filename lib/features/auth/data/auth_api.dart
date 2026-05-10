@@ -49,14 +49,24 @@ class AuthApi {
   }
 
   // The backend wraps every payload in `{ success, data: {...} }`. Peel the
-  // envelope here so DTOs stay focused on the inner shape.
+  // envelope here so DTOs stay focused on the inner shape. Failures
+  // surface as `FormatException` instead of silently falling through to
+  // the raw body, which previously masked contract violations behind
+  // confusing DTO parse errors.
   Map<String, dynamic> _unwrap(Map<String, dynamic>? body) {
     if (body == null) {
       throw const FormatException('Empty response body');
     }
+    if (body['success'] == false) {
+      throw const FormatException('Auth API returned success=false');
+    }
     final inner = body['data'];
-    if (inner is Map<String, dynamic>) return inner;
-    return body;
+    if (inner is! Map<String, dynamic>) {
+      throw const FormatException(
+        'Malformed auth envelope: missing or invalid `data` object',
+      );
+    }
+    return inner;
   }
 }
 

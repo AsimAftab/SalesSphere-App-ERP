@@ -1,4 +1,4 @@
-import 'package:sales_sphere_erp/features/sites/domain/site_interest.dart';
+import 'package:sales_sphere_erp/shared/domain/site_interest.dart';
 
 /// UI-facing site model. Decoupled from wire DTOs so backend renames
 /// don't ripple into widgets. Will be promoted to freezed once the

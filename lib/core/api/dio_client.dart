@@ -11,6 +11,7 @@ import 'package:sales_sphere_erp/core/api/interceptors/logging_interceptor.dart'
 import 'package:sales_sphere_erp/core/auth/token_storage.dart';
 import 'package:sales_sphere_erp/core/config/env.dart';
 import 'package:sales_sphere_erp/core/utils/app_logger_provider.dart';
+import 'package:sales_sphere_erp/features/auth/domain/token_pair.dart';
 
 export 'package:sales_sphere_erp/core/api/endpoints.dart';
 
