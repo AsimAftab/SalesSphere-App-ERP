@@ -10,7 +10,7 @@ class Site {
     required this.address,
     required this.ownerName,
     required this.phone,
-    this.panVat,
+    this.subOrganizationId,
     this.email,
     this.dateJoined,
     this.interests = const <SiteInterest>[],
@@ -30,8 +30,11 @@ class Site {
   final String ownerName;
   final String phone;
 
+  /// Optional sub-organization (branch / division) the site belongs to.
+  /// Resolved against the catalogue exposed by `siteSubOrganizationsProvider`.
+  final String? subOrganizationId;
+
   // Other optional details captured by the add-site form.
-  final String? panVat;
   final String? email;
   final DateTime? dateJoined;
 

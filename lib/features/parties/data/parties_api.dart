@@ -26,18 +26,27 @@ class PartiesApi {
   static final List<Map<String, dynamic>> _seed = <Map<String, dynamic>>[
     <String, dynamic>{
       'id': '1',
-      'name': 'ejejej',
+      'name': 'Bibhuti Traders',
       'address': '4HP8+2RJ, Avalahalli',
+      'ownerName': 'Anil Karki',
+      'phone': '9801234567',
+      'panVat': '301234567',
     },
     <String, dynamic>{
       'id': '2',
-      'name': 'what',
+      'name': 'Himalayan Distributors',
       'address': 'F77F+CP7, Biratnagar',
+      'ownerName': 'Sita Shrestha',
+      'phone': '9812345678',
+      'panVat': '302345678',
     },
     <String, dynamic>{
       'id': '3',
-      'name': 'aa',
+      'name': 'Everest Hardware',
       'address': 'F77G+73R, Biratnagar',
+      'ownerName': 'Ramesh Thapa',
+      'phone': '9823456789',
+      'panVat': '303456789',
     },
   ];
 

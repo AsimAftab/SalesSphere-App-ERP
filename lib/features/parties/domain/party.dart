@@ -6,9 +6,9 @@ class Party {
     required this.id,
     required this.name,
     required this.address,
-    this.ownerName,
-    this.panVat,
-    this.phone,
+    required this.ownerName,
+    required this.phone,
+    required this.panVat,
     this.email,
     this.dateJoined,
     this.partyType,
@@ -22,10 +22,14 @@ class Party {
   final String name;
   final String address;
 
-  // Optional details captured by the add-party form.
-  final String? ownerName;
-  final String? panVat;
-  final String? phone;
+  /// Required by the form's `Validators.requiredField` / `phone10` /
+  /// `panVat` on both add and edit — kept non-nullable here so the form
+  /// contract and the domain shape agree.
+  final String ownerName;
+  final String phone;
+  final String panVat;
+
+  // Other optional details captured by the add-party form.
   final String? email;
   final DateTime? dateJoined;
   final String? partyType;

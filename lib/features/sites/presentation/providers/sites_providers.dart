@@ -2,6 +2,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:sales_sphere_erp/features/sites/data/repositories/sites_repository_impl.dart';
 import 'package:sales_sphere_erp/features/sites/domain/site.dart';
+import 'package:sales_sphere_erp/features/sites/domain/sub_organization.dart';
 
 part 'sites_providers.g.dart';
 
@@ -25,4 +26,12 @@ Site? siteById(Ref ref, String id) {
 @riverpod
 Future<Map<String, List<String>>> siteInterests(Ref ref) async {
   return ref.watch(sitesRepositoryProvider).getInterestCatalogue();
+}
+
+/// Sub-organizations (branches / divisions) shown in the dropdown on
+/// the add / edit site forms. Backed by an in-memory list today —
+/// swaps to a real fetch when the backend exposes the endpoint.
+@riverpod
+Future<List<SubOrganization>> siteSubOrganizations(Ref ref) async {
+  return ref.watch(sitesRepositoryProvider).getSubOrganizations();
 }

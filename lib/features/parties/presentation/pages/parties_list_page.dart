@@ -289,6 +289,9 @@ const _placeholderParty = Party(
   id: '',
   name: 'Loading party name',
   address: 'Loading address line for placeholder',
+  ownerName: 'Loading owner',
+  phone: '0000000000',
+  panVat: '000000000',
 );
 
 class _EmptyState extends StatelessWidget {

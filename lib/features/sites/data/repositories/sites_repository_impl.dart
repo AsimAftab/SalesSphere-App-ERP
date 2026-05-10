@@ -5,6 +5,7 @@ import 'package:sales_sphere_erp/features/sites/data/sites_api.dart';
 import 'package:sales_sphere_erp/features/sites/domain/repositories/sites_repository.dart';
 import 'package:sales_sphere_erp/features/sites/domain/site.dart';
 import 'package:sales_sphere_erp/features/sites/domain/site_interest.dart';
+import 'package:sales_sphere_erp/features/sites/domain/sub_organization.dart';
 
 /// Anti-corruption layer between the wire DTOs and the rest of the app.
 /// All DTO ↔ domain mapping happens here. Drift persistence + outbox
@@ -50,6 +51,14 @@ class SitesRepositoryImpl implements SitesRepository {
   Future<void> addInterestBrand(String category, String brand) =>
       _api.addInterestBrand(category, brand);
 
+  @override
+  Future<List<SubOrganization>> getSubOrganizations() async {
+    final dtos = await _api.subOrganizations();
+    return dtos
+        .map((d) => SubOrganization(id: d.id, name: d.name))
+        .toList(growable: false);
+  }
+
   Site _toDomain(SiteDto dto) => Site(
         id: dto.id,
         name: dto.name,
@@ -60,7 +69,7 @@ class SitesRepositoryImpl implements SitesRepository {
         // strings and the form forces the user to fill them on save.
         ownerName: dto.ownerName ?? '',
         phone: dto.phone ?? '',
-        panVat: dto.panVat,
+        subOrganizationId: dto.subOrganizationId,
         email: dto.email,
         dateJoined: dto.dateJoined,
         interests: dto.interests
@@ -86,7 +95,7 @@ class SitesRepositoryImpl implements SitesRepository {
         name: s.name,
         address: s.address,
         ownerName: s.ownerName,
-        panVat: s.panVat,
+        subOrganizationId: s.subOrganizationId,
         phone: s.phone,
         email: s.email,
         dateJoined: s.dateJoined,
