@@ -51,9 +51,9 @@ class VisitNotesApi {
   Future<List<VisitNoteDto>> list() async {
     // Simulated round-trip so callers exercise the loading state path.
     await Future<void>.delayed(const Duration(milliseconds: 300));
-    return List<VisitNoteDto>.unmodifiable(
-      _store.toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
-    );
+    final sorted = _store.toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return List<VisitNoteDto>.unmodifiable(sorted.map(_cloneDto));
   }
 
   Future<VisitNoteDto> create(VisitNoteDto draft) async {
@@ -66,10 +66,10 @@ class VisitNotesApi {
       linkDisplayName: draft.linkDisplayName,
       description: draft.description,
       createdAt: DateTime.now(),
-      imagePaths: draft.imagePaths,
+      imagePaths: List<String>.unmodifiable(draft.imagePaths),
     );
     _store.add(created);
-    return created;
+    return _cloneDto(created);
   }
 
   Future<VisitNoteDto> update(VisitNoteDto note) async {
@@ -78,9 +78,28 @@ class VisitNotesApi {
     if (index == -1) {
       throw StateError('Visit note ${note.id} not found');
     }
-    _store[index] = note;
-    return note;
+    final updated = _cloneDto(note);
+    _store[index] = updated;
+    return _cloneDto(updated);
   }
+
+  /// Defensive copy of a DTO. The mock store needs to insulate itself
+  /// from caller mutation in both directions: callers can't mutate
+  /// what they put in (so a later `imagePaths.add(...)` doesn't bleed
+  /// into seeded state) and can't mutate what they get out (so a
+  /// `list()` consumer can't reorder the store by sorting in place).
+  /// `imagePaths` is wrapped in `unmodifiable` to enforce that on the
+  /// list as well, not just the DTO reference.
+  VisitNoteDto _cloneDto(VisitNoteDto dto) => VisitNoteDto(
+        id: dto.id,
+        title: dto.title,
+        linkType: dto.linkType,
+        linkId: dto.linkId,
+        linkDisplayName: dto.linkDisplayName,
+        description: dto.description,
+        createdAt: dto.createdAt,
+        imagePaths: List<String>.unmodifiable(dto.imagePaths),
+      );
 }
 
 final visitNotesApiProvider = Provider<VisitNotesApi>((_) => VisitNotesApi());

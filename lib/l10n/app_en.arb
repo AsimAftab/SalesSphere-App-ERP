@@ -12,7 +12,7 @@
   "loginWelcome": "Welcome back",
 
   "biometricTitle": "Unlock",
-  "biometricInstruction": "Use your fingerprint or face to unlock SalesSphere.",
+  "biometricInstruction": "Use your fingerprint to unlock SalesSphere.",
   "biometricUnlock": "Unlock",
   "biometricUsePassword": "Use password instead",
 

@@ -10,6 +10,7 @@ import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/visit_notes/domain/visit_note.dart';
 import 'package:sales_sphere_erp/features/visit_notes/presentation/providers/visit_notes_providers.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
+import 'package:sales_sphere_erp/shared/widgets/primary_filter_bar.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/refreshable_list.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
@@ -43,16 +44,25 @@ class _VisitNotesListPageState extends ConsumerState<VisitNotesListPage> {
   final _searchController = TextEditingController();
   String _query = '';
 
+  /// `null` means "All" — no link-type filter applied. Otherwise the
+  /// list is narrowed to notes whose [VisitNote.linkType] matches.
+  VisitNoteLinkType? _linkFilter;
+
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
 
-  List<VisitNote> _applySearch(List<VisitNote> source) {
+  bool get _hasActiveFilter => _query.trim().isNotEmpty || _linkFilter != null;
+
+  List<VisitNote> _applyFilters(List<VisitNote> source) {
+    final byType = _linkFilter == null
+        ? source
+        : source.where((n) => n.linkType == _linkFilter);
     final q = _query.trim().toLowerCase();
-    if (q.isEmpty) return source;
-    return source
+    if (q.isEmpty) return byType.toList(growable: false);
+    return byType
         .where(
           (n) =>
               n.title.toLowerCase().contains(q) ||
@@ -122,6 +132,29 @@ class _VisitNotesListPageState extends ConsumerState<VisitNotesListPage> {
                             ),
                     ),
                   ),
+                  SizedBox(height: 12.h),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20.w),
+                    child: PrimaryFilterBar<VisitNoteLinkType?>(
+                      selected: _linkFilter,
+                      onChanged: (next) =>
+                          setState(() => _linkFilter = next),
+                      options: <FilterBarOption<VisitNoteLinkType?>>[
+                        const FilterBarOption<VisitNoteLinkType?>(
+                          value: null,
+                          label: 'All Notes',
+                          icon: Icons.list_alt_rounded,
+                        ),
+                        for (final entry in _linkPalette.entries)
+                          FilterBarOption<VisitNoteLinkType?>(
+                            value: entry.key,
+                            label: _filterLabel(entry.key),
+                            icon: entry.value.icon,
+                            iconColor: entry.value.accent,
+                          ),
+                      ],
+                    ),
+                  ),
                   SizedBox(height: 20.h),
                   Padding(
                     padding: EdgeInsets.symmetric(horizontal: 20.w),
@@ -141,7 +174,7 @@ class _VisitNotesListPageState extends ConsumerState<VisitNotesListPage> {
                   Expanded(
                     child: RefreshableList<VisitNote>(
                       async: notesAsync,
-                      filter: _applySearch,
+                      filter: _applyFilters,
                       onRefresh: () async {
                         ref.invalidate(visitNotesListProvider);
                         await ref.read(visitNotesListProvider.future);
@@ -158,7 +191,8 @@ class _VisitNotesListPageState extends ConsumerState<VisitNotesListPage> {
                         note: _placeholderNote,
                         onTap: () {},
                       ),
-                      emptyBuilder: (_) => const _EmptyState(),
+                      emptyBuilder: (_) =>
+                          _EmptyState(hasActiveFilter: _hasActiveFilter),
                       errorBuilder: (_, __, ___) => const _ErrorState(),
                     ),
                   ),
@@ -330,7 +364,13 @@ final _placeholderNote = VisitNote(
 );
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+  const _EmptyState({required this.hasActiveFilter});
+
+  /// True when the empty result is the consequence of an active search
+  /// query or link-type filter, rather than the source list being
+  /// genuinely empty. Drives the copy: the "tap Add Note" prompt only
+  /// makes sense for the latter.
+  final bool hasActiveFilter;
 
   @override
   Widget build(BuildContext context) {
@@ -338,7 +378,9 @@ class _EmptyState extends StatelessWidget {
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 32.w),
         child: Text(
-          'No visit notes yet — tap "Add Note" to log your first visit.',
+          hasActiveFilter
+              ? 'No visit notes match the current filters.'
+              : 'No visit notes yet — tap "Add Note" to log your first visit.',
           textAlign: TextAlign.center,
           style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
         ),
@@ -346,6 +388,12 @@ class _EmptyState extends StatelessWidget {
     );
   }
 }
+
+String _filterLabel(VisitNoteLinkType type) => switch (type) {
+      VisitNoteLinkType.party => 'Parties',
+      VisitNoteLinkType.prospect => 'Prospects',
+      VisitNoteLinkType.site => 'Sites',
+    };
 
 class _ErrorState extends StatelessWidget {
   const _ErrorState();

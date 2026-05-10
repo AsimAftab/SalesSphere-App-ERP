@@ -87,7 +87,7 @@ class CustomersHubPage extends StatelessWidget {
         _TileSpec(
           icon: Icons.event_note_outlined,
           title: 'Visit Notes',
-          subtitle: 'Log discussions,   feedback & issues',
+          subtitle: 'Log discussions, feedback & issues',
           iconColor: AppColors.red500,
           onTap: () => context.push(Routes.visitNotes),
         ),

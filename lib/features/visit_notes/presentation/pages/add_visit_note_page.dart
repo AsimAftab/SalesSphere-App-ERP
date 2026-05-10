@@ -76,7 +76,7 @@ class _AddVisitNotePageState extends ConsumerState<AddVisitNotePage> {
         linkId: link.id,
         linkDisplayName: link.displayName,
         description: _descriptionController.text.trim(),
-        // Server overwrites this with the canonical createdAt — placeholder.
+        // Repository/API assigns the canonical createdAt — placeholder.
         createdAt: DateTime.now(),
         imagePaths: List<String>.unmodifiable(_imagePaths),
       );
@@ -226,7 +226,7 @@ class _Header extends StatelessWidget {
             ),
             SizedBox(height: 8.h),
             Text(
-              'Log a customer visit',
+              "Capture today's visit",
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.8),
@@ -236,7 +236,7 @@ class _Header extends StatelessWidget {
             ),
             SizedBox(height: 4.h),
             Text(
-              'New Visit Note',
+              'Add Visit Note',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white,
@@ -271,7 +271,7 @@ class _SubmitBar extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 12.h),
           child: PrimaryButton(
-            label: 'Save Note',
+            label: 'Add Note',
             leadingIcon: Icons.add_circle_outline,
             isLoading: isLoading,
             onPressed: onPressed,
