@@ -11,6 +11,7 @@ import 'package:sales_sphere_erp/features/sites/domain/site_interest.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/controllers/sites_controller.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/providers/sites_providers.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/widgets/sub_organization_picker.dart';
+import 'package:sales_sphere_erp/shared/domain/interest_catalogue.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
@@ -226,9 +227,8 @@ class _AddSitePageState extends ConsumerState<AddSitePage> {
                                 ref.read(sitesControllerProvider.notifier);
                             return SiteInterestPicker(
                               value: _interests,
-                              catalogue:
-                                  catalogueAsync.value ??
-                                  const <String, List<String>>{},
+                              catalogue: catalogueAsync.value ??
+                                  InterestCatalogue.empty(),
                               enabled: true,
                               onChanged: (next) => setState(() {
                                 _interests = next

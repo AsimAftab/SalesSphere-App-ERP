@@ -32,12 +32,6 @@ class PartiesRepositoryImpl implements PartiesRepository {
   }
 
   @override
-  Party? findById(String id) {
-    final dto = _api.findById(id);
-    return dto == null ? null : _toDomain(dto);
-  }
-
-  @override
   Future<List<String>> getPartyTypes() => _api.partyTypes();
 
   Party _toDomain(PartyDto dto) => Party(

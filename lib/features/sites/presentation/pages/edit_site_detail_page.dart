@@ -13,6 +13,7 @@ import 'package:sales_sphere_erp/features/sites/domain/site_interest.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/controllers/sites_controller.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/providers/sites_providers.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/widgets/sub_organization_picker.dart';
+import 'package:sales_sphere_erp/shared/domain/interest_catalogue.dart';
 import 'package:sales_sphere_erp/shared/utils/maps_launcher.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
@@ -81,19 +82,17 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
     }
   }
 
-  /// Loads the site from the repository. Awaits the list provider so
-  /// the synchronous `findById` lookup below sees a populated store —
-  /// previously this used a fixed 600 ms delay and would latch
-  /// `_notFound = true` whenever the list took longer than that.
+  /// Loads the site by awaiting the byId provider's future, which
+  /// derives from the list AsyncValue. Falls through to the
+  /// not-found branch if the list errors.
   Future<void> _hydrate() async {
+    Site? site;
     try {
-      await ref.read(sitesListProvider.future);
+      site = await ref.read(siteByIdProvider(widget.id).future);
     } on Object catch (_) {
-      // List failed; the findById call below returns null and the
-      // _notFound branch handles the user-facing error state.
+      // List failed to load; surface as the not-found state below.
     }
     if (!mounted) return;
-    final site = ref.read(siteByIdProvider(widget.id));
     if (site != null) {
       _populate(site);
       setState(() => _loading = false);
@@ -143,7 +142,8 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
 
   void _cancelEdit() {
     // Reset every field back to the saved site and exit edit mode.
-    final saved = ref.read(siteByIdProvider(widget.id)) ?? widget.initial;
+    final saved =
+        ref.read(siteByIdProvider(widget.id)).value ?? widget.initial;
     if (saved != null) _populate(saved);
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _editing = false);
@@ -232,69 +232,6 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
     }
   }
 
-  Future<void> _transferToParty() async {
-    final displayName = _nameController.text.trim().isEmpty
-        ? 'this site'
-        : '"${_nameController.text.trim()}"';
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16.r),
-        ),
-        title: Text(
-          'Transfer to Party?',
-          style: TextStyle(
-            color: AppColors.primary,
-            fontSize: 18.sp,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        content: Text(
-          'Are you sure you want to transfer $displayName to a party? This action cannot be undone.',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 14.sp,
-            height: 1.4,
-          ),
-        ),
-        actionsPadding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.textSecondary,
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-            ),
-            child: Text(
-              'Cancel',
-              style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w500),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.secondary,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10.r),
-              ),
-            ),
-            child: Text(
-              'Transfer',
-              style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      ),
-    );
-    if (!mounted || confirmed != true) return;
-    SnackbarUtils.showInfo(context, 'Transfer to Party — coming soon.');
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_loading) return _DetailSkeleton(onBack: _back);
@@ -309,7 +246,6 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
           editing: _editing,
           isLoading: _saving,
           onPressed: _editing ? _save : _toggleEdit,
-          onTransfer: _transferToParty,
         ),
         body: Stack(
           children: <Widget>[
@@ -420,9 +356,8 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
                                       );
                                       return SiteInterestPicker(
                                         value: _interests,
-                                        catalogue:
-                                            catalogueAsync.value ??
-                                            const <String, List<String>>{},
+                                        catalogue: catalogueAsync.value ??
+                                            InterestCatalogue.empty(),
                                         enabled: _editing,
                                         onChanged: (next) => setState(() {
                                           _interests = next
@@ -722,13 +657,11 @@ class _SubmitBar extends StatelessWidget {
     required this.editing,
     required this.isLoading,
     required this.onPressed,
-    required this.onTransfer,
   });
 
   final bool editing;
   final bool isLoading;
   final VoidCallback onPressed;
-  final VoidCallback onTransfer;
 
   @override
   Widget build(BuildContext context) {
@@ -741,44 +674,12 @@ class _SubmitBar extends StatelessWidget {
         top: false,
         child: Padding(
           padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 12.h),
-          child: editing
-              ? PrimaryButton(
-                  label: 'Save Changes',
-                  leadingIcon: Icons.check,
-                  isLoading: isLoading,
-                  onPressed: onPressed,
-                )
-              : Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: PrimaryButton(
-                        label: 'Edit Detail',
-                        leadingIcon: Icons.edit,
-                        onPressed: onPressed,
-                        customFontSize: 13.sp,
-                        customIconSize: 16.sp,
-                        customPadding: EdgeInsets.symmetric(
-                          horizontal: 8.w,
-                          vertical: 12.h,
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 12.w),
-                    Expanded(
-                      child: PrimaryButton(
-                        label: 'Transfer to Party',
-                        leadingIcon: Icons.swap_horiz_rounded,
-                        onPressed: onTransfer,
-                        customFontSize: 13.sp,
-                        customIconSize: 16.sp,
-                        customPadding: EdgeInsets.symmetric(
-                          horizontal: 8.w,
-                          vertical: 12.h,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+          child: PrimaryButton(
+            label: editing ? 'Save Changes' : 'Edit Detail',
+            leadingIcon: editing ? Icons.check : Icons.edit,
+            isLoading: isLoading,
+            onPressed: onPressed,
+          ),
         ),
       ),
     );
