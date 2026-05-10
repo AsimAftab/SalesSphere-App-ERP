@@ -30,6 +30,12 @@ class Routes {
 
   static String siteDetailPath(String id) => '/sites/detail/$id';
 
+  static const visitNotes = '/visit-notes';
+  static const addVisitNote = '/visit-notes/add';
+  static const visitNoteDetail = '/visit-notes/detail/:id';
+
+  static String visitNoteDetailPath(String id) => '/visit-notes/detail/$id';
+
   static const splashName = 'splash';
   static const loginName = 'login';
   static const forgotPasswordName = 'forgotPassword';
@@ -49,4 +55,7 @@ class Routes {
   static const sitesName = 'sites';
   static const addSiteName = 'addSite';
   static const siteDetailName = 'siteDetail';
+  static const visitNotesName = 'visitNotes';
+  static const addVisitNoteName = 'addVisitNote';
+  static const visitNoteDetailName = 'visitNoteDetail';
 }

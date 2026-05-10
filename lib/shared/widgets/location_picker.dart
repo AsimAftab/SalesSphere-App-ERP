@@ -47,6 +47,7 @@ class LocationPicker extends ConsumerStatefulWidget {
     required this.onLocationChanged,
     super.key,
     this.addressValidator,
+    this.showFullAddressCard = true,
   });
 
   final TextEditingController addressController;
@@ -56,6 +57,12 @@ class LocationPicker extends ConsumerStatefulWidget {
   /// When `false` the search field is disabled, the action button hides,
   /// and map taps are ignored. View-mode in the detail page passes false.
   final bool editing;
+
+  /// Toggles the green "Full Address" callout below the search field.
+  /// Add-pages use it as confirmation that the picked location resolved
+  /// to a real address; detail pages already show the address in their
+  /// own header card so they pass false to avoid duplication.
+  final bool showFullAddressCard;
 
   /// Fired with the new coordinates whenever the user taps the map or
   /// successfully picks "Use My Current Location". Parent should persist
@@ -316,17 +323,20 @@ class _LocationPickerState extends ConsumerState<LocationPicker> {
         SizedBox(height: 14.h),
         // Reflects whatever the search field / map tap / current-location
         // fetch has resolved into the address controller. Hidden until a
-        // location actually exists so we never show an empty card.
-        ValueListenableBuilder<TextEditingValue>(
-          valueListenable: widget.addressController,
-          builder: (_, value, __) {
-            if (value.text.trim().isEmpty) return const SizedBox.shrink();
-            return Padding(
-              padding: EdgeInsets.only(bottom: 14.h),
-              child: _FullAddressCard(address: value.text),
-            );
-          },
-        ),
+        // location actually exists so we never show an empty card. Detail
+        // pages opt out via `showFullAddressCard: false` to avoid
+        // duplicating the address that's already in their header card.
+        if (widget.showFullAddressCard)
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: widget.addressController,
+            builder: (_, value, __) {
+              if (value.text.trim().isEmpty) return const SizedBox.shrink();
+              return Padding(
+                padding: EdgeInsets.only(bottom: 14.h),
+                child: _FullAddressCard(address: value.text),
+              );
+            },
+          ),
         _InfoBanner(
           message: widget.editing
               ? 'Drag & pinch to navigate the map. Tap anywhere to '
@@ -651,11 +661,16 @@ class _CoordField extends StatelessWidget {
         contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
         prefixIcon: Icon(
           Icons.explore_outlined,
-          color: AppColors.textSecondary,
+          color: AppColors.textSecondary.withValues(alpha: 0.4),
           size: 20.sp,
         ),
         labelStyle: TextStyle(
-          color: AppColors.textPrimary,
+          color: AppColors.textSecondary,
+          fontSize: 14.sp,
+          fontFamily: 'Poppins',
+        ),
+        floatingLabelStyle: TextStyle(
+          color: AppColors.textSecondary,
           fontSize: 13.sp,
           fontFamily: 'Poppins',
           fontWeight: FontWeight.w500,
@@ -680,10 +695,10 @@ class _CoordField extends StatelessWidget {
       child: Text(
         value,
         style: TextStyle(
-          color: AppColors.textSecondary,
+          color: AppColors.textSecondary.withValues(alpha: 0.6),
           fontSize: 15.sp,
           fontFamily: 'Poppins',
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w400,
         ),
       ),
     );

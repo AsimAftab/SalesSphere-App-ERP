@@ -138,7 +138,7 @@ class _InterestPickerState extends State<InterestPicker> {
                 fontFamily: 'Poppins',
               ),
               floatingLabelStyle: TextStyle(
-                color: isReadOnly ? AppColors.textPrimary : AppColors.secondary,
+                color: isReadOnly ? AppColors.textSecondary : AppColors.secondary,
                 fontSize: 13.sp,
                 fontFamily: 'Poppins',
                 fontWeight: FontWeight.w500,
@@ -151,16 +151,20 @@ class _InterestPickerState extends State<InterestPicker> {
               ),
               prefixIcon: Icon(
                 Icons.interests_outlined,
-                color: AppColors.textSecondary,
+                color: isReadOnly
+                    ? AppColors.textSecondary.withValues(alpha: 0.4)
+                    : AppColors.textSecondary,
                 size: 20.sp,
               ),
-              suffixIcon: Icon(
-                isReadOnly ? Icons.lock_outline : Icons.keyboard_arrow_down,
-                color: AppColors.textSecondary,
-                size: 20.sp,
-              ),
+              suffixIcon: isReadOnly
+                  ? null
+                  : Icon(
+                      Icons.keyboard_arrow_down,
+                      color: AppColors.textSecondary,
+                      size: 20.sp,
+                    ),
               filled: true,
-              fillColor: isReadOnly ? AppColors.background : AppColors.surface,
+              fillColor: isReadOnly ? Colors.grey.shade100 : AppColors.surface,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
                 borderSide: const BorderSide(
@@ -194,7 +198,9 @@ class _InterestPickerState extends State<InterestPicker> {
                 ? Text(
                     '${widget.value.length} selected',
                     style: TextStyle(
-                      color: AppColors.textPrimary,
+                      color: isReadOnly
+                          ? AppColors.textSecondary.withValues(alpha: 0.6)
+                          : AppColors.textPrimary,
                       fontSize: 15.sp,
                       fontFamily: 'Poppins',
                       fontWeight: FontWeight.w500,
@@ -205,16 +211,19 @@ class _InterestPickerState extends State<InterestPicker> {
         ),
         if (hasValue) ...<Widget>[
           SizedBox(height: 10.h),
-          Wrap(
-            spacing: 8.w,
-            runSpacing: 8.h,
-            children: <Widget>[
-              for (int i = 0; i < widget.value.length; i++)
-                _InterestChip(
-                  interest: widget.value[i],
-                  onRemove: widget.enabled ? () => _removeAt(i) : null,
-                ),
-            ],
+          Opacity(
+            opacity: isReadOnly ? 0.6 : 1,
+            child: Wrap(
+              spacing: 8.w,
+              runSpacing: 8.h,
+              children: <Widget>[
+                for (int i = 0; i < widget.value.length; i++)
+                  _InterestChip(
+                    interest: widget.value[i],
+                    onRemove: widget.enabled ? () => _removeAt(i) : null,
+                  ),
+              ],
+            ),
           ),
         ],
       ],

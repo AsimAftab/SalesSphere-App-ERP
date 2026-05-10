@@ -470,6 +470,7 @@ class _EditProspectDetailPageState
                                   onLocationChanged: _onLocationChanged,
                                   addressValidator: (v) =>
                                       Validators.requiredField(v, 'Address'),
+                                  showFullAddressCard: false,
                                 ),
                                 SizedBox(height: 12.h),
                                 CustomDatePicker(

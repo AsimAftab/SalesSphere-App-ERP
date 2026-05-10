@@ -152,8 +152,40 @@ class _EmptyDropZone extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isSingle = maxImages == 1;
+    // Read-only / view mode with no images attached — render a plain
+    // "no image attached" placeholder instead of an "add image"
+    // dropzone that looks tappable but isn't.
+    if (!enabled) {
+      return Container(
+        height: isSingle ? 120.h : 100.h,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.circular(12.r),
+          border: Border.all(color: AppColors.border, width: 1.5),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            Icon(
+              Icons.image_not_supported_outlined,
+              size: isSingle ? 40.sp : 32.sp,
+              color: AppColors.textDisabled,
+            ),
+            SizedBox(height: isSingle ? 8.h : 4.h),
+            Text(
+              'No image attached',
+              style: TextStyle(
+                fontSize: 12.sp,
+                color: AppColors.textDisabled,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return GestureDetector(
-      onTap: enabled ? onPick : null,
+      onTap: onPick,
       child: Container(
         height: isSingle ? 120.h : 100.h,
         width: double.infinity,
@@ -168,7 +200,7 @@ class _EmptyDropZone extends StatelessWidget {
             Icon(
               Icons.add_photo_alternate_outlined,
               size: isSingle ? 40.sp : 32.sp,
-              color: enabled ? AppColors.textSecondary : AppColors.textDisabled,
+              color: AppColors.textSecondary,
             ),
             SizedBox(height: isSingle ? 8.h : 4.h),
             Text(
@@ -178,9 +210,7 @@ class _EmptyDropZone extends StatelessWidget {
                       : 'Tap to add image ($currentCount/$maxImages)'),
               style: TextStyle(
                 fontSize: 12.sp,
-                color: enabled
-                    ? AppColors.textSecondary
-                    : AppColors.textDisabled,
+                color: AppColors.textSecondary,
               ),
             ),
           ],
