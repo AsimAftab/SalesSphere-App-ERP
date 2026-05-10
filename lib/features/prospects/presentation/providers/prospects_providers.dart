@@ -4,6 +4,13 @@ import 'package:sales_sphere_erp/features/prospects/data/repositories/prospects_
 import 'package:sales_sphere_erp/features/prospects/domain/prospect.dart';
 import 'package:sales_sphere_erp/shared/domain/interest_catalogue.dart';
 
+// Re-export the repository provider so downstream consumers
+// (controllers, tests) can depend on the contract surface without
+// importing from `data/`. The impl import above stays because this
+// file actually uses the provider in its own watch calls.
+export 'package:sales_sphere_erp/features/prospects/data/repositories/prospects_repository_impl.dart'
+    show prospectsRepositoryProvider;
+
 part 'prospects_providers.g.dart';
 
 /// Convenience provider for screens that just need the current list.

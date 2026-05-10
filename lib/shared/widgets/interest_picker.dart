@@ -3,9 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
-import 'package:sales_sphere_erp/features/sites/domain/site_interest.dart';
 import 'package:sales_sphere_erp/shared/domain/interest.dart';
 import 'package:sales_sphere_erp/shared/domain/interest_catalogue.dart';
+import 'package:sales_sphere_erp/shared/domain/site_interest.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';

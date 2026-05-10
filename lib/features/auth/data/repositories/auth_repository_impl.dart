@@ -2,7 +2,6 @@ import 'package:dio/dio.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:sales_sphere_erp/core/api/interceptors/auth_interceptor.dart';
 import 'package:sales_sphere_erp/core/auth/token_storage.dart';
 import 'package:sales_sphere_erp/core/db/app_database.dart';
 import 'package:sales_sphere_erp/core/db/daos/users_dao.dart';
@@ -12,6 +11,7 @@ import 'package:sales_sphere_erp/features/auth/data/dto/auth_user_dto.dart';
 import 'package:sales_sphere_erp/features/auth/data/dto/login_request_dto.dart';
 import 'package:sales_sphere_erp/features/auth/domain/auth_user.dart';
 import 'package:sales_sphere_erp/features/auth/domain/repositories/auth_repository.dart';
+import 'package:sales_sphere_erp/features/auth/domain/token_pair.dart';
 
 /// Anti-corruption layer between the wire DTOs and the rest of the app.
 /// All DTO → domain mapping happens here, plus token persistence and the
@@ -106,14 +106,20 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<AuthUser?> cachedUser() async {
-    final rows = await _users.findById(await _firstStoredUserId() ?? '');
-    if (rows == null) return null;
+    // Short-circuit when no user id is stored — avoids the empty-string
+    // DB roundtrip the previous shape (`?? ''` + findById('')) caused
+    // and stops relying on the implicit "no row uses an empty primary
+    // key" assumption.
+    final id = await _firstStoredUserId();
+    if (id == null) return null;
+    final row = await _users.findById(id);
+    if (row == null) return null;
     return AuthUser(
-      id: rows.id,
-      email: rows.email,
-      fullName: rows.fullName,
-      emailVerified: rows.emailVerified,
-      systemRole: rows.systemRole,
+      id: row.id,
+      email: row.email,
+      fullName: row.fullName,
+      emailVerified: row.emailVerified,
+      systemRole: row.systemRole,
     );
   }
 

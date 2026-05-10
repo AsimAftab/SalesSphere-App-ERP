@@ -1,5 +1,5 @@
-import 'package:sales_sphere_erp/core/api/interceptors/auth_interceptor.dart';
 import 'package:sales_sphere_erp/features/auth/domain/auth_user.dart';
+import 'package:sales_sphere_erp/features/auth/domain/token_pair.dart';
 
 /// Domain-side contract for authentication. Concrete implementation
 /// (DTO mapping, secure-storage writes, drift persistence) lives in

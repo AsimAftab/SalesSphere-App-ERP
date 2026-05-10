@@ -5,6 +5,13 @@ import 'package:sales_sphere_erp/features/sites/domain/site.dart';
 import 'package:sales_sphere_erp/features/sites/domain/sub_organization.dart';
 import 'package:sales_sphere_erp/shared/domain/interest_catalogue.dart';
 
+// Re-export the repository provider so downstream consumers
+// (controllers, tests) can depend on the contract surface without
+// importing from `data/`. The impl import above stays because this
+// file actually uses the provider in its own watch calls.
+export 'package:sales_sphere_erp/features/sites/data/repositories/sites_repository_impl.dart'
+    show sitesRepositoryProvider;
+
 part 'sites_providers.g.dart';
 
 /// Convenience provider for screens that just need the current list.

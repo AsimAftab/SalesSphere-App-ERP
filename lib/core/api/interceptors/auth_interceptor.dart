@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 
+import 'package:sales_sphere_erp/features/auth/domain/token_pair.dart';
 import '../../auth/token_storage.dart';
 import '../endpoints.dart';
 
@@ -115,18 +116,6 @@ class AuthInterceptor extends Interceptor {
       handler.next(e);
     }
   }
-}
-
-class TokenPair {
-  const TokenPair({
-    required this.accessToken,
-    required this.refreshToken,
-    this.expiresAt,
-  });
-
-  final String accessToken;
-  final String refreshToken;
-  final DateTime? expiresAt;
 }
 
 /// Marks an outgoing request to skip authentication entirely.

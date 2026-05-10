@@ -10,10 +10,13 @@ import 'package:flutter/foundation.dart' show immutable;
 /// API instead of poking at the underlying map.
 @immutable
 class InterestCatalogue {
-  const InterestCatalogue({required this.categories});
+  /// Stores an unmodifiable view of the supplied [categories] so the
+  /// `@immutable` contract holds even if the caller mutates their copy
+  /// of the list after construction.
+  InterestCatalogue({required List<InterestCategory> categories})
+      : categories = List<InterestCategory>.unmodifiable(categories);
 
-  factory InterestCatalogue.empty() =>
-      const InterestCatalogue(categories: <InterestCategory>[]);
+  factory InterestCatalogue.empty() => _empty;
 
   /// Build from the raw `category → brands` map shape used by today's
   /// in-memory APIs. Useful at the data → domain mapping boundary;
@@ -23,12 +26,12 @@ class InterestCatalogue {
       InterestCatalogue(
         categories: <InterestCategory>[
           for (final entry in map.entries)
-            InterestCategory(
-              name: entry.key,
-              brands: List<String>.unmodifiable(entry.value),
-            ),
+            InterestCategory(name: entry.key, brands: entry.value),
         ],
       );
+
+  static final InterestCatalogue _empty =
+      InterestCatalogue(categories: const <InterestCategory>[]);
 
   final List<InterestCategory> categories;
 
@@ -49,7 +52,11 @@ class InterestCatalogue {
 /// of brand options the user can pick under it.
 @immutable
 class InterestCategory {
-  const InterestCategory({required this.name, required this.brands});
+  /// Stores an unmodifiable view of the supplied [brands] so the
+  /// `@immutable` contract holds even if the caller mutates their copy
+  /// of the list after construction.
+  InterestCategory({required this.name, required List<String> brands})
+      : brands = List<String>.unmodifiable(brands);
 
   final String name;
   final List<String> brands;

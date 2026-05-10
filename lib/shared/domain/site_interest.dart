@@ -31,6 +31,10 @@ class SiteContact {
 /// `Interest(c, b)` inside selection sets — but adds a `contacts` list
 /// for the (category → contacts) link the sites form needs to capture.
 ///
+/// Lives in `lib/shared/domain/` (alongside [Interest]) so the shared
+/// `interest_picker.dart` widget can reference both without reaching
+/// into a feature's domain layer.
+///
 /// All `SiteInterest` entries that share a category typically carry
 /// the same contacts list (the picker copies the active category's
 /// working contacts onto every selected entry of that category on

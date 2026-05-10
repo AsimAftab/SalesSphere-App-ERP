@@ -9,11 +9,11 @@ import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/features/sites/domain/site.dart';
-import 'package:sales_sphere_erp/features/sites/domain/site_interest.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/controllers/sites_controller.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/providers/sites_providers.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/widgets/sub_organization_picker.dart';
 import 'package:sales_sphere_erp/shared/domain/interest_catalogue.dart';
+import 'package:sales_sphere_erp/shared/domain/site_interest.dart';
 import 'package:sales_sphere_erp/shared/utils/maps_launcher.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';

@@ -1,7 +1,8 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import 'package:sales_sphere_erp/features/prospects/data/repositories/prospects_repository_impl.dart';
 import 'package:sales_sphere_erp/features/prospects/domain/prospect.dart';
+// `prospects_providers.dart` re-exports `prospectsRepositoryProvider`
+// so the controller stays out of `features/.../data/`.
 import 'package:sales_sphere_erp/features/prospects/presentation/providers/prospects_providers.dart';
 
 part 'prospects_controller.g.dart';
