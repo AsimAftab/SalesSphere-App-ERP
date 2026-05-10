@@ -1,18 +1,27 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/parties/domain/party.dart';
 import 'package:sales_sphere_erp/features/parties/presentation/providers/parties_providers.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
-import 'package:sales_sphere_erp/shared/widgets/refreshable_list.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 import 'package:skeletonizer/skeletonizer.dart';
+
+/// Pixel buffer above `maxScrollExtent` at which we kick off the next page.
+/// 300px ≈ a couple of card heights — gives the network call a head start
+/// before the user actually hits the bottom.
+const double _kLoadMoreTriggerPx = 300;
+
+/// Search debounce. Anything between 250 and 400 feels responsive; 300 is
+/// the sweet spot in this codebase.
+const Duration _kSearchDebounce = Duration(milliseconds: 300);
 
 class PartiesListPage extends ConsumerStatefulWidget {
   const PartiesListPage({super.key});
@@ -23,24 +32,58 @@ class PartiesListPage extends ConsumerStatefulWidget {
 
 class _PartiesListPageState extends ConsumerState<PartiesListPage> {
   final _searchController = TextEditingController();
-  String _query = '';
+  final _scrollController = ScrollController();
+  Timer? _searchDebounce;
+  bool _hasUserAdvanced = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
     _searchController.dispose();
     super.dispose();
   }
 
-  List<Party> _applySearch(List<Party> source) {
-    final q = _query.trim().toLowerCase();
-    if (q.isEmpty) return source;
-    return source
-        .where(
-          (p) =>
-              p.name.toLowerCase().contains(q) ||
-              p.address.toLowerCase().contains(q),
-        )
-        .toList(growable: false);
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    if (pos.pixels < pos.maxScrollExtent - _kLoadMoreTriggerPx) return;
+    final state = ref.read(partiesListProvider).value;
+    if (state == null || !state.hasMore || state.isLoadingMore) return;
+    _hasUserAdvanced = true;
+    ref.read(partiesListProvider.notifier).loadMore();
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() {});
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(_kSearchDebounce, () {
+      if (!mounted) return;
+      _hasUserAdvanced = false;
+      ref.read(partiesListProvider.notifier).setSearch(value);
+    });
+  }
+
+  void _clearSearch() {
+    _searchDebounce?.cancel();
+    _searchController.clear();
+    setState(() {});
+    _hasUserAdvanced = false;
+    ref.read(partiesListProvider.notifier).setSearch('');
+    FocusManager.instance.primaryFocus?.unfocus();
+  }
+
+  Future<void> _onRefresh() async {
+    _hasUserAdvanced = false;
+    await ref.read(partiesListProvider.notifier).refresh();
   }
 
   void _back() {
@@ -53,7 +96,8 @@ class _PartiesListPageState extends ConsumerState<PartiesListPage> {
 
   @override
   Widget build(BuildContext context) {
-    final partiesAsync = ref.watch(partiesListProvider);
+    final listAsync = ref.watch(partiesListProvider);
+    final visibleAsync = ref.watch(partiesListVisibleProvider);
 
     return DarkStatusBar(
       child: Scaffold(
@@ -86,8 +130,8 @@ class _PartiesListPageState extends ConsumerState<PartiesListPage> {
                       controller: _searchController,
                       hintText: 'Search',
                       prefixIcon: Icons.search,
-                      onChanged: (v) => setState(() => _query = v),
-                      suffixWidget: _query.isEmpty
+                      onChanged: _onSearchChanged,
+                      suffixWidget: _searchController.text.isEmpty
                           ? null
                           : IconButton(
                               icon: Icon(
@@ -95,11 +139,7 @@ class _PartiesListPageState extends ConsumerState<PartiesListPage> {
                                 size: 20.sp,
                                 color: AppColors.textSecondary,
                               ),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() => _query = '');
-                                FocusManager.instance.primaryFocus?.unfocus();
-                              },
+                              onPressed: _clearSearch,
                               tooltip: 'Clear search',
                             ),
                     ),
@@ -121,31 +161,248 @@ class _PartiesListPageState extends ConsumerState<PartiesListPage> {
                   ),
                   SizedBox(height: 12.h),
                   Expanded(
-                    child: RefreshableList<Party>(
-                      async: partiesAsync,
-                      filter: _applySearch,
-                      onRefresh: () async {
-                        ref.invalidate(partiesListProvider);
-                        await ref.read(partiesListProvider.future);
-                      },
-                      padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 140.h),
-                      itemBuilder: (context, party) => _PartyCard(
-                        party: party,
-                        onTap: () => context.push(
-                          Routes.partyDetailPath(party.id),
-                          extra: party,
-                        ),
-                      ),
-                      skeletonItemBuilder: (_, __) =>
-                          _PartyCard(party: _placeholderParty, onTap: () {}),
-                      emptyBuilder: (_) => const _EmptyState(),
-                      errorBuilder: (_, __, ___) => const _ErrorState(),
+                    child: _PartiesBody(
+                      listAsync: listAsync,
+                      visibleAsync: visibleAsync,
+                      scrollController: _scrollController,
+                      hasUserAdvanced: _hasUserAdvanced,
+                      onRefresh: _onRefresh,
+                      onRetryLoadMore: () =>
+                          ref.read(partiesListProvider.notifier).loadMore(),
                     ),
                   ),
                 ],
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Picks the right body based on the cross product of:
+///   * notifier state (initial-loading / loaded / errored)
+///   * drift stream of visible rows
+///
+/// Pull-to-refresh is wired at this level so a successful retry from the
+/// `_ErrorState` body reuses the same `RefreshIndicator`.
+class _PartiesBody extends StatelessWidget {
+  const _PartiesBody({
+    required this.listAsync,
+    required this.visibleAsync,
+    required this.scrollController,
+    required this.hasUserAdvanced,
+    required this.onRefresh,
+    required this.onRetryLoadMore,
+  });
+
+  final AsyncValue<PartiesListState> listAsync;
+  final AsyncValue<List<Party>> visibleAsync;
+  final ScrollController scrollController;
+  final bool hasUserAdvanced;
+  final Future<void> Function() onRefresh;
+  final VoidCallback onRetryLoadMore;
+
+  @override
+  Widget build(BuildContext context) {
+    final padding = EdgeInsets.fromLTRB(20.w, 0, 20.w, 140.h);
+
+    // Initial load: notifier hasn't resolved + no prior data → skeleton.
+    if (listAsync.isLoading && !listAsync.hasValue) {
+      return RefreshIndicator(
+        onRefresh: onRefresh,
+        color: AppColors.primary,
+        backgroundColor: AppColors.surface,
+        child: _SkeletonList(padding: padding),
+      );
+    }
+
+    // Initial error: notifier failed and we have no prior page to fall back
+    // on. Pull-to-refresh retries.
+    if (listAsync.hasError && !listAsync.hasValue) {
+      return RefreshIndicator(
+        onRefresh: onRefresh,
+        color: AppColors.primary,
+        backgroundColor: AppColors.surface,
+        child: _SingleScroll(
+          padding: padding,
+          child: const _ErrorState(),
+        ),
+      );
+    }
+
+    final state = listAsync.requireValue;
+    final items = visibleAsync.value ?? const <Party>[];
+
+    if (items.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: onRefresh,
+        color: AppColors.primary,
+        backgroundColor: AppColors.surface,
+        child: _SingleScroll(
+          padding: padding,
+          child: _EmptyState(searching: state.searchQuery.isNotEmpty),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      color: AppColors.primary,
+      backgroundColor: AppColors.surface,
+      child: ListView.separated(
+        controller: scrollController,
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: ClampingScrollPhysics(),
+        ),
+        padding: padding,
+        itemCount: items.length + 1,
+        separatorBuilder: (_, __) => SizedBox(height: 12.h),
+        itemBuilder: (context, index) {
+          if (index == items.length) {
+            return _LoadMoreFooter(
+              hasMore: state.hasMore,
+              isLoadingMore: state.isLoadingMore,
+              loadMoreError: state.loadMoreError,
+              hasUserAdvanced: hasUserAdvanced,
+              onRetry: onRetryLoadMore,
+            );
+          }
+          final party = items[index];
+          return _PartyCard(
+            party: party,
+            onTap: () => context.push(
+              Routes.partyDetailPath(party.id),
+              extra: party,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SkeletonList extends StatelessWidget {
+  const _SkeletonList({required this.padding});
+
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return Skeletonizer(
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: ClampingScrollPhysics(),
+        ),
+        padding: padding,
+        itemCount: 5,
+        separatorBuilder: (_, __) => SizedBox(height: 12.h),
+        itemBuilder: (_, __) =>
+            _PartyCard(party: _placeholderParty, onTap: () {}),
+      ),
+    );
+  }
+}
+
+class _SingleScroll extends StatelessWidget {
+  const _SingleScroll({required this.child, required this.padding});
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: ClampingScrollPhysics(),
+      ),
+      padding: padding,
+      children: <Widget>[SizedBox(height: 80.h), child],
+    );
+  }
+}
+
+class _LoadMoreFooter extends StatelessWidget {
+  const _LoadMoreFooter({
+    required this.hasMore,
+    required this.isLoadingMore,
+    required this.loadMoreError,
+    required this.hasUserAdvanced,
+    required this.onRetry,
+  });
+
+  final bool hasMore;
+  final bool isLoadingMore;
+  final Object? loadMoreError;
+  final bool hasUserAdvanced;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (loadMoreError != null) {
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 16.h),
+        child: InkWell(
+          onTap: onRetry,
+          borderRadius: BorderRadius.circular(12.r),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Icon(
+                  Icons.refresh,
+                  color: AppColors.primary,
+                  size: 18.sp,
+                ),
+                SizedBox(width: 8.w),
+                Text(
+                  "Couldn't load more — tap to retry",
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    if (isLoadingMore) {
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 20.h),
+        child: Center(
+          child: SizedBox(
+            width: 22.r,
+            height: 22.r,
+            child: const CircularProgressIndicator(
+              strokeWidth: 2.5,
+              color: AppColors.primary,
+            ),
+          ),
+        ),
+      );
+    }
+    if (hasMore) {
+      // Quietly idle — the scroll listener will trigger loadMore.
+      return SizedBox(height: 8.h);
+    }
+    // No more pages. Only surface the explicit copy after the user has
+    // actually advanced past page 1; otherwise it screams "you're done"
+    // on every short list, which feels noisy.
+    if (!hasUserAdvanced) return SizedBox(height: 8.h);
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 16.h),
+      child: Center(
+        child: Text(
+          "You've reached the end",
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 12.sp,
+          ),
         ),
       ),
     );
@@ -221,12 +478,12 @@ class _PartyCard extends StatelessWidget {
                 Skeleton.replace(
                   replacement: Bone.circle(size: 52.r),
                   child: CircleAvatar(
-                    radius: 26.r,
+                    radius: 24.r,
                     backgroundColor: AppColors.primary,
                     child: Icon(
                       Icons.person_outline,
                       color: AppColors.textWhite,
-                      size: 26.sp,
+                      size: 28.sp,
                     ),
                   ),
                 ),
@@ -236,15 +493,28 @@ class _PartyCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      Text(
-                        party.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontSize: 17.sp,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      Row(
+                        children: <Widget>[
+                          Flexible(
+                            child: Text(
+                              party.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          if (party.syncPending) ...<Widget>[
+                            SizedBox(width: 6.w),
+                            _SyncBadge(
+                              hasError: party.syncError != null,
+                              errorMessage: party.syncError,
+                            ),
+                          ],
+                        ],
                       ),
                       SizedBox(height: 4.h),
                       Text(
@@ -253,7 +523,7 @@ class _PartyCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: AppColors.textSecondary,
-                          fontSize: 13.sp,
+                          fontSize: 12.sp,
                         ),
                       ),
                     ],
@@ -281,6 +551,31 @@ class _PartyCard extends StatelessWidget {
   }
 }
 
+/// Small inline indicator next to the party name when the row's
+/// mutation hasn't synced yet. Orange means "queued, still trying";
+/// red means "dead-lettered, manual intervention needed". Tooltip
+/// carries the error message in the red state so the user can see
+/// what failed without leaving the list.
+class _SyncBadge extends StatelessWidget {
+  const _SyncBadge({required this.hasError, this.errorMessage});
+
+  final bool hasError;
+  final String? errorMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = hasError ? AppColors.error : Colors.orange.shade700;
+    final icon = hasError ? Icons.error_outline : Icons.cloud_off_outlined;
+    final tooltip = hasError
+        ? 'Sync failed: ${errorMessage ?? 'unknown error'}'
+        : 'Pending sync';
+    return Tooltip(
+      message: tooltip,
+      child: Icon(icon, size: 16.sp, color: color),
+    );
+  }
+}
+
 /// Sample party fed to [_PartyCard] when the list is loading.
 /// Skeletonizer paints text bones over the rendered name/address; the
 /// colored avatars are swapped for circular bones via `Skeleton.replace`
@@ -295,7 +590,9 @@ const _placeholderParty = Party(
 );
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+  const _EmptyState({required this.searching});
+
+  final bool searching;
 
   @override
   Widget build(BuildContext context) {
@@ -303,7 +600,9 @@ class _EmptyState extends StatelessWidget {
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 32.w),
         child: Text(
-          'No parties match your search.',
+          searching
+              ? 'No parties match your search.'
+              : 'No parties yet. Tap "Add Party" to get started.',
           textAlign: TextAlign.center,
           style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
         ),

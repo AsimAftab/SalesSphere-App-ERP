@@ -8,10 +8,13 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
+import 'package:sales_sphere_erp/features/parties/data/dto/party_image_ref.dart';
 import 'package:sales_sphere_erp/features/parties/domain/party.dart';
 import 'package:sales_sphere_erp/features/parties/presentation/controllers/parties_controller.dart';
 import 'package:sales_sphere_erp/features/parties/presentation/providers/parties_providers.dart';
 import 'package:sales_sphere_erp/features/parties/presentation/widgets/party_type_picker.dart';
+import 'package:sales_sphere_erp/shared/utils/image_validation.dart';
 import 'package:sales_sphere_erp/shared/utils/maps_launcher.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
@@ -63,6 +66,17 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
   double _longitude = _defaultLng;
   final List<String> _imagePaths = <String>[];
 
+  /// Server-side images at the moment we render. Mutated as the user
+  /// removes thumbnails; `_originalExistingImages` is the snapshot
+  /// used by cancel to restore.
+  List<PartyImageRef> _existingImages = const <PartyImageRef>[];
+  List<PartyImageRef> _originalExistingImages = const <PartyImageRef>[];
+
+  /// Slot numbers (1-indexed) the user asked to delete in this edit
+  /// session. Drained in `_save` before uploading new locals so the
+  /// freed slots become available targets.
+  final Set<int> _slotsToDelete = <int>{};
+
   bool _editing = false;
   bool _saving = false;
   bool _loading = false;
@@ -73,6 +87,9 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
     super.initState();
     if (widget.initial != null) {
       _populate(widget.initial!);
+      // Fields are populated synchronously, but the gallery still needs
+      // a fetch — kick it off after first frame so the picker fills in.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _hydrateImages());
     } else {
       _loading = true;
       WidgetsBinding.instance.addPostFrameCallback((_) => _hydrate());
@@ -93,11 +110,29 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
     if (party != null) {
       _populate(party);
       setState(() => _loading = false);
+      await _hydrateImages();
     } else {
       setState(() {
         _loading = false;
         _notFound = true;
       });
+    }
+  }
+
+  /// Fetch the gallery so the picker shows server-side images. Failures
+  /// are swallowed — an empty picker is graceful degradation.
+  Future<void> _hydrateImages() async {
+    try {
+      final images =
+          await ref.read(partiesRepositoryProvider).listImages(widget.id);
+      if (!mounted) return;
+      setState(() {
+        _existingImages = images;
+        _originalExistingImages = List<PartyImageRef>.unmodifiable(images);
+      });
+    } on Object catch (_) {
+      // Not fatal — picker stays empty on the network image side and the
+      // user can still pick new locals.
     }
   }
 
@@ -144,18 +179,43 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
         ref.read(partyByIdProvider(widget.id)).value ?? widget.initial;
     if (saved != null) _populate(saved);
     FocusManager.instance.primaryFocus?.unfocus();
-    setState(() => _editing = false);
+    setState(() {
+      _editing = false;
+      // Roll back image edits: restore server-side gallery, drop any
+      // queued deletions and any local picks.
+      _existingImages = List<PartyImageRef>.from(_originalExistingImages);
+      _slotsToDelete.clear();
+      _imagePaths.clear();
+    });
   }
 
+  int get _totalAttachedImages =>
+      _imagePaths.length + _existingImages.length;
+
   Future<void> _pickImage() async {
-    if (!_editing || _imagePaths.length >= _maxImages) return;
+    if (!_editing || _totalAttachedImages >= _maxImages) return;
     try {
       final picker = ImagePicker();
       final file = await picker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 80,
+        // Cap the longest side so a 12MP phone photo doesn't land
+        // above the backend's 5MB ceiling. Native resize on device.
+        maxWidth: kPickerMaxDimension,
+        maxHeight: kPickerMaxDimension,
       );
       if (file == null) return;
+      if (!isAllowedImageFile(file.path)) {
+        if (!mounted) return;
+        SnackbarUtils.showError(context, kUnsupportedImageMessage);
+        return;
+      }
+      final bytes = await imageFileBytes(file.path);
+      if (bytes != null && bytes > kMaxImageBytes) {
+        if (!mounted) return;
+        SnackbarUtils.showError(context, imageTooLargeMessage(bytes));
+        return;
+      }
       setState(() => _imagePaths.add(file.path));
     } on Exception catch (_) {
       if (!mounted) return;
@@ -168,6 +228,19 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
     setState(() => _imagePaths.removeAt(index));
   }
 
+  /// Queue the existing image at [index] (in the current
+  /// `_existingImages` list) for deletion. Removed from the picker
+  /// immediately; the actual DELETE fires on save.
+  void _removeExistingImageAt(int index) {
+    if (!_editing) return;
+    setState(() {
+      final removed = _existingImages[index];
+      _existingImages = List<PartyImageRef>.from(_existingImages)
+        ..removeAt(index);
+      _slotsToDelete.add(removed.slot);
+    });
+  }
+
   void _onLocationChanged(double lat, double lng) {
     setState(() {
       _latitude = lat;
@@ -176,13 +249,7 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
   }
 
   Future<void> _openInMaps() async {
-    final launched = await openInMaps(
-      lat: _latitude,
-      lng: _longitude,
-      label: _nameController.text.trim().isNotEmpty
-          ? _nameController.text.trim()
-          : null,
-    );
+    final launched = await openInMaps(lat: _latitude, lng: _longitude);
     if (!mounted || launched) return;
     SnackbarUtils.showError(context, "Couldn't open Google Maps.");
   }
@@ -208,17 +275,110 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
         imagePaths: List<String>.unmodifiable(_imagePaths),
       );
       await ref.read(partiesControllerProvider.notifier).updateParty(updated);
+      final imageResult = await _syncImageChanges();
       if (!mounted) return;
       setState(() {
         _saving = false;
         _editing = false;
+        // Local picks have been uploaded into slots; the next gallery
+        // hydrate will reflect them. Clear locals + deletion queue so
+        // a follow-up edit starts clean.
+        _imagePaths.clear();
+        _slotsToDelete.clear();
       });
-      SnackbarUtils.showSuccess(context, 'Party details updated successfully.');
+      // Re-fetch the now-current gallery to refresh the picker's
+      // network thumbnails (new slot URLs + the original snapshot).
+      await _hydrateImages();
+      if (!mounted) return;
+      if (imageResult.uploadFailures > 0 ||
+          imageResult.deleteFailures > 0) {
+        SnackbarUtils.showError(
+          context,
+          _formatImageSyncWarning(imageResult),
+        );
+      } else {
+        SnackbarUtils.showSuccess(
+          context,
+          'Party details updated successfully.',
+        );
+      }
     } on Exception catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
       SnackbarUtils.showError(context, 'Could not save. Please try again.');
     }
+  }
+
+  /// Drains [_slotsToDelete] first (frees up slots), then uploads each
+  /// new local file into the next free slot. Returns the per-bucket
+  /// failure counts + the first backend error message we ran into, so
+  /// [_save] can show a snackbar that says *why* something failed
+  /// (not just how many). The customer PATCH already succeeded by the
+  /// time this runs, so failures are non-fatal — the user can retry
+  /// the missing slot on a subsequent edit.
+  Future<
+      ({
+        int uploadFailures,
+        int deleteFailures,
+        String? firstError,
+      })> _syncImageChanges() async {
+    if (_slotsToDelete.isEmpty && _imagePaths.isEmpty) {
+      return (uploadFailures: 0, deleteFailures: 0, firstError: null);
+    }
+    final repo = ref.read(partiesRepositoryProvider);
+    var deleteFailures = 0;
+    String? firstError;
+    for (final slot in _slotsToDelete) {
+      try {
+        await repo.removeImage(customerId: widget.id, slot: slot);
+      } on Object catch (e) {
+        deleteFailures++;
+        firstError ??= extractBackendErrorMessage(e) ?? 'Delete failed';
+      }
+    }
+    final keptSlots = _existingImages.map((e) => e.slot).toSet();
+    final freeSlots = <int>[
+      for (var s = 1; s <= _maxImages; s++)
+        if (!keptSlots.contains(s)) s,
+    ];
+    var uploadFailures = 0;
+    for (var i = 0; i < _imagePaths.length && i < freeSlots.length; i++) {
+      try {
+        await repo.uploadImage(
+          customerId: widget.id,
+          filePath: _imagePaths[i],
+          slot: freeSlots[i],
+        );
+      } on Object catch (e) {
+        uploadFailures++;
+        firstError ??= extractBackendErrorMessage(e) ?? 'Upload failed';
+      }
+    }
+    return (
+      uploadFailures: uploadFailures,
+      deleteFailures: deleteFailures,
+      firstError: firstError,
+    );
+  }
+
+  String _formatImageSyncWarning(
+    ({int uploadFailures, int deleteFailures, String? firstError}) r,
+  ) {
+    final parts = <String>[];
+    if (r.uploadFailures > 0) {
+      parts.add(
+        "${r.uploadFailures} image${r.uploadFailures == 1 ? '' : 's'} "
+        "didn't upload",
+      );
+    }
+    if (r.deleteFailures > 0) {
+      parts.add(
+        "${r.deleteFailures} image${r.deleteFailures == 1 ? '' : 's'} "
+        "couldn't be removed",
+      );
+    }
+    final summary = 'Saved with issues: ${parts.join(', ')}';
+    return r.firstError == null ? '$summary.' : '$summary — ${r.firstError}.';
   }
 
   void _back() {
@@ -398,7 +558,7 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
                                     ),
                                     const Spacer(),
                                     Text(
-                                      '${_imagePaths.length}/$_maxImages',
+                                      '$_totalAttachedImages/$_maxImages',
                                       style: TextStyle(
                                         color: AppColors.textSecondary,
                                         fontSize: 11.sp,
@@ -410,6 +570,10 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
                                 SizedBox(height: 10.h),
                                 PrimaryImagePicker(
                                   imagePaths: _imagePaths,
+                                  networkImageUrls: _existingImages
+                                      .map((e) => e.url)
+                                      .toList(growable: false),
+                                  onRemoveNetwork: _removeExistingImageAt,
                                   maxImages: _maxImages,
                                   enabled: _editing,
                                   showLabel: false,

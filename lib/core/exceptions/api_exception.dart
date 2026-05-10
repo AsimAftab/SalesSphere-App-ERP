@@ -61,3 +61,31 @@ class ServerException extends ApiException {
 class NetworkException extends ApiException {
   const NetworkException(super.message, {super.statusCode, super.cause});
 }
+
+/// Extracts the human-readable message the backend tucked into a
+/// non-2xx envelope:
+///
+/// ```
+/// { "success": false, "error": { "message": "...", "code": "..." } }
+/// ```
+///
+/// Returns `null` when the response body doesn't carry one — call
+/// sites should fall back to a generic copy in that case. Lives next
+/// to the exception hierarchy because every error UI surface needs
+/// it eventually.
+String? extractBackendErrorMessage(Object? error) {
+  // Cheap import-free duck-type — avoids dragging dio into this file's
+  // import graph just to read `.response.data`.
+  final dynamic err = error;
+  final dynamic data = err?.response?.data;
+  if (data is Map<String, dynamic>) {
+    final dynamic inner = data['error'];
+    if (inner is Map<String, dynamic>) {
+      final dynamic message = inner['message'];
+      if (message is String && message.isNotEmpty) return message;
+    }
+    final dynamic topLevel = data['message'];
+    if (topLevel is String && topLevel.isNotEmpty) return topLevel;
+  }
+  return null;
+}

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:sales_sphere_erp/core/router/app_router.dart';
+import 'package:sales_sphere_erp/core/sync/sync_scheduler.dart';
 import 'package:sales_sphere_erp/core/theme/app_theme.dart';
 import 'package:sales_sphere_erp/l10n/generated/app_localizations.dart';
 
@@ -12,6 +13,11 @@ class SalesSphereApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
+    // Start the outbox drain scheduler on first build. The Notifier's
+    // build() attaches a 30s periodic timer and a connectivity listener;
+    // this watch keeps it alive for the app's lifetime. Disposal hooks
+    // are wired in the scheduler itself.
+    ref.watch(syncSchedulerProvider);
 
     return ScreenUtilInit(
       designSize: const Size(360, 800),

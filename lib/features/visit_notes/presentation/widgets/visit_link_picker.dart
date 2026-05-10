@@ -282,7 +282,7 @@ class _PartiesTab extends ConsumerWidget {
     return _TabShell(
       searchHint: 'Search parties',
       builder: (context, query) {
-        final asyncList = ref.watch(partiesListProvider);
+        final asyncList = ref.watch(partiesListVisibleProvider);
         return asyncList.when(
           loading: () => const _LoadingList(),
           error: (_, __) => const _ErrorList(message: "Couldn't load parties."),

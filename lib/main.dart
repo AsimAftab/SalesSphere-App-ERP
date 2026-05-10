@@ -10,6 +10,7 @@ import 'package:sales_sphere_erp/app.dart';
 import 'package:sales_sphere_erp/core/config/env.dart';
 import 'package:sales_sphere_erp/core/providers/app_observer.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:sales_sphere_erp/features/parties/parties_overrides.dart';
 
 Future<void> bootstrap() async {
   await runZonedGuarded<Future<void>>(
@@ -24,7 +25,10 @@ Future<void> bootstrap() async {
       final Future<void> Function() launch = () async {
         runApp(
           ProviderScope(
-            overrides: [...authProviderOverrides],
+            overrides: [
+              ...authProviderOverrides,
+              ...partiesProviderOverrides,
+            ],
             observers: <ProviderObserver>[AppProviderObserver()],
             child: const SalesSphereApp(),
           ),

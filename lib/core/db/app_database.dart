@@ -3,24 +3,26 @@ import 'package:drift_flutter/drift_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:sales_sphere_erp/core/db/daos/outbox_dao.dart';
+import 'package:sales_sphere_erp/core/db/daos/parties_dao.dart';
 import 'package:sales_sphere_erp/core/db/daos/sync_state_dao.dart';
 import 'package:sales_sphere_erp/core/db/daos/users_dao.dart';
 import 'package:sales_sphere_erp/core/db/tables/mutation_outbox_table.dart';
+import 'package:sales_sphere_erp/core/db/tables/parties_table.dart';
 import 'package:sales_sphere_erp/core/db/tables/sync_state_table.dart';
 import 'package:sales_sphere_erp/core/db/tables/users_table.dart';
 
 part 'app_database.g.dart';
 
 @DriftDatabase(
-  tables: <Type>[Users, MutationOutbox, SyncState],
-  daos: <Type>[UsersDao, OutboxDao, SyncStateDao],
+  tables: <Type>[Users, MutationOutbox, SyncState, Parties],
+  daos: <Type>[UsersDao, OutboxDao, SyncStateDao, PartiesDao],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
   AppDatabase.test(super.connection);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -33,6 +35,30 @@ class AppDatabase extends _$AppDatabase {
             // plus /auth/me repopulates on next cold start.
             await m.deleteTable('users');
             await m.createTable(users);
+          }
+          if (from < 4) {
+            // v3 introduced `parties` + `party_images` with the full Customer
+            // shape. v4 drops the image gallery and slims `parties` to the
+            // 12 fields the mobile UI actually consumes. Drop both old
+            // tables (DROP IF EXISTS — safe even if v3 was skipped on a
+            // direct v2→v4 hop) and create the slim parties.
+            await m.deleteTable('party_images');
+            await m.deleteTable('parties');
+            await m.createTable(parties);
+          }
+          if (from < 5) {
+            // v5 re-adds `partyType` as a flat name column on parties
+            // (backend now embeds `customerType: { id, name }` in every
+            // customer payload, and the form picker reads/writes the name).
+            await m.addColumn(parties, parties.partyType);
+          }
+          if (from < 6) {
+            // v6 wires offline-first writes: every party row can flag
+            // itself as "pending sync" (UI shows an orange badge) and
+            // carry the last sync failure for dead-letter rows
+            // (UI flips to red). Outbox handler reconciles both columns.
+            await m.addColumn(parties, parties.syncPending);
+            await m.addColumn(parties, parties.syncError);
           }
         },
       );
@@ -61,4 +87,8 @@ final outboxDaoProvider = Provider<OutboxDao>(
 
 final syncStateDaoProvider = Provider<SyncStateDao>(
   (ref) => ref.watch(appDatabaseProvider).syncStateDao,
+);
+
+final partiesDaoProvider = Provider<PartiesDao>(
+  (ref) => ref.watch(appDatabaseProvider).partiesDao,
 );

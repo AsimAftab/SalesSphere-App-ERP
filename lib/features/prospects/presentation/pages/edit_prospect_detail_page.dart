@@ -185,13 +185,7 @@ class _EditProspectDetailPageState
   }
 
   Future<void> _openInMaps() async {
-    final launched = await openInMaps(
-      lat: _latitude,
-      lng: _longitude,
-      label: _nameController.text.trim().isNotEmpty
-          ? _nameController.text.trim()
-          : null,
-    );
+    final launched = await openInMaps(lat: _latitude, lng: _longitude);
     if (!mounted || launched) return;
     SnackbarUtils.showError(context, "Couldn't open Google Maps.");
   }

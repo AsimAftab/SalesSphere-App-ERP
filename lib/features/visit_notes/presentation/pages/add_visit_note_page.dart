@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/features/visit_notes/domain/visit_note.dart';
 import 'package:sales_sphere_erp/features/visit_notes/presentation/controllers/visit_notes_controller.dart';
@@ -70,7 +69,8 @@ class _AddVisitNotePageState extends ConsumerState<AddVisitNotePage> {
     setState(() => _submitting = true);
     try {
       final draft = VisitNote(
-        id: '', // assigned by the API mock
+        id: '',
+        // assigned by the API mock
         title: _titleController.text.trim(),
         linkType: link.type,
         linkId: link.id,
@@ -80,9 +80,7 @@ class _AddVisitNotePageState extends ConsumerState<AddVisitNotePage> {
         createdAt: DateTime.now(),
         imagePaths: List<String>.unmodifiable(_imagePaths),
       );
-      await ref
-          .read(visitNotesControllerProvider.notifier)
-          .addVisitNote(draft);
+      await ref.read(visitNotesControllerProvider.notifier).addVisitNote(draft);
       if (!mounted) return;
       SnackbarUtils.showSuccess(context, 'Visit note added.');
       context.pop();
@@ -224,25 +222,25 @@ class _Header extends StatelessWidget {
                 ],
               ),
             ),
-            SizedBox(height: 8.h),
-            Text(
-              "Capture today's visit",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.8),
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-            SizedBox(height: 4.h),
+
             Text(
               'Add Visit Note',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 28.sp,
+                fontSize: 24.sp,
                 fontWeight: FontWeight.w800,
                 letterSpacing: -0.5,
+              ),
+            ),
+            SizedBox(height: 4.h),
+            Text(
+              "Capture today's visit",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.8),
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w400,
               ),
             ),
             SizedBox(height: 32.h),
