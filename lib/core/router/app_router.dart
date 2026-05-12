@@ -5,6 +5,9 @@ import 'package:sales_sphere_erp/core/auth/auth_state.dart';
 import 'package:sales_sphere_erp/core/router/router_refresh.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/core/router/shell_scaffold.dart';
+import 'package:sales_sphere_erp/features/attendance/presentation/pages/attendance_day_detail_page.dart';
+import 'package:sales_sphere_erp/features/attendance/presentation/pages/attendance_details_page.dart';
+import 'package:sales_sphere_erp/features/attendance/presentation/pages/attendance_home_page.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/pages/forgot_password_page.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/pages/login_page.dart';
@@ -13,6 +16,10 @@ import 'package:sales_sphere_erp/features/catalog/presentation/pages/catalog_pag
 import 'package:sales_sphere_erp/features/customers/presentation/pages/customers_hub_page.dart';
 import 'package:sales_sphere_erp/features/home/presentation/pages/home_page.dart';
 import 'package:sales_sphere_erp/features/more/presentation/pages/more_page.dart';
+import 'package:sales_sphere_erp/features/notes/domain/note.dart';
+import 'package:sales_sphere_erp/features/notes/presentation/pages/add_note_page.dart';
+import 'package:sales_sphere_erp/features/notes/presentation/pages/edit_note_detail_page.dart';
+import 'package:sales_sphere_erp/features/notes/presentation/pages/notes_list_page.dart';
 import 'package:sales_sphere_erp/features/parties/domain/party.dart';
 import 'package:sales_sphere_erp/features/parties/presentation/pages/add_party_page.dart';
 import 'package:sales_sphere_erp/features/parties/presentation/pages/edit_party_detail_page.dart';
@@ -28,10 +35,6 @@ import 'package:sales_sphere_erp/features/sites/presentation/pages/add_site_page
 import 'package:sales_sphere_erp/features/sites/presentation/pages/edit_site_detail_page.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/pages/sites_list_page.dart';
 import 'package:sales_sphere_erp/features/splash/splash_page.dart';
-import 'package:sales_sphere_erp/features/visit_notes/domain/visit_note.dart';
-import 'package:sales_sphere_erp/features/visit_notes/presentation/pages/add_visit_note_page.dart';
-import 'package:sales_sphere_erp/features/visit_notes/presentation/pages/edit_visit_note_detail_page.dart';
-import 'package:sales_sphere_erp/features/visit_notes/presentation/pages/visit_notes_list_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   // Eagerly instantiate the auth controller so its startup resolution runs.
@@ -61,7 +64,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               loc == Routes.login || loc == Routes.forgotPassword;
           return inAuthZone ? null : Routes.login;
         case AuthStatus.authenticated:
-          final inAuthZone = loc == Routes.login ||
+          final inAuthZone =
+              loc == Routes.login ||
               loc == Routes.forgotPassword ||
               loc == Routes.splash;
           return inAuthZone ? Routes.home : null;
@@ -114,16 +118,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const MorePage(),
           ),
           GoRoute(
-            path: Routes.profile,
-            name: Routes.profileName,
-            builder: (_, __) => const ProfilePage(),
-          ),
-          GoRoute(
             path: Routes.settings,
             name: Routes.settingsName,
             builder: (_, __) => const SettingsPage(),
           ),
         ],
+      ),
+      GoRoute(
+        path: Routes.profile,
+        name: Routes.profileName,
+        builder: (_, __) => const ProfilePage(),
       ),
       GoRoute(
         path: Routes.parties,
@@ -192,25 +196,50 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
-        path: Routes.visitNotes,
-        name: Routes.visitNotesName,
-        builder: (_, __) => const VisitNotesListPage(),
+        path: Routes.notes,
+        name: Routes.notesName,
+        builder: (_, __) => const NotesListPage(),
       ),
       GoRoute(
-        path: Routes.addVisitNote,
-        name: Routes.addVisitNoteName,
-        builder: (_, __) => const AddVisitNotePage(),
+        path: Routes.addNote,
+        name: Routes.addNoteName,
+        builder: (_, __) => const AddNotePage(),
       ),
       GoRoute(
-        path: Routes.visitNoteDetail,
-        name: Routes.visitNoteDetailName,
+        path: Routes.noteDetail,
+        name: Routes.noteDetailName,
         builder: (context, state) {
           final id = state.pathParameters['id']!;
           final extra = state.extra;
-          return EditVisitNoteDetailPage(
+          return EditNoteDetailPage(
             id: id,
-            initial: extra is VisitNote ? extra : null,
+            initial: extra is Note ? extra : null,
           );
+        },
+      ),
+      GoRoute(
+        path: Routes.attendance,
+        name: Routes.attendanceName,
+        builder: (_, __) => const AttendanceHomePage(),
+      ),
+      // Literal `/attendance/details` MUST be declared before the
+      // `:date` route — go_router resolves on declaration order, and
+      // otherwise `details` would bind to the parameter slot and try to
+      // parse as a date (and crash).
+      GoRoute(
+        path: Routes.attendanceDetails,
+        name: Routes.attendanceDetailsName,
+        builder: (_, __) => const AttendanceDetailsPage(),
+      ),
+      GoRoute(
+        path: Routes.attendanceDayDetail,
+        name: Routes.attendanceDayDetailName,
+        builder: (context, state) {
+          final iso = state.pathParameters['date']!;
+          final parsed = DateTime.tryParse(iso);
+          return parsed == null
+              ? const AttendanceDayDetailPage(date: null)
+              : AttendanceDayDetailPage(date: parsed);
         },
       ),
     ],

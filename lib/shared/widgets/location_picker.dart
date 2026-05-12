@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -11,6 +10,7 @@ import 'package:sales_sphere_erp/core/config/env.dart';
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/services/google_places_service.dart';
 import 'package:sales_sphere_erp/core/services/location_service.dart';
+import 'package:sales_sphere_erp/core/utils/reverse_geocode.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
@@ -166,37 +166,10 @@ class _LocationPickerState extends ConsumerState<LocationPicker> {
 
   /// Best-effort reverse geocoding. Failures are silent — the user can
   /// still see the lat/lng values and edit the address manually.
-  /// Builds a comprehensive address from every placemark field that
-  /// contributes meaning, then dedupes case-insensitively to drop
-  /// repeated Plus Codes and `name == street` collisions.
   Future<void> _reverseGeocode(double lat, double lng) async {
-    try {
-      final placemarks = await placemarkFromCoordinates(lat, lng);
-      if (placemarks.isEmpty || !mounted) return;
-      final p = placemarks.first;
-      final raw = <String?>[
-        p.name,
-        p.subThoroughfare,
-        p.thoroughfare,
-        p.street,
-        p.subLocality,
-        p.locality,
-        p.subAdministrativeArea,
-        p.administrativeArea,
-        p.postalCode,
-        p.country,
-      ].whereType<String>().map((s) => s.trim()).where((s) => s.isNotEmpty);
-
-      final seen = <String>{};
-      final deduped = <String>[];
-      for (final part in raw) {
-        if (seen.add(part.toLowerCase())) deduped.add(part);
-      }
-
-      widget.addressController.text = deduped.join(', ');
-    } on Exception catch (_) {
-      // best-effort
-    }
+    final address = await reverseGeocodeAddress(lat, lng);
+    if (!mounted || address == null) return;
+    widget.addressController.text = address;
   }
 
   void _onSearchChanged(String value) {

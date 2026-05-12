@@ -1,3 +1,4 @@
+
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -175,10 +176,7 @@ class _EmptyDropZone extends StatelessWidget {
             SizedBox(height: isSingle ? 8.h : 4.h),
             Text(
               'No image attached',
-              style: TextStyle(
-                fontSize: 12.sp,
-                color: AppColors.textDisabled,
-              ),
+              style: TextStyle(fontSize: 12.sp, color: AppColors.textDisabled),
             ),
           ],
         ),
@@ -208,10 +206,7 @@ class _EmptyDropZone extends StatelessWidget {
                   (isSingle
                       ? 'Tap to add image'
                       : 'Tap to add image ($currentCount/$maxImages)'),
-              style: TextStyle(
-                fontSize: 12.sp,
-                color: AppColors.textSecondary,
-              ),
+              style: TextStyle(fontSize: 12.sp, color: AppColors.textSecondary),
             ),
           ],
         ),
@@ -282,7 +277,7 @@ class _LocalThumbnail extends StatelessWidget {
   Widget build(BuildContext context) {
     final height = isSingleImage ? 200.h : 140.h;
     return GestureDetector(
-      onTap: () => _showPreviewDialog(context, FileImage(File(path))),
+      onTap: () => showPrimaryImagePreview(context, FileImage(File(path))),
       child: SizedBox(
         height: height,
         width: double.infinity,
@@ -339,8 +334,10 @@ class _NetworkThumbnail extends StatelessWidget {
   Widget build(BuildContext context) {
     final height = isSingleImage ? 200.h : 140.h;
     return GestureDetector(
-      onTap: () =>
-          _showPreviewDialog(context, CachedNetworkImageProvider(imageUrl)),
+      onTap: () => showPrimaryImagePreview(
+        context,
+        CachedNetworkImageProvider(imageUrl),
+      ),
       child: SizedBox(
         height: height,
         width: double.infinity,
@@ -483,7 +480,7 @@ class _OverlayButton extends StatelessWidget {
   }
 }
 
-void _showPreviewDialog(BuildContext context, ImageProvider provider) {
+void showPrimaryImagePreview(BuildContext context, ImageProvider provider) {
   showDialog<void>(
     context: context,
     builder: (BuildContext dialogContext) {

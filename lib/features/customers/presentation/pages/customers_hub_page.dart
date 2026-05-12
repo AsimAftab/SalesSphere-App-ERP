@@ -7,14 +7,14 @@ import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
 /// Hub screen surfaced from the bottom-nav "Customers" tab. Groups
-/// Parties + Prospects + Sites + (placeholder) Visit Notes under one
+/// Parties + Prospects + Sites + (placeholder) Notes under one
 /// entry so the user picks which list to drill into. `context.push`
 /// (not `go`) keeps the navbar visible and lets the destination's
 /// back arrow return here.
 ///
 /// Tiles share a flat white surface; identity comes from a per-module
 /// icon colour (blue / orange / green / red) tinted into a soft
-/// rounded icon block. Visit Notes carries a small gold "Soon" pill
+/// rounded icon block. Notes carries a small gold "Soon" pill
 /// in its title row to mark it as a placeholder.
 class CustomersHubPage extends StatelessWidget {
   const CustomersHubPage({super.key});
@@ -63,35 +63,35 @@ class CustomersHubPage extends StatelessWidget {
   /// Built per-build so the closures can capture the current `context`
   /// for navigation + snackbar.
   List<_TileSpec> _tileSpecs(BuildContext context) => <_TileSpec>[
-        _TileSpec(
-          icon: Icons.storefront_outlined,
-          title: 'Parties',
-          subtitle: 'Manage business partners',
-          iconColor: AppColors.secondary,
-          onTap: () => context.push(Routes.parties),
-        ),
-        _TileSpec(
-          icon: Icons.person_search_outlined,
-          title: 'Prospects',
-          subtitle: 'Manage potential customers',
-          iconColor: AppColors.warning,
-          onTap: () => context.push(Routes.prospects),
-        ),
-        _TileSpec(
-          icon: Icons.location_city_outlined,
-          title: 'Sites',
-          subtitle: 'Manage potential business locations',
-          iconColor: AppColors.green500,
-          onTap: () => context.push(Routes.sites),
-        ),
-        _TileSpec(
-          icon: Icons.event_note_outlined,
-          title: 'Visit Notes',
-          subtitle: 'Log discussions, feedback & issues',
-          iconColor: AppColors.red500,
-          onTap: () => context.push(Routes.visitNotes),
-        ),
-      ];
+    _TileSpec(
+      icon: Icons.storefront_outlined,
+      title: 'Parties',
+      subtitle: 'Manage business partners',
+      iconColor: AppColors.secondary,
+      onTap: () => context.push(Routes.parties),
+    ),
+    _TileSpec(
+      icon: Icons.person_search_outlined,
+      title: 'Prospects',
+      subtitle: 'Manage potential customers',
+      iconColor: AppColors.warning,
+      onTap: () => context.push(Routes.prospects),
+    ),
+    _TileSpec(
+      icon: Icons.location_city_outlined,
+      title: 'Sites',
+      subtitle: 'Manage potential business locations',
+      iconColor: AppColors.green500,
+      onTap: () => context.push(Routes.sites),
+    ),
+    _TileSpec(
+      icon: Icons.event_note_outlined,
+      title: 'Notes',
+      subtitle: 'Log discussions, feedback & issues',
+      iconColor: AppColors.red500,
+      onTap: () => context.push(Routes.notes),
+    ),
+  ];
 }
 
 /// Static description of one hub tile. The page builds these per-frame
@@ -126,9 +126,7 @@ class _HubGrid extends StatelessWidget {
       mainAxisSpacing: 14.h,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      children: <Widget>[
-        for (final spec in specs) _HubTile(spec: spec),
-      ],
+      children: <Widget>[for (final spec in specs) _HubTile(spec: spec)],
     );
   }
 }
@@ -149,9 +147,7 @@ class _HubTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(20.r),
-        border: Border.all(
-          color: spec.iconColor.withValues(alpha: 0.25),
-        ),
+        border: Border.all(color: spec.iconColor.withValues(alpha: 0.25)),
         boxShadow: <BoxShadow>[
           BoxShadow(
             color: AppColors.primary.withValues(alpha: 0.06),
@@ -179,11 +175,7 @@ class _HubTile extends StatelessWidget {
                     borderRadius: BorderRadius.circular(14.r),
                   ),
                   alignment: Alignment.center,
-                  child: Icon(
-                    spec.icon,
-                    color: spec.iconColor,
-                    size: 24.sp,
-                  ),
+                  child: Icon(spec.icon, color: spec.iconColor, size: 24.sp),
                 ),
                 SizedBox(height: 12.h),
                 Text(
