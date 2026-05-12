@@ -1,0 +1,194 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:intl/intl.dart';
+
+import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/features/attendance/domain/attendance_record.dart';
+import 'package:sales_sphere_erp/features/attendance/presentation/widgets/attendance_status_pill.dart';
+
+/// One row on the month-list page: weekday + date + status pill,
+/// horizontal divider, 2×2 mini-grid of (check-in, check-out, hours
+/// worked, location).
+class DayDetailCard extends StatelessWidget {
+  const DayDetailCard({
+    required this.record,
+    required this.onTap,
+    super.key,
+  });
+
+  final AttendanceRecord record;
+  final VoidCallback onTap;
+
+  String _formatHours(Duration? d) {
+    if (d == null) return '--';
+    final hours = d.inMinutes ~/ 60;
+    final minutes = d.inMinutes % 60;
+    return '${hours}h ${minutes.toString().padLeft(2, '0')}m';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16.r),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: AppColors.shadow,
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16.r),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16.r),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 16.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            DateFormat('EEEE').format(record.date),
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 18.sp,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                          SizedBox(height: 2.h),
+                          Text(
+                            DateFormat('MMM d, yyyy').format(record.date),
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 13.sp,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    AttendanceStatusPill(status: record.status),
+                  ],
+                ),
+                SizedBox(height: 12.h),
+                Divider(height: 1, color: AppColors.border.withValues(alpha: 0.6)),
+                SizedBox(height: 12.h),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: _MiniTile(
+                        icon: Icons.login_rounded,
+                        iconColor: AppColors.green500,
+                        label: 'Check-in',
+                        value: record.checkInAt == null
+                            ? '--:--'
+                            : DateFormat('hh:mm a').format(record.checkInAt!),
+                      ),
+                    ),
+                    SizedBox(width: 8.w),
+                    Expanded(
+                      child: _MiniTile(
+                        icon: Icons.logout_rounded,
+                        iconColor: AppColors.red500,
+                        label: 'Check-out',
+                        value: record.checkOutAt == null
+                            ? '--:--'
+                            : DateFormat('hh:mm a').format(record.checkOutAt!),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 12.h),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: _MiniTile(
+                        icon: Icons.access_time_rounded,
+                        iconColor: AppColors.secondary,
+                        label: 'Hours Worked',
+                        value: _formatHours(record.hoursWorked),
+                      ),
+                    ),
+                    SizedBox(width: 8.w),
+                    Expanded(
+                      child: _MiniTile(
+                        icon: Icons.location_on_rounded,
+                        iconColor: AppColors.secondary,
+                        label: 'Location',
+                        value: record.checkInAddress ?? '--',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniTile extends StatelessWidget {
+  const _MiniTile({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Icon(icon, color: iconColor, size: 16.sp),
+            SizedBox(width: 6.w),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 4.h),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 14.sp,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}

@@ -30,11 +30,17 @@ class Routes {
 
   static String siteDetailPath(String id) => '/sites/detail/$id';
 
-  static const visitNotes = '/visit-notes';
-  static const addVisitNote = '/visit-notes/add';
-  static const visitNoteDetail = '/visit-notes/detail/:id';
+  static const notes = '/notes';
+  static const addNote = '/notes/add';
+  static const noteDetail = '/notes/detail/:id';
 
-  static String visitNoteDetailPath(String id) => '/visit-notes/detail/$id';
+  static String noteDetailPath(String id) => '/notes/detail/$id';
+
+  static const attendance = '/attendance';
+  static const attendanceDetails = '/attendance/details';
+  static const attendanceDayDetail = '/attendance/:date';
+
+  static String attendanceDayDetailPath(String iso) => '/attendance/$iso';
 
   static const splashName = 'splash';
   static const loginName = 'login';
@@ -55,7 +61,10 @@ class Routes {
   static const sitesName = 'sites';
   static const addSiteName = 'addSite';
   static const siteDetailName = 'siteDetail';
-  static const visitNotesName = 'visitNotes';
-  static const addVisitNoteName = 'addVisitNote';
-  static const visitNoteDetailName = 'visitNoteDetail';
+  static const notesName = 'notes';
+  static const addNoteName = 'addNote';
+  static const noteDetailName = 'noteDetail';
+  static const attendanceName = 'attendance';
+  static const attendanceDetailsName = 'attendanceDetails';
+  static const attendanceDayDetailName = 'attendanceDayDetail';
 }

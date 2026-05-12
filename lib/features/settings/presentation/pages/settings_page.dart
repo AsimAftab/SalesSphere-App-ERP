@@ -18,7 +18,7 @@ import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 /// (notifications, language, theme) join the existing sections — or
 /// take a new section.
 ///
-/// Chrome mirrors the parties / prospects / sites / visit-notes list
+/// Chrome mirrors the parties / prospects / sites / notes list
 /// pages — corner-bubble decoration behind a custom `_AppBar` — minus
 /// the search bar (no list to filter), so the page reads as part of
 /// the same family even though the body is a static settings list.
@@ -59,9 +59,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     if (next) {
       // Enabling — confirm with a real biometric prompt so we know the
       // hardware actually works on this device.
-      final ok = await ref.read(biometricServiceProvider).authenticate(
-            localizedReason: 'Confirm biometric unlock',
-          );
+      final ok = await ref
+          .read(biometricServiceProvider)
+          .authenticate(localizedReason: 'Confirm biometric unlock');
       if (!mounted) return;
       if (!ok) {
         // Cancelled or failed — leave the toggle off.
@@ -119,8 +119,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         SizedBox(height: 24.h),
                         Expanded(
                           child: ListView(
-                            padding:
-                                EdgeInsets.fromLTRB(20.w, 0, 20.w, 24.h),
+                            padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 24.h),
                             children: <Widget>[
                               const _SectionLabel(label: 'Account'),
                               SizedBox(height: 8.h),
@@ -154,7 +153,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 }
 
 /// Mirrors the `_AppBar` used on parties / prospects / sites /
-/// visit-notes list pages — back arrow on the left, page title in
+/// notes list pages — back arrow on the left, page title in
 /// primary 20sp w600 — so settings sits inside the same visual
 /// vocabulary even though it isn't a list-driven screen.
 class _AppBar extends StatelessWidget {
@@ -220,11 +219,7 @@ class _SectionLabel extends StatelessWidget {
 /// page; the absence of a subtitle keeps these compact and signals
 /// "tap to go" rather than "configurable here".
 class _NavRow extends StatelessWidget {
-  const _NavRow({
-    required this.icon,
-    required this.title,
-    required this.onTap,
-  });
+  const _NavRow({required this.icon, required this.title, required this.onTap});
 
   final IconData icon;
   final String title;
@@ -262,11 +257,7 @@ class _NavRow extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12.r),
                   ),
                   alignment: Alignment.center,
-                  child: Icon(
-                    icon,
-                    color: AppColors.secondary,
-                    size: 22.sp,
-                  ),
+                  child: Icon(icon, color: AppColors.secondary, size: 22.sp),
                 ),
                 SizedBox(width: 14.w),
                 Expanded(
@@ -372,10 +363,7 @@ class _BiometricRow extends StatelessWidget {
               ),
             ),
             SizedBox(width: 8.w),
-            _AppToggle(
-              value: enabled,
-              onChanged: disabled ? null : onChanged,
-            ),
+            _AppToggle(value: enabled, onChanged: disabled ? null : onChanged),
           ],
         ),
       ),
@@ -459,9 +447,7 @@ class _SignOutRow extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(20.r),
-          border: Border.all(
-            color: AppColors.error.withValues(alpha: 0.25),
-          ),
+          border: Border.all(color: AppColors.error.withValues(alpha: 0.25)),
         ),
         child: InkWell(
           onTap: onTap,

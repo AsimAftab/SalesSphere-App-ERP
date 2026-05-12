@@ -70,6 +70,15 @@ class MorePage extends ConsumerWidget {
   /// 2-col grid auto-flows.
   List<_TileSpec> _tileSpecs(BuildContext context) => <_TileSpec>[
         _TileSpec(
+          icon: Icons.event_available_outlined,
+          title: 'Attendance',
+          subtitle: 'Check-ins, calendar & monthly summary',
+          // Green is the dominant "Present" colour on the calendar
+          // dots, so the tile reads as the on-ramp for that surface.
+          iconColor: AppColors.green500,
+          onTap: () => context.push(Routes.attendance),
+        ),
+        _TileSpec(
           icon: Icons.settings_outlined,
           title: 'Settings',
           subtitle: 'Profile, biometric unlock & more',
