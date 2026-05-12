@@ -91,6 +91,15 @@ class CustomersHubPage extends StatelessWidget {
       iconColor: AppColors.red500,
       onTap: () => context.push(Routes.notes),
     ),
+    _TileSpec(
+      icon: Icons.work_outline_rounded,
+      title: 'Miscellaneous Work',
+      subtitle: 'Field tasks & assignments',
+      // Navy matches the screenshot's icon block on each list-row card,
+      // so the tile reads as the on-ramp to that same surface.
+      iconColor: AppColors.primary,
+      onTap: () => context.push(Routes.miscellaneousWorks),
+    ),
   ];
 }
 

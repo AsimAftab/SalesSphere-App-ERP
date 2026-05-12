@@ -15,6 +15,10 @@ import 'package:sales_sphere_erp/features/billing/presentation/pages/billing_pag
 import 'package:sales_sphere_erp/features/catalog/presentation/pages/catalog_page.dart';
 import 'package:sales_sphere_erp/features/customers/presentation/pages/customers_hub_page.dart';
 import 'package:sales_sphere_erp/features/home/presentation/pages/home_page.dart';
+import 'package:sales_sphere_erp/features/miscellaneous_work/domain/miscellaneous_work.dart';
+import 'package:sales_sphere_erp/features/miscellaneous_work/presentation/pages/add_miscellaneous_work_page.dart';
+import 'package:sales_sphere_erp/features/miscellaneous_work/presentation/pages/edit_miscellaneous_work_detail_page.dart';
+import 'package:sales_sphere_erp/features/miscellaneous_work/presentation/pages/miscellaneous_work_list_page.dart';
 import 'package:sales_sphere_erp/features/more/presentation/pages/more_page.dart';
 import 'package:sales_sphere_erp/features/notes/domain/note.dart';
 import 'package:sales_sphere_erp/features/notes/presentation/pages/add_note_page.dart';
@@ -240,6 +244,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return parsed == null
               ? const AttendanceDayDetailPage(date: null)
               : AttendanceDayDetailPage(date: parsed);
+        },
+      ),
+      GoRoute(
+        path: Routes.miscellaneousWorks,
+        name: Routes.miscellaneousWorksName,
+        builder: (_, __) => const MiscellaneousWorkListPage(),
+      ),
+      GoRoute(
+        path: Routes.addMiscellaneousWork,
+        name: Routes.addMiscellaneousWorkName,
+        builder: (_, __) => const AddMiscellaneousWorkPage(),
+      ),
+      GoRoute(
+        path: Routes.miscellaneousWorkDetail,
+        name: Routes.miscellaneousWorkDetailName,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          final extra = state.extra;
+          return EditMiscellaneousWorkDetailPage(
+            id: id,
+            initial: extra is MiscellaneousWork ? extra : null,
+          );
         },
       ),
     ],

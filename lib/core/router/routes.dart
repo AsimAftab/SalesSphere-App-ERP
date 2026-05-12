@@ -42,6 +42,13 @@ class Routes {
 
   static String attendanceDayDetailPath(String iso) => '/attendance/$iso';
 
+  static const miscellaneousWorks = '/miscellaneous-work';
+  static const addMiscellaneousWork = '/miscellaneous-work/add';
+  static const miscellaneousWorkDetail = '/miscellaneous-work/detail/:id';
+
+  static String miscellaneousWorkDetailPath(String id) =>
+      '/miscellaneous-work/detail/$id';
+
   static const splashName = 'splash';
   static const loginName = 'login';
   static const forgotPasswordName = 'forgotPassword';
@@ -67,4 +74,7 @@ class Routes {
   static const attendanceName = 'attendance';
   static const attendanceDetailsName = 'attendanceDetails';
   static const attendanceDayDetailName = 'attendanceDayDetail';
+  static const miscellaneousWorksName = 'miscellaneousWorks';
+  static const addMiscellaneousWorkName = 'addMiscellaneousWork';
+  static const miscellaneousWorkDetailName = 'miscellaneousWorkDetail';
 }
