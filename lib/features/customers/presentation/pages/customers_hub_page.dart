@@ -94,7 +94,7 @@ class CustomersHubPage extends StatelessWidget {
     _TileSpec(
       icon: Icons.work_outline_rounded,
       title: 'Miscellaneous Work',
-      subtitle: 'Field tasks & assignments',
+      subtitle: 'Log odd tasks',
       // Navy matches the screenshot's icon block on each list-row card,
       // so the tile reads as the on-ramp to that same surface.
       iconColor: AppColors.primary,
@@ -177,25 +177,25 @@ class _HubTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Container(
-                  width: 48.r,
-                  height: 48.r,
+                  width: 42.r,
+                  height: 42.r,
                   decoration: BoxDecoration(
                     color: spec.iconColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(14.r),
+                    borderRadius: BorderRadius.circular(12.r),
                   ),
                   alignment: Alignment.center,
-                  child: Icon(spec.icon, color: spec.iconColor, size: 24.sp),
+                  child: Icon(spec.icon, color: spec.iconColor, size: 20.sp),
                 ),
                 SizedBox(height: 12.h),
                 Text(
                   spec.title,
                   style: TextStyle(
                     color: AppColors.textPrimary,
-                    fontSize: 16.sp,
+                    fontSize: 14.sp,
                     fontWeight: FontWeight.w600,
                     letterSpacing: -0.2,
                   ),
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 SizedBox(height: 4.h),

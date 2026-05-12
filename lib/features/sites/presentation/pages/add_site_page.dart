@@ -10,8 +10,8 @@ import 'package:sales_sphere_erp/features/sites/domain/site.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/controllers/sites_controller.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/providers/sites_providers.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/widgets/sub_organization_picker.dart';
+import 'package:sales_sphere_erp/shared/domain/interest.dart';
 import 'package:sales_sphere_erp/shared/domain/interest_catalogue.dart';
-import 'package:sales_sphere_erp/shared/domain/site_interest.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
@@ -47,7 +47,7 @@ class _AddSitePageState extends ConsumerState<AddSitePage> {
 
   static const _maxImages = 2;
 
-  List<SiteInterest> _interests = const <SiteInterest>[];
+  List<Interest> _interests = const <Interest>[];
   String? _subOrganizationId;
   DateTime? _dateJoined;
   double _latitude = _defaultLat;
@@ -109,7 +109,7 @@ class _AddSitePageState extends ConsumerState<AddSitePage> {
         subOrganizationId: _subOrganizationId,
         email: _emailController.text.trim().nullIfEmpty(),
         dateJoined: _dateJoined,
-        interests: List<SiteInterest>.unmodifiable(_interests),
+        interests: List<Interest>.unmodifiable(_interests),
         notes: _notesController.text.trim().nullIfEmpty(),
         latitude: _latitude,
         longitude: _longitude,
@@ -225,16 +225,15 @@ class _AddSitePageState extends ConsumerState<AddSitePage> {
                             );
                             final controller =
                                 ref.read(sitesControllerProvider.notifier);
-                            return SiteInterestPicker(
+                            return InterestPicker(
                               value: _interests,
                               catalogue: catalogueAsync.value ??
                                   InterestCatalogue.empty(),
                               enabled: true,
-                              onChanged: (next) => setState(() {
-                                _interests = next
-                                    .whereType<SiteInterest>()
-                                    .toList(growable: false);
-                              }),
+                              label: 'Site Interest',
+                              hintText: 'Select site interest',
+                              onChanged: (next) =>
+                                  setState(() => _interests = next),
                               onAddCategory: controller.addInterestCategory,
                               onAddBrand: (cat, brand) =>
                                   controller.addInterestBrand(

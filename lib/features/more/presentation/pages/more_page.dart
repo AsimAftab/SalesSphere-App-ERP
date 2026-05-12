@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
 /// "More" tab landing screen — surfaces account-adjacent destinations.
@@ -51,7 +52,7 @@ class MorePage extends ConsumerWidget {
                   subtitle,
                   style: TextStyle(
                     color: AppColors.textSecondary,
-                    fontSize: 14.sp,
+                    fontSize: 16.sp,
                     fontWeight: FontWeight.w400,
                   ),
                 ),
@@ -70,25 +71,58 @@ class MorePage extends ConsumerWidget {
   /// 2-col grid auto-flows.
   List<_TileSpec> _tileSpecs(BuildContext context) => <_TileSpec>[
         _TileSpec(
-          icon: Icons.event_available_outlined,
+          icon: Icons.calendar_today_outlined,
           title: 'Attendance',
-          subtitle: 'Check-ins, calendar & monthly summary',
-          // Green is the dominant "Present" colour on the calendar
-          // dots, so the tile reads as the on-ramp for that surface.
-          iconColor: AppColors.green500,
+          subtitle: 'Mark and track daily attendance',
+          iconColor: AppColors.secondary,
           onTap: () => context.push(Routes.attendance),
+        ),
+        _TileSpec(
+          icon: Icons.event_busy_outlined,
+          title: 'Leave Request',
+          subtitle: 'Apply for leaves and track approval status',
+          iconColor: AppColors.purple500,
+          onTap: () => _comingSoon(context, 'Leave Request'),
+        ),
+        _TileSpec(
+          icon: Icons.speed_outlined,
+          title: 'Odometer',
+          subtitle: 'Track travel distance during field visits',
+          iconColor: AppColors.info,
+          onTap: () => _comingSoon(context, 'Odometer'),
+        ),
+        _TileSpec(
+          icon: Icons.currency_rupee,
+          title: 'Expense Claims',
+          subtitle: 'Submit and manage expense claims',
+          iconColor: AppColors.green500,
+          onTap: () => _comingSoon(context, 'Expense Claims'),
+        ),
+        _TileSpec(
+          icon: Icons.navigation_outlined,
+          title: 'Tour Plan',
+          subtitle: 'Plan and manage daily field visits',
+          iconColor: AppColors.warning,
+          onTap: () => _comingSoon(context, 'Tour Plan'),
         ),
         _TileSpec(
           icon: Icons.settings_outlined,
           title: 'Settings',
-          subtitle: 'Profile, biometric unlock & more',
+          subtitle: 'App preferences and account',
           // Settings is account chrome rather than a domain module, so
           // it picks up a neutral grey accent instead of one of the
-          // hub palette colours (blue / orange / green / red).
+          // hub palette colours.
           iconColor: AppColors.textSecondary,
           onTap: () => context.push(Routes.settings),
         ),
       ];
+
+  /// Placeholder tap handler for features that have a tile on More but
+  /// no surface wired yet. The snackbar's neutral tone (info, not
+  /// error) reads as a deliberate "not yet" rather than a failure.
+  void _comingSoon(BuildContext context, String feature) {
+    SnackbarUtils.showInfo(context, '$feature — coming soon.');
+  }
 }
 
 /// Static description of one tile. The page builds these per-frame
@@ -168,17 +202,17 @@ class _MoreTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Container(
-                  width: 48.r,
-                  height: 48.r,
+                  width: 42.r,
+                  height: 42.r,
                   decoration: BoxDecoration(
                     color: spec.iconColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(14.r),
+                    borderRadius: BorderRadius.circular(12.r),
                   ),
                   alignment: Alignment.center,
                   child: Icon(
                     spec.icon,
                     color: spec.iconColor,
-                    size: 24.sp,
+                    size: 20.sp,
                   ),
                 ),
                 SizedBox(height: 12.h),
@@ -186,11 +220,11 @@ class _MoreTile extends StatelessWidget {
                   spec.title,
                   style: TextStyle(
                     color: AppColors.textPrimary,
-                    fontSize: 16.sp,
+                    fontSize: 14.sp,
                     fontWeight: FontWeight.w600,
                     letterSpacing: -0.2,
                   ),
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 SizedBox(height: 4.h),

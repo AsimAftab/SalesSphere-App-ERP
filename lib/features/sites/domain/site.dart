@@ -1,4 +1,4 @@
-import 'package:sales_sphere_erp/shared/domain/site_interest.dart';
+import 'package:sales_sphere_erp/shared/domain/interest.dart';
 
 /// UI-facing site model. Decoupled from wire DTOs so backend renames
 /// don't ripple into widgets. Will be promoted to freezed once the
@@ -13,7 +13,7 @@ class Site {
     this.subOrganizationId,
     this.email,
     this.dateJoined,
-    this.interests = const <SiteInterest>[],
+    this.interests = const <Interest>[],
     this.notes,
     this.latitude,
     this.longitude,
@@ -38,12 +38,11 @@ class Site {
   final String? email;
   final DateTime? dateJoined;
 
-  /// Multi-select category + brand pairs. Each entry also carries its
-  /// own list of (name, phone) contacts captured inside the same
-  /// picker sheet via `SiteInterestPicker`. Sites embed contacts on
-  /// the interest entries themselves so the (category → contacts)
-  /// link is explicit at the data shape.
-  final List<SiteInterest> interests;
+  /// Multi-select category + brand pairs. Same shape as the prospect
+  /// interest list — sites used to carry per-category contacts on each
+  /// entry but the (category → contacts) link was dropped, so the
+  /// entries are now plain [Interest]s.
+  final List<Interest> interests;
 
   final String? notes;
   final double? latitude;
