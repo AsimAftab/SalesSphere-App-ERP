@@ -44,6 +44,10 @@ class SitesApi {
       'ownerName': 'Anil Karki',
       'phone': '9801234567',
       'subOrganizationId': 'so-hq',
+      'contacts': <Map<String, String>>[
+        <String, String>{'name': 'Anita Sharma', 'phone': '9841234567'},
+        <String, String>{'name': 'Ramesh Kulkarni', 'phone': '9821987654'},
+      ],
     },
     <String, dynamic>{
       'id': '2',
@@ -83,6 +87,7 @@ class SitesApi {
       email: draft.email,
       dateJoined: draft.dateJoined,
       interests: draft.interests,
+      contacts: draft.contacts,
       notes: draft.notes,
       latitude: draft.latitude,
       longitude: draft.longitude,
