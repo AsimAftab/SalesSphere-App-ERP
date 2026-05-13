@@ -4,6 +4,7 @@ import 'package:sales_sphere_erp/features/sites/data/dto/site_dto.dart';
 import 'package:sales_sphere_erp/features/sites/data/sites_api.dart';
 import 'package:sales_sphere_erp/features/sites/domain/repositories/sites_repository.dart';
 import 'package:sales_sphere_erp/features/sites/domain/site.dart';
+import 'package:sales_sphere_erp/features/sites/domain/site_contact.dart';
 import 'package:sales_sphere_erp/features/sites/domain/sub_organization.dart';
 import 'package:sales_sphere_erp/shared/domain/interest.dart';
 import 'package:sales_sphere_erp/shared/domain/interest_catalogue.dart';
@@ -72,6 +73,9 @@ class SitesRepositoryImpl implements SitesRepository {
         interests: dto.interests
             .map((i) => Interest(category: i.category, brand: i.brand))
             .toList(growable: false),
+        contacts: dto.contacts
+            .map((c) => SiteContact(name: c.name, phone: c.phone))
+            .toList(growable: false),
         notes: dto.notes,
         latitude: dto.latitude,
         longitude: dto.longitude,
@@ -90,6 +94,9 @@ class SitesRepositoryImpl implements SitesRepository {
         dateJoined: s.dateJoined,
         interests: s.interests
             .map((i) => SiteInterestDto(category: i.category, brand: i.brand))
+            .toList(growable: false),
+        contacts: s.contacts
+            .map((c) => SiteContactDto(name: c.name, phone: c.phone))
             .toList(growable: false),
         notes: s.notes,
         latitude: s.latitude,

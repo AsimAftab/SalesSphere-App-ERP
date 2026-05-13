@@ -12,6 +12,7 @@ class SiteDto {
     this.email,
     this.dateJoined,
     this.interests = const <SiteInterestDto>[],
+    this.contacts = const <SiteContactDto>[],
     this.notes,
     this.latitude,
     this.longitude,
@@ -34,6 +35,11 @@ class SiteDto {
                     SiteInterestDto.fromJson(e as Map<String, dynamic>))
                 .toList(growable: false) ??
             const <SiteInterestDto>[],
+        contacts: (json['contacts'] as List<dynamic>?)
+                ?.map((e) =>
+                    SiteContactDto.fromJson(e as Map<String, dynamic>))
+                .toList(growable: false) ??
+            const <SiteContactDto>[],
         notes: json['notes'] as String?,
         latitude: (json['latitude'] as num?)?.toDouble(),
         longitude: (json['longitude'] as num?)?.toDouble(),
@@ -52,6 +58,7 @@ class SiteDto {
   final String? email;
   final DateTime? dateJoined;
   final List<SiteInterestDto> interests;
+  final List<SiteContactDto> contacts;
   final String? notes;
   final double? latitude;
   final double? longitude;
@@ -68,6 +75,8 @@ class SiteDto {
         if (dateJoined != null) 'dateJoined': dateJoined!.toIso8601String(),
         if (interests.isNotEmpty)
           'interests': interests.map((e) => e.toJson()).toList(),
+        if (contacts.isNotEmpty)
+          'contacts': contacts.map((e) => e.toJson()).toList(),
         if (notes != null) 'notes': notes,
         if (latitude != null) 'latitude': latitude,
         if (longitude != null) 'longitude': longitude,
@@ -93,5 +102,24 @@ class SiteInterestDto {
   Map<String, dynamic> toJson() => <String, dynamic>{
         'category': category,
         'brand': brand,
+      };
+}
+
+/// Wire-shape for a secondary site contact (name + phone). Top-level
+/// on the site row; not nested inside interest entries.
+class SiteContactDto {
+  const SiteContactDto({required this.name, required this.phone});
+
+  factory SiteContactDto.fromJson(Map<String, dynamic> json) => SiteContactDto(
+        name: json['name'] as String,
+        phone: json['phone'] as String,
+      );
+
+  final String name;
+  final String phone;
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'name': name,
+        'phone': phone,
       };
 }

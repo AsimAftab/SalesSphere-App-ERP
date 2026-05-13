@@ -1,3 +1,4 @@
+import 'package:sales_sphere_erp/features/sites/domain/site_contact.dart';
 import 'package:sales_sphere_erp/shared/domain/interest.dart';
 
 /// UI-facing site model. Decoupled from wire DTOs so backend renames
@@ -14,6 +15,7 @@ class Site {
     this.email,
     this.dateJoined,
     this.interests = const <Interest>[],
+    this.contacts = const <SiteContact>[],
     this.notes,
     this.latitude,
     this.longitude,
@@ -43,6 +45,12 @@ class Site {
   /// entry but the (category → contacts) link was dropped, so the
   /// entries are now plain [Interest]s.
   final List<Interest> interests;
+
+  /// Secondary points of contact at the site (name + phone). Capped at
+  /// 4 by the `SiteContactPicker` widget — the cap isn't enforced at
+  /// the entity level so backend-driven imports can carry more without
+  /// the model throwing.
+  final List<SiteContact> contacts;
 
   final String? notes;
   final double? latitude;

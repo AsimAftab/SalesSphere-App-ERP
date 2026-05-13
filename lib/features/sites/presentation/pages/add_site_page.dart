@@ -7,8 +7,10 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/features/sites/domain/site.dart';
+import 'package:sales_sphere_erp/features/sites/domain/site_contact.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/controllers/sites_controller.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/providers/sites_providers.dart';
+import 'package:sales_sphere_erp/features/sites/presentation/widgets/site_contact_picker.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/widgets/sub_organization_picker.dart';
 import 'package:sales_sphere_erp/shared/domain/interest.dart';
 import 'package:sales_sphere_erp/shared/domain/interest_catalogue.dart';
@@ -48,6 +50,7 @@ class _AddSitePageState extends ConsumerState<AddSitePage> {
   static const _maxImages = 2;
 
   List<Interest> _interests = const <Interest>[];
+  List<SiteContact> _contacts = const <SiteContact>[];
   String? _subOrganizationId;
   DateTime? _dateJoined;
   double _latitude = _defaultLat;
@@ -110,6 +113,7 @@ class _AddSitePageState extends ConsumerState<AddSitePage> {
         email: _emailController.text.trim().nullIfEmpty(),
         dateJoined: _dateJoined,
         interests: List<Interest>.unmodifiable(_interests),
+        contacts: List<SiteContact>.unmodifiable(_contacts),
         notes: _notesController.text.trim().nullIfEmpty(),
         latitude: _latitude,
         longitude: _longitude,
@@ -242,6 +246,13 @@ class _AddSitePageState extends ConsumerState<AddSitePage> {
                               ),
                             );
                           },
+                        ),
+                        SizedBox(height: 16.h),
+                        SiteContactPicker(
+                          value: _contacts,
+                          enabled: true,
+                          onChanged: (next) =>
+                              setState(() => _contacts = next),
                         ),
                         SizedBox(height: 16.h),
                         PrimaryTextField(
