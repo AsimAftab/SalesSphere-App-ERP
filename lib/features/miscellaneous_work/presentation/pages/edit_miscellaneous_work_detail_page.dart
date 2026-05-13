@@ -249,6 +249,8 @@ class _EditMiscellaneousWorkDetailPageState
                                   label: 'Nature of Work',
                                   hintText: 'Enter nature of work',
                                   prefixIcon: Icons.work_outline_rounded,
+                                  minLines: 1,
+                                  maxLines: 2,
                                   enabled: _editing,
                                   validator: (v) => Validators.requiredField(
                                     v,

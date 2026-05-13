@@ -75,55 +75,23 @@ class SiteDto {
       };
 }
 
-/// Wire-shape for a single category + brand interest entry. Carries
-/// its own optional list of (name, phone) contacts so the backend
-/// stores the (category → contacts) link together with the brand pick.
+/// Wire-shape for a single category + brand interest entry. Mirrors
+/// the prospect's interest DTO shape now that sites no longer carry
+/// per-category contacts.
 class SiteInterestDto {
-  const SiteInterestDto({
-    required this.category,
-    required this.brand,
-    this.contacts = const <SiteContactDto>[],
-  });
+  const SiteInterestDto({required this.category, required this.brand});
 
   factory SiteInterestDto.fromJson(Map<String, dynamic> json) =>
       SiteInterestDto(
         category: json['category'] as String,
         brand: json['brand'] as String,
-        contacts: (json['contacts'] as List<dynamic>?)
-                ?.map((e) =>
-                    SiteContactDto.fromJson(e as Map<String, dynamic>))
-                .toList(growable: false) ??
-            const <SiteContactDto>[],
       );
 
   final String category;
   final String brand;
-  final List<SiteContactDto> contacts;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
         'category': category,
         'brand': brand,
-        if (contacts.isNotEmpty)
-          'contacts': contacts.map((e) => e.toJson()).toList(),
-      };
-}
-
-/// Wire-shape for a single site contact (name + phone). Mirrors the
-/// fields the future backend will return.
-class SiteContactDto {
-  const SiteContactDto({required this.name, required this.phone});
-
-  factory SiteContactDto.fromJson(Map<String, dynamic> json) =>
-      SiteContactDto(
-        name: json['name'] as String,
-        phone: json['phone'] as String,
-      );
-
-  final String name;
-  final String phone;
-
-  Map<String, dynamic> toJson() => <String, dynamic>{
-        'name': name,
-        'phone': phone,
       };
 }

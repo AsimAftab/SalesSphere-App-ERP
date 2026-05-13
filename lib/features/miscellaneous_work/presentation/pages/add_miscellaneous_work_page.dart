@@ -42,19 +42,15 @@ class _AddMiscellaneousWorkPageState
 
   static const _maxImages = 2;
 
-  DateTime _workDate = DateTime.now();
+  // Work date stays unset until the user picks one — the field
+  // renders empty (with the hint) instead of defaulting to today, so
+  // the user has to deliberately confirm the date and the form's
+  // required-field validator catches an unfilled submit.
+  DateTime? _workDate;
   double _latitude = _defaultLat;
   double _longitude = _defaultLng;
   final List<String> _imagePaths = <String>[];
   bool _submitting = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // Pre-fill the date controller so the field shows today's date by
-    // default. Users can still tap to change it.
-    _workDateController.text = _formatDate(_workDate);
-  }
 
   @override
   void dispose() {
@@ -63,14 +59,6 @@ class _AddMiscellaneousWorkPageState
     _workDateController.dispose();
     _addressController.dispose();
     super.dispose();
-  }
-
-  String _formatDate(DateTime d) {
-    final months = <String>[
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    return '${d.day.toString().padLeft(2, '0')} ${months[d.month - 1]} ${d.year}';
   }
 
   Future<void> _pickImage() async {
@@ -110,7 +98,10 @@ class _AddMiscellaneousWorkPageState
         // assigned by the API mock
         natureOfWork: _natureController.text.trim(),
         assignedBy: _assignedByController.text.trim(),
-        workDate: _workDate,
+        // Safe to assert non-null: the form's required-field
+        // validator on `_workDateController` blocks submit when empty,
+        // so we only reach here once the user has picked a date.
+        workDate: _workDate!,
         address: _addressController.text.trim(),
         latitude: _latitude,
         longitude: _longitude,
@@ -166,6 +157,8 @@ class _AddMiscellaneousWorkPageState
                           label: 'Nature of Work',
                           hintText: 'Enter nature of work',
                           prefixIcon: Icons.work_outline_rounded,
+                          minLines: 1,
+                          maxLines: 2,
                           textInputAction: TextInputAction.next,
                           validator: (v) =>
                               Validators.requiredField(v, 'Nature of Work'),

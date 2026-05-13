@@ -12,8 +12,8 @@ import 'package:sales_sphere_erp/features/sites/domain/site.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/controllers/sites_controller.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/providers/sites_providers.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/widgets/sub_organization_picker.dart';
+import 'package:sales_sphere_erp/shared/domain/interest.dart';
 import 'package:sales_sphere_erp/shared/domain/interest_catalogue.dart';
-import 'package:sales_sphere_erp/shared/domain/site_interest.dart';
 import 'package:sales_sphere_erp/shared/utils/maps_launcher.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
@@ -59,7 +59,7 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
   static const _defaultLat = 27.7172;
   static const _defaultLng = 85.3240;
 
-  List<SiteInterest> _interests = const <SiteInterest>[];
+  List<Interest> _interests = const <Interest>[];
   String? _subOrganizationId;
   DateTime? _dateJoined;
   double _latitude = _defaultLat;
@@ -124,7 +124,7 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
     _emailController.text = s.email ?? '';
     _notesController.text = s.notes ?? '';
     _addressController.text = s.address;
-    _interests = List<SiteInterest>.from(s.interests);
+    _interests = List<Interest>.from(s.interests);
     _dateJoined = s.dateJoined;
     _dateController.text = s.dateJoined != null
         ? DateFormat('dd MMM yyyy').format(s.dateJoined!)
@@ -197,7 +197,7 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
         subOrganizationId: _subOrganizationId,
         email: _emailController.text.trim().nullIfEmpty(),
         dateJoined: _dateJoined,
-        interests: List<SiteInterest>.unmodifiable(_interests),
+        interests: List<Interest>.unmodifiable(_interests),
         notes: _notesController.text.trim().nullIfEmpty(),
         latitude: _latitude,
         longitude: _longitude,
@@ -348,16 +348,16 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
                                       final controller = ref.read(
                                         sitesControllerProvider.notifier,
                                       );
-                                      return SiteInterestPicker(
+                                      return InterestPicker(
                                         value: _interests,
                                         catalogue: catalogueAsync.value ??
                                             InterestCatalogue.empty(),
                                         enabled: _editing,
-                                        onChanged: (next) => setState(() {
-                                          _interests = next
-                                              .whereType<SiteInterest>()
-                                              .toList(growable: false);
-                                        }),
+                                        label: 'Site Interest',
+                                        hintText: 'Select site interest',
+                                        onChanged: (next) => setState(
+                                          () => _interests = next,
+                                        ),
                                         onAddCategory:
                                             controller.addInterestCategory,
                                         onAddBrand: (cat, brand) =>
