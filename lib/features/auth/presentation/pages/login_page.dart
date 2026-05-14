@@ -183,40 +183,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                   ),
                                 ),
                                 SizedBox(height: 32.h),
-                                Row(
-                                  children: <Widget>[
-                                    Expanded(
-                                      child: PrimaryButton(
-                                        label: 'Log in',
-                                        onPressed: _submit,
-                                        isLoading: isLoading,
-                                        size: ButtonSize.large,
-                                      ),
-                                    ),
-                                    SizedBox(width: 16.w),
-                                    Container(
-                                      width: 60.w,
-                                      height: 60.h,
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                          color: AppColors.border,
-                                        ),
-                                        borderRadius: BorderRadius.circular(15.r),
-                                      ),
-                                      // Visual placeholder — biometric unlock is
-                                      // wired in a follow-up. Keep the icon so
-                                      // the login layout doesn't shift when the
-                                      // handler lands.
-                                      child: IconButton(
-                                        onPressed: isLoading ? null : () {},
-                                        icon: Icon(
-                                          Icons.fingerprint,
-                                          size: 32.sp,
-                                          color: AppColors.secondary,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                // Biometric entry is temporarily disabled — a
+                                // refreshed plan for the unlock UX is coming.
+                                // When it returns, restore the Row + fingerprint
+                                // icon button (see git history). For now the
+                                // Log in CTA takes the full width.
+                                PrimaryButton(
+                                  label: 'Log in',
+                                  onPressed: _submit,
+                                  isLoading: isLoading,
+                                  size: ButtonSize.large,
                                 ),
                               ],
                             ),
