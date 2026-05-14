@@ -20,16 +20,14 @@ Future<List<Site>> sitesList(Ref ref) async {
   return ref.watch(sitesRepositoryProvider).getSites();
 }
 
-/// Resolves a single site by id. Derived from the list provider's
-/// `AsyncValue` so loading and error states propagate to consumers
-/// instead of collapsing into `null`.
+/// Resolves a single site by id straight from the repository (which
+/// hits `GET /sites/{id}`). Decoupled from the list provider so deep
+/// links don't block on a list fetch they don't need, and the detail
+/// page doesn't re-run every time the list is invalidated. Returns
+/// `null` only when the row genuinely doesn't exist (404).
 @riverpod
 Future<Site?> siteById(Ref ref, String id) async {
-  final sites = await ref.watch(sitesListProvider.future);
-  for (final site in sites) {
-    if (site.id == id) return site;
-  }
-  return null;
+  return ref.read(sitesRepositoryProvider).getSiteById(id);
 }
 
 /// Catalogue of categories → brands used by the interest picker.

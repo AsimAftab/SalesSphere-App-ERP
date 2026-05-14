@@ -19,6 +19,17 @@ class Endpoints {
   // ── Customer types (party-type picker) ────────────────────────────────────
   static const customerTypes = '/customer-types';
 
+  // ── Sites (project / outlet locations) ────────────────────────────────────
+  static const sites = '/sites';
+  static String siteById(String id) => '/sites/$id';
+  static String siteImages(String id) => '/sites/$id/images';
+  static String siteImageSlot(String id, int slot) =>
+      '/sites/$id/images/$slot';
+
+  // ── Site reference catalogues ─────────────────────────────────────────────
+  static const siteCategories = '/site-categories';
+  static const siteSubOrganizations = '/site-sub-organizations';
+
   // ── Attendance ────────────────────────────────────────────────────────────
   static const attendanceCheckIn = '/attendance/check-in';
   static const attendanceCheckOut = '/attendance/check-out';

@@ -1,6 +1,7 @@
-/// Wire DTO for a sub-organization row. Hand-written placeholder
-/// until the backend publishes the `/sub-organizations` endpoint and
-/// `tool/gen_dto.sh` can generate this.
+/// Wire DTO for a sub-organization row from
+/// `GET /api/v1/site-sub-organizations`. Extra wire fields
+/// (`siteCount`, `createdAt`, `updatedAt`) are intentionally ignored
+/// — the dropdown only consumes `id` + `name`.
 class SubOrganizationDto {
   const SubOrganizationDto({required this.id, required this.name});
 

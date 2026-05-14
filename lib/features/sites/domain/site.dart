@@ -12,6 +12,7 @@ class Site {
     required this.ownerName,
     required this.phone,
     this.subOrganizationId,
+    this.subOrganizationName,
     this.email,
     this.dateJoined,
     this.interests = const <Interest>[],
@@ -35,6 +36,13 @@ class Site {
   /// Optional sub-organization (branch / division) the site belongs to.
   /// Resolved against the catalogue exposed by `siteSubOrganizationsProvider`.
   final String? subOrganizationId;
+
+  /// Display name for the selected sub-organization. The server's
+  /// create/update endpoints expect the name (server resolves to id +
+  /// auto-upserts the row); on read the wire returns both the id and a
+  /// nested `subOrganization.name` block which we expose here so the
+  /// detail page round-trips without an extra catalogue lookup.
+  final String? subOrganizationName;
 
   // Other optional details captured by the add-site form.
   final String? email;
