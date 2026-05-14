@@ -1,7 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:sales_sphere_erp/core/auth/biometric_preference.dart';
-import 'package:sales_sphere_erp/core/auth/biometric_service.dart';
 import 'package:sales_sphere_erp/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:sales_sphere_erp/features/auth/domain/auth_user.dart';
 import 'package:sales_sphere_erp/features/auth/domain/repositories/auth_repository.dart';
@@ -19,6 +17,11 @@ class RestoreSessionUnauthenticated extends RestoreSessionResult {
 
 /// We have a live session, biometric hardware, opt-in preference, and a
 /// cached user. The controller should fire the OS biometric prompt.
+///
+/// **Currently unused.** Biometric cold-start is disabled pending a new
+/// plan; [RestoreSessionUseCase] never emits this variant today. Kept on
+/// the sealed hierarchy so re-enabling is a one-line dispatch change
+/// rather than a fresh class.
 class RestoreSessionBiometric extends RestoreSessionResult {
   const RestoreSessionBiometric(this.cachedUser);
   final AuthUser cachedUser;
@@ -31,21 +34,18 @@ class RestoreSessionAuthenticated extends RestoreSessionResult {
 }
 
 /// Composes [AuthRepository.hasSession], [AuthRepository.validateSession],
-/// [AuthRepository.cachedUser], [AuthRepository.me], biometric availability,
-/// and the user's [BiometricPreference] into a single decision for the
-/// controller's `_resolveStartup` path.
+/// and [AuthRepository.me] into a single decision for the controller's
+/// `_resolveStartup` path.
+///
+/// Biometric branch is currently bypassed — see the in-method note for
+/// the previous logic and how to re-enable. The `BiometricService` /
+/// `BiometricPreference` deps were removed from the constructor to keep
+/// the analyzer clean; restore them alongside the dispatch when
+/// biometric login returns.
 class RestoreSessionUseCase {
-  RestoreSessionUseCase({
-    required AuthRepository repo,
-    required BiometricService biometric,
-    required BiometricPreference biometricPref,
-  })  : _repo = repo,
-        _biometric = biometric,
-        _biometricPref = biometricPref;
+  RestoreSessionUseCase({required AuthRepository repo}) : _repo = repo;
 
   final AuthRepository _repo;
-  final BiometricService _biometric;
-  final BiometricPreference _biometricPref;
 
   Future<RestoreSessionResult> call() async {
     if (!await _repo.hasSession()) {
@@ -54,18 +54,21 @@ class RestoreSessionUseCase {
 
     // Ping /auth/session — the auth interceptor's refresh path runs
     // transparently on 401, so a `false` here means the access AND
-    // refresh tokens are both dead. No point prompting biometric.
+    // refresh tokens are both dead.
     if (!await _repo.validateSession()) {
       return const RestoreSessionUnauthenticated();
     }
 
-    final cached = await _repo.cachedUser();
-    final wantsBiometric = await _biometricPref.isEnabled();
-    if (cached != null &&
-        wantsBiometric &&
-        await _biometric.isAvailable) {
-      return RestoreSessionBiometric(cached);
-    }
+    // Biometric cold-start unlock is temporarily disabled. When it
+    // returns, restore this branch (and the corresponding constructor
+    // params + provider wiring):
+    //
+    //   final cached = await _repo.cachedUser();
+    //   final wantsBiometric = await _biometricPref.isEnabled();
+    //   if (cached != null && wantsBiometric &&
+    //       await _biometric.isAvailable) {
+    //     return RestoreSessionBiometric(cached);
+    //   }
 
     try {
       final user = await _repo.me();
@@ -77,9 +80,5 @@ class RestoreSessionUseCase {
 }
 
 final restoreSessionUseCaseProvider = Provider<RestoreSessionUseCase>((ref) {
-  return RestoreSessionUseCase(
-    repo: ref.watch(authRepositoryProvider),
-    biometric: ref.watch(biometricServiceProvider),
-    biometricPref: ref.watch(biometricPreferenceProvider),
-  );
+  return RestoreSessionUseCase(repo: ref.watch(authRepositoryProvider));
 });

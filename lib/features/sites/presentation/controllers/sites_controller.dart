@@ -47,28 +47,10 @@ class SitesController extends _$SitesController {
     }
   }
 
-  Future<void> addInterestCategory(String category) async {
-    final link = ref.keepAlive();
-    try {
-      await ref.read(sitesRepositoryProvider).addInterestCategory(category);
-      ref.invalidate(siteInterestsProvider);
-    } finally {
-      link.close();
-    }
-  }
-
-  Future<void> addInterestBrand({
-    required String category,
-    required String brand,
-  }) async {
-    final link = ref.keepAlive();
-    try {
-      await ref
-          .read(sitesRepositoryProvider)
-          .addInterestBrand(category, brand);
-      ref.invalidate(siteInterestsProvider);
-    } finally {
-      link.close();
-    }
-  }
+  // Note: no separate `addInterestCategory` / `addInterestBrand` here.
+  // The server auto-upserts unknown categories and brands when they
+  // arrive inside `interests` on `POST /sites` or `PATCH /sites/{id}`.
+  // The picker's "add new" dialogs update the user's selection locally
+  // (and the in-sheet catalogue copy); the next save carries them
+  // through and the next catalogue fetch reflects them.
 }

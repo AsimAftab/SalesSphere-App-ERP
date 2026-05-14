@@ -7,7 +7,8 @@ import 'package:go_router/go_router.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
-import 'package:sales_sphere_erp/features/auth/presentation/widgets/biometric_setup_gate.dart';
+// Biometric setup gate is temporarily disabled — see body comment below.
+// import 'package:sales_sphere_erp/features/auth/presentation/widgets/biometric_setup_gate.dart';
 
 class HomeShell extends StatelessWidget {
   const HomeShell({required this.child, super.key});
@@ -68,10 +69,12 @@ class HomeShell extends StatelessWidget {
     final selected = _indexFor(context);
     return Scaffold(
       extendBody: true,
-      // The setup gate is a passthrough that fires the post-first-login
-      // biometric prompt once on fresh shell mount. It hosts no UI of
-      // its own — just wraps the shell content.
-      body: BiometricSetupGate(child: child),
+      // Biometric login is temporarily disabled pending a new plan.
+      // The post-first-login setup prompt would offer to enable a
+      // feature that currently does nothing, so we render the child
+      // directly. Re-wrap with `BiometricSetupGate(child: child)` (and
+      // re-add its import above) when biometric returns.
+      body: child,
       bottomNavigationBar: _GlassBottomNav(
         tabs: _tabs,
         selectedIndex: selected,

@@ -6,14 +6,17 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/features/sites/domain/repositories/sites_repository.dart';
 import 'package:sales_sphere_erp/features/sites/domain/site.dart';
 import 'package:sales_sphere_erp/features/sites/domain/site_contact.dart';
+import 'package:sales_sphere_erp/features/sites/domain/sub_organization.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/controllers/sites_controller.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/providers/sites_providers.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/widgets/site_contact_picker.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/widgets/sub_organization_picker.dart';
 import 'package:sales_sphere_erp/shared/domain/interest.dart';
 import 'package:sales_sphere_erp/shared/domain/interest_catalogue.dart';
+import 'package:sales_sphere_erp/shared/utils/image_validation.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
@@ -77,13 +80,43 @@ class _AddSitePageState extends ConsumerState<AddSitePage> {
       final file = await picker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 80,
+        // Cap the longest side so a 12MP phone photo doesn't land
+        // above the backend's 5MB ceiling. Native resize on device.
+        maxWidth: kPickerMaxDimension,
+        maxHeight: kPickerMaxDimension,
       );
       if (file == null) return;
+      if (!isAllowedImageFile(file.path)) {
+        if (!mounted) return;
+        SnackbarUtils.showError(context, kUnsupportedImageMessage);
+        return;
+      }
+      final bytes = await imageFileBytes(file.path);
+      if (bytes != null && bytes > kMaxImageBytes) {
+        if (!mounted) return;
+        SnackbarUtils.showError(context, imageTooLargeMessage(bytes));
+        return;
+      }
       setState(() => _imagePaths.add(file.path));
     } on Exception catch (_) {
       if (!mounted) return;
       SnackbarUtils.showError(context, 'Could not load image.');
     }
+  }
+
+  /// Looks up the display name for [_subOrganizationId] from the
+  /// currently-loaded catalogue. Used at submit time so the POST body
+  /// carries `subOrganizationName` (the server resolves the id +
+  /// auto-upserts).
+  String? _resolveSubOrgName() {
+    final id = _subOrganizationId;
+    if (id == null) return null;
+    final orgs = ref.read(siteSubOrganizationsProvider).value ??
+        const <SubOrganization>[];
+    for (final org in orgs) {
+      if (org.id == id) return org.name;
+    }
+    return null;
   }
 
   void _removeImageAt(int index) {
@@ -103,13 +136,13 @@ class _AddSitePageState extends ConsumerState<AddSitePage> {
     setState(() => _submitting = true);
     try {
       final draft = Site(
-        id: '',
-        // assigned by the API mock
+        id: '', // assigned by the server on create
         name: _nameController.text.trim(),
         address: _addressController.text.trim(),
         ownerName: _ownerController.text.trim(),
         phone: _phoneController.text.trim(),
         subOrganizationId: _subOrganizationId,
+        subOrganizationName: _resolveSubOrgName(),
         email: _emailController.text.trim().nullIfEmpty(),
         dateJoined: _dateJoined,
         interests: List<Interest>.unmodifiable(_interests),
@@ -122,6 +155,18 @@ class _AddSitePageState extends ConsumerState<AddSitePage> {
       await ref.read(sitesControllerProvider.notifier).addSite(draft);
       if (!mounted) return;
       SnackbarUtils.showSuccess(context, 'Site added successfully.');
+      context.pop();
+    } on PartialSiteImageUploadException catch (e) {
+      // Site was saved; one or more images didn't upload. Still pop
+      // back — the user has a row to look at and can re-attach the
+      // missing slots from the edit page.
+      if (!mounted) return;
+      final n = e.failedSlots.length;
+      SnackbarUtils.showError(
+        context,
+        "Site added, but $n image${n == 1 ? '' : 's'} didn't upload: "
+        '${e.firstMessage}',
+      );
       context.pop();
     } on Exception catch (_) {
       if (!mounted) return;
@@ -227,8 +272,6 @@ class _AddSitePageState extends ConsumerState<AddSitePage> {
                             final catalogueAsync = ref.watch(
                               siteInterestsProvider,
                             );
-                            final controller =
-                                ref.read(sitesControllerProvider.notifier);
                             return InterestPicker(
                               value: _interests,
                               catalogue: catalogueAsync.value ??
@@ -238,12 +281,14 @@ class _AddSitePageState extends ConsumerState<AddSitePage> {
                               hintText: 'Select site interest',
                               onChanged: (next) =>
                                   setState(() => _interests = next),
-                              onAddCategory: controller.addInterestCategory,
-                              onAddBrand: (cat, brand) =>
-                                  controller.addInterestBrand(
-                                category: cat,
-                                brand: brand,
-                              ),
+                              // POST /sites auto-upserts unknown
+                              // categories + brands when they appear in
+                              // the interests body. No separate write
+                              // round-trip needed; the picker already
+                              // adds them to its in-sheet catalogue and
+                              // the user's selection.
+                              onAddCategory: (_) {},
+                              onAddBrand: (_, __) {},
                             );
                           },
                         ),

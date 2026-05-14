@@ -8,14 +8,18 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
+import 'package:sales_sphere_erp/features/sites/data/dto/site_image_ref.dart';
 import 'package:sales_sphere_erp/features/sites/domain/site.dart';
 import 'package:sales_sphere_erp/features/sites/domain/site_contact.dart';
+import 'package:sales_sphere_erp/features/sites/domain/sub_organization.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/controllers/sites_controller.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/providers/sites_providers.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/widgets/site_contact_picker.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/widgets/sub_organization_picker.dart';
 import 'package:sales_sphere_erp/shared/domain/interest.dart';
 import 'package:sales_sphere_erp/shared/domain/interest_catalogue.dart';
+import 'package:sales_sphere_erp/shared/utils/image_validation.dart';
 import 'package:sales_sphere_erp/shared/utils/maps_launcher.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
@@ -69,41 +73,77 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
   double _longitude = _defaultLng;
   final List<String> _imagePaths = <String>[];
 
+  /// Network-fetched gallery for this site. Mirror of parties' edit-page
+  /// pattern. Mutated locally on remove/cancel; the actual DELETE fires
+  /// in `_syncImageChanges` on save.
+  List<SiteImageRef> _existingImages = const <SiteImageRef>[];
+
+  /// Snapshot of `_existingImages` at hydrate time so cancelling the
+  /// edit cleanly restores the picker's network thumbnails + drops any
+  /// queued deletions.
+  List<SiteImageRef> _originalExistingImages = const <SiteImageRef>[];
+
+  /// Slots queued for deletion. Drained at save time, before locals
+  /// are uploaded into the freed slots.
+  final Set<int> _slotsToDelete = <int>{};
+
   bool _editing = false;
   bool _saving = false;
   bool _loading = false;
   bool _notFound = false;
+
+  int get _totalAttachedImages =>
+      _imagePaths.length + _existingImages.length;
 
   @override
   void initState() {
     super.initState();
     if (widget.initial != null) {
       _populate(widget.initial!);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _hydrateImages());
     } else {
       _loading = true;
       WidgetsBinding.instance.addPostFrameCallback((_) => _hydrate());
     }
   }
 
-  /// Loads the site by awaiting the byId provider's future, which
-  /// derives from the list AsyncValue. Falls through to the
-  /// not-found branch if the list errors.
+  /// Loads the site via `siteByIdProvider`, which now hits the byId
+  /// endpoint directly. Falls through to the not-found branch on 404
+  /// or any other error so the user sees a clear failure state.
   Future<void> _hydrate() async {
     Site? site;
     try {
       site = await ref.read(siteByIdProvider(widget.id).future);
     } on Object catch (_) {
-      // List failed to load; surface as the not-found state below.
+      // Detail fetch failed; surface as the not-found state below.
     }
     if (!mounted) return;
     if (site != null) {
       _populate(site);
       setState(() => _loading = false);
+      await _hydrateImages();
     } else {
       setState(() {
         _loading = false;
         _notFound = true;
       });
+    }
+  }
+
+  /// Fetch the gallery so the picker shows server-side images. Failures
+  /// are swallowed — an empty picker is graceful degradation; the user
+  /// can still pick new locals.
+  Future<void> _hydrateImages() async {
+    try {
+      final images =
+          await ref.read(sitesRepositoryProvider).listImages(widget.id);
+      if (!mounted) return;
+      setState(() {
+        _existingImages = images;
+        _originalExistingImages = List<SiteImageRef>.unmodifiable(images);
+      });
+    } on Object catch (_) {
+      // Not fatal — picker stays empty on the network image side.
     }
   }
 
@@ -150,18 +190,40 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
         ref.read(siteByIdProvider(widget.id)).value ?? widget.initial;
     if (saved != null) _populate(saved);
     FocusManager.instance.primaryFocus?.unfocus();
-    setState(() => _editing = false);
+    setState(() {
+      _editing = false;
+      // Roll back image edits: restore server-side gallery, drop any
+      // queued deletions and any local picks.
+      _existingImages = List<SiteImageRef>.from(_originalExistingImages);
+      _slotsToDelete.clear();
+      _imagePaths.clear();
+    });
   }
 
   Future<void> _pickImage() async {
-    if (!_editing || _imagePaths.length >= _maxImages) return;
+    if (!_editing || _totalAttachedImages >= _maxImages) return;
     try {
       final picker = ImagePicker();
       final file = await picker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 80,
+        // Cap the longest side so a 12MP phone photo doesn't land
+        // above the backend's 5MB ceiling. Native resize on device.
+        maxWidth: kPickerMaxDimension,
+        maxHeight: kPickerMaxDimension,
       );
       if (file == null) return;
+      if (!isAllowedImageFile(file.path)) {
+        if (!mounted) return;
+        SnackbarUtils.showError(context, kUnsupportedImageMessage);
+        return;
+      }
+      final bytes = await imageFileBytes(file.path);
+      if (bytes != null && bytes > kMaxImageBytes) {
+        if (!mounted) return;
+        SnackbarUtils.showError(context, imageTooLargeMessage(bytes));
+        return;
+      }
       setState(() => _imagePaths.add(file.path));
     } on Exception catch (_) {
       if (!mounted) return;
@@ -172,6 +234,19 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
   void _removeImageAt(int index) {
     if (!_editing) return;
     setState(() => _imagePaths.removeAt(index));
+  }
+
+  /// Queue the existing image at [index] (in the current
+  /// `_existingImages` list) for deletion. Removed from the picker
+  /// immediately; the actual DELETE fires on save.
+  void _removeExistingImageAt(int index) {
+    if (!_editing) return;
+    setState(() {
+      final removed = _existingImages[index];
+      _existingImages = List<SiteImageRef>.from(_existingImages)
+        ..removeAt(index);
+      _slotsToDelete.add(removed.slot);
+    });
   }
 
   void _onLocationChanged(double lat, double lng) {
@@ -187,6 +262,22 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
     SnackbarUtils.showError(context, "Couldn't open Google Maps.");
   }
 
+  /// Looks up the display name for [_subOrganizationId] from the
+  /// currently-loaded catalogue. The PATCH body uses
+  /// `subOrganizationName` (same as POST) so the server resolves the
+  /// id + auto-upserts. Returns null when nothing is selected or the
+  /// catalogue hasn't loaded yet.
+  String? _resolveSubOrgName() {
+    final id = _subOrganizationId;
+    if (id == null) return null;
+    final orgs = ref.read(siteSubOrganizationsProvider).value ??
+        const <SubOrganization>[];
+    for (final org in orgs) {
+      if (org.id == id) return org.name;
+    }
+    return null;
+  }
+
   Future<void> _save() async {
     if (_formKey.currentState?.validate() != true) return;
     FocusManager.instance.primaryFocus?.unfocus();
@@ -199,6 +290,7 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
         ownerName: _ownerController.text.trim(),
         phone: _phoneController.text.trim(),
         subOrganizationId: _subOrganizationId,
+        subOrganizationName: _resolveSubOrgName(),
         email: _emailController.text.trim().nullIfEmpty(),
         dateJoined: _dateJoined,
         interests: List<Interest>.unmodifiable(_interests),
@@ -209,20 +301,109 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
         imagePaths: List<String>.unmodifiable(_imagePaths),
       );
       await ref.read(sitesControllerProvider.notifier).updateSite(updated);
+      final imageResult = await _syncImageChanges();
       if (!mounted) return;
       setState(() {
         _saving = false;
         _editing = false;
+        // Local picks have been uploaded into slots; the next gallery
+        // hydrate will reflect them. Clear locals + deletion queue so
+        // a follow-up edit starts clean.
+        _imagePaths.clear();
+        _slotsToDelete.clear();
       });
-      SnackbarUtils.showSuccess(
-        context,
-        'Site details updated successfully.',
-      );
+      // Re-fetch the now-current gallery to refresh the picker's
+      // network thumbnails (new slot URLs + the original snapshot).
+      await _hydrateImages();
+      if (!mounted) return;
+      if (imageResult.uploadFailures > 0 || imageResult.deleteFailures > 0) {
+        SnackbarUtils.showError(
+          context,
+          _formatImageSyncWarning(imageResult),
+        );
+      } else {
+        SnackbarUtils.showSuccess(
+          context,
+          'Site details updated successfully.',
+        );
+      }
     } on Exception catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
       SnackbarUtils.showError(context, 'Could not save. Please try again.');
     }
+  }
+
+  /// Drains [_slotsToDelete] first (frees up slots), then uploads each
+  /// new local file into the next free slot. Returns the per-bucket
+  /// failure counts + the first backend error message we ran into, so
+  /// [_save] can show a snackbar that says *why* something failed
+  /// (not just how many). The site PATCH already succeeded by the
+  /// time this runs, so failures are non-fatal — the user can retry
+  /// the missing slot on a subsequent edit.
+  Future<
+      ({
+        int uploadFailures,
+        int deleteFailures,
+        String? firstError,
+      })> _syncImageChanges() async {
+    if (_slotsToDelete.isEmpty && _imagePaths.isEmpty) {
+      return (uploadFailures: 0, deleteFailures: 0, firstError: null);
+    }
+    final repo = ref.read(sitesRepositoryProvider);
+    var deleteFailures = 0;
+    String? firstError;
+    for (final slot in _slotsToDelete) {
+      try {
+        await repo.removeImage(siteId: widget.id, slot: slot);
+      } on Object catch (e) {
+        deleteFailures++;
+        firstError ??= extractBackendErrorMessage(e) ?? 'Delete failed';
+      }
+    }
+    final keptSlots = _existingImages.map((e) => e.slot).toSet();
+    final freeSlots = <int>[
+      for (var s = 1; s <= _maxImages; s++)
+        if (!keptSlots.contains(s)) s,
+    ];
+    var uploadFailures = 0;
+    for (var i = 0; i < _imagePaths.length && i < freeSlots.length; i++) {
+      try {
+        await repo.uploadImage(
+          siteId: widget.id,
+          filePath: _imagePaths[i],
+          slot: freeSlots[i],
+        );
+      } on Object catch (e) {
+        uploadFailures++;
+        firstError ??= extractBackendErrorMessage(e) ?? 'Upload failed';
+      }
+    }
+    return (
+      uploadFailures: uploadFailures,
+      deleteFailures: deleteFailures,
+      firstError: firstError,
+    );
+  }
+
+  String _formatImageSyncWarning(
+    ({int uploadFailures, int deleteFailures, String? firstError}) r,
+  ) {
+    final parts = <String>[];
+    if (r.uploadFailures > 0) {
+      parts.add(
+        "${r.uploadFailures} image${r.uploadFailures == 1 ? '' : 's'} "
+        "didn't upload",
+      );
+    }
+    if (r.deleteFailures > 0) {
+      parts.add(
+        "${r.deleteFailures} image${r.deleteFailures == 1 ? '' : 's'} "
+        "couldn't be removed",
+      );
+    }
+    final summary = 'Saved with issues: ${parts.join(', ')}';
+    return r.firstError == null ? '$summary.' : '$summary — ${r.firstError}.';
   }
 
   void _back() {
@@ -350,9 +531,6 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
                                       final catalogueAsync = ref.watch(
                                         siteInterestsProvider,
                                       );
-                                      final controller = ref.read(
-                                        sitesControllerProvider.notifier,
-                                      );
                                       return InterestPicker(
                                         value: _interests,
                                         catalogue: catalogueAsync.value ??
@@ -363,13 +541,11 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
                                         onChanged: (next) => setState(
                                           () => _interests = next,
                                         ),
-                                        onAddCategory:
-                                            controller.addInterestCategory,
-                                        onAddBrand: (cat, brand) =>
-                                            controller.addInterestBrand(
-                                          category: cat,
-                                          brand: brand,
-                                        ),
+                                        // PATCH /sites auto-upserts
+                                        // unknown categories + brands.
+                                        // No separate round-trip.
+                                        onAddCategory: (_) {},
+                                        onAddBrand: (_, __) {},
                                       );
                                     },
                                   ),
@@ -431,7 +607,7 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
                                     ),
                                     const Spacer(),
                                     Text(
-                                      '${_imagePaths.length}/$_maxImages',
+                                      '$_totalAttachedImages/$_maxImages',
                                       style: TextStyle(
                                         color: AppColors.textSecondary,
                                         fontSize: 11.sp,
@@ -443,6 +619,10 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
                                 SizedBox(height: 10.h),
                                 PrimaryImagePicker(
                                   imagePaths: _imagePaths,
+                                  networkImageUrls: _existingImages
+                                      .map((e) => e.url)
+                                      .toList(growable: false),
+                                  onRemoveNetwork: _removeExistingImageAt,
                                   maxImages: _maxImages,
                                   enabled: _editing,
                                   showLabel: false,

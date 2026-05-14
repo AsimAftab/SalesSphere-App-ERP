@@ -1,144 +1,265 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:io';
 
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http_parser/http_parser.dart';
+
+import 'package:sales_sphere_erp/core/api/dio_client.dart';
+import 'package:sales_sphere_erp/features/sites/data/dto/site_category_dto.dart';
 import 'package:sales_sphere_erp/features/sites/data/dto/site_dto.dart';
+import 'package:sales_sphere_erp/features/sites/data/dto/site_image_ref.dart';
 import 'package:sales_sphere_erp/features/sites/data/dto/sub_organization_dto.dart';
 
-/// Raw data source for the sites endpoints. Currently backed by a
-/// mutable in-memory list seeded from mock JSON — swap for Dio calls
-/// once the sites endpoint lands in the backend OpenAPI spec.
-/// Repository callers stay unchanged.
+/// Page size for the one-shot fetches that back the picker dropdowns.
+/// Categories + sub-organizations are bounded reference lists; a single
+/// large page keeps the call simple. Revisit when an org legitimately
+/// grows past 100 of either.
+const int _kReferenceListPageLimit = 100;
+
+/// HTTP layer for the sites feature. List, byId, PATCH, image
+/// upload/list/delete, interest catalogue, and sub-org dropdown all
+/// hit real `/sites…` endpoints. `POST /sites` is the last mocked
+/// write path — when it lands the holding `_writeStore` goes away.
 class SitesApi {
-  SitesApi() {
-    _store
-      ..clear()
-      ..addAll(_seed.map(SiteDto.fromJson));
-  }
+  SitesApi(this._dio);
 
-  /// In-memory category → brands catalogue backing the interest picker.
-  /// Per-instance so additions made via [addInterestCategory] /
-  /// [addInterestBrand] don't leak across `SitesApi` instances or
-  /// between tests. Replaced by a real network fetch once the backend
-  /// exposes a `/site-interests` endpoint.
-  final Map<String, List<String>> _catalogue = <String, List<String>>{
-    'Hardware': <String>['HP', 'Dell', 'Lenovo'],
-    'Software': <String>['Microsoft', 'Adobe', 'JetBrains'],
-    'Services': <String>['Consulting', 'Support'],
-  };
+  final Dio _dio;
 
-  /// In-memory sub-organization (branch / division) catalogue powering
-  /// the dropdown on the add/edit forms. Per-instance so test overrides
-  /// stay clean. Swap to a real fetch once the backend exposes a
-  /// `/sub-organizations` endpoint.
-  final List<SubOrganizationDto> _subOrganizations = <SubOrganizationDto>[
-    const SubOrganizationDto(id: 'so-hq', name: 'Headquarters'),
-    const SubOrganizationDto(id: 'so-east', name: 'Eastern Region'),
-    const SubOrganizationDto(id: 'so-west', name: 'Western Region'),
-    const SubOrganizationDto(id: 'so-central', name: 'Central Region'),
-  ];
+  // ── Sites list / byId / write ───────────────────────────────────────────
 
-  static final List<Map<String, dynamic>> _seed = <Map<String, dynamic>>[
-    <String, dynamic>{
-      'id': '1',
-      'name': 'Acme Warehouse',
-      'address': '4HP8+2RJ, Avalahalli',
-      'ownerName': 'Anil Karki',
-      'phone': '9801234567',
-      'subOrganizationId': 'so-hq',
-      'contacts': <Map<String, String>>[
-        <String, String>{'name': 'Anita Sharma', 'phone': '9841234567'},
-        <String, String>{'name': 'Ramesh Kulkarni', 'phone': '9821987654'},
-      ],
-    },
-    <String, dynamic>{
-      'id': '2',
-      'name': 'Globex Branch',
-      'address': 'F77F+CP7, Biratnagar',
-      'ownerName': 'Sita Shrestha',
-      'phone': '9812345678',
-      'subOrganizationId': 'so-east',
-    },
-    <String, dynamic>{
-      'id': '3',
-      'name': 'Initech Office',
-      'address': 'F77G+73R, Biratnagar',
-      'ownerName': 'Ramesh Thapa',
-      'phone': '9823456789',
-      'subOrganizationId': 'so-east',
-    },
-  ];
-
-  final List<SiteDto> _store = <SiteDto>[];
-
-  Future<List<SiteDto>> list() async {
-    // Simulated round-trip so callers exercise the loading state path.
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    return List<SiteDto>.unmodifiable(_store);
-  }
-
-  Future<SiteDto> create(SiteDto draft) async {
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    final created = SiteDto(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
-      name: draft.name,
-      address: draft.address,
-      ownerName: draft.ownerName,
-      subOrganizationId: draft.subOrganizationId,
-      phone: draft.phone,
-      email: draft.email,
-      dateJoined: draft.dateJoined,
-      interests: draft.interests,
-      contacts: draft.contacts,
-      notes: draft.notes,
-      latitude: draft.latitude,
-      longitude: draft.longitude,
-      imagePaths: draft.imagePaths,
+  /// Fetch one paginated page from `GET /sites`. The server is
+  /// authoritative on pagination: the inner envelope carries `items`,
+  /// `hasMore`, and `nextCursor`. Optional `search` filters by
+  /// name/address on the server side.
+  ///
+  /// Returns just the flat `List<SiteDto>` for now since the mobile
+  /// list provider doesn't paginate yet — when we add infinite scroll
+  /// this method graduates to returning a `SitesPageDto` (items +
+  /// nextCursor), same shape as `PartiesPageDto`.
+  Future<List<SiteDto>> list({
+    int limit = 20,
+    String? cursor,
+    String? search,
+  }) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      Endpoints.sites,
+      queryParameters: <String, dynamic>{
+        'limit': limit,
+        if (cursor != null) 'cursor': cursor,
+        if (search != null && search.isNotEmpty) 'search': search,
+      },
     );
-    _store.add(created);
-    return created;
+    final data = _unwrapMap(response.data);
+    final rawItems = data['items'];
+    if (rawItems is! List<dynamic>) {
+      throw const FormatException(
+        'Malformed sites page: missing or invalid `items` array',
+      );
+    }
+    return rawItems
+        .map((j) => SiteDto.fromJson(j as Map<String, dynamic>))
+        .toList(growable: false);
   }
 
+  /// Single-row read for deep-link / detail cold-starts.
+  Future<SiteDto> getById(String id) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      Endpoints.siteById(id),
+    );
+    return SiteDto.fromJson(_unwrapMap(response.data));
+  }
+
+  /// `PATCH /sites/{id}`. The writable body shape is produced by
+  /// `SiteDto.toJson()` — server-managed fields (`id`, `createdAt`,
+  /// `organizationId`, `companyId`, …) are intentionally excluded so
+  /// the backend treats omitted fields as untouched and explicit
+  /// nulls as a clear.
   Future<SiteDto> update(SiteDto site) async {
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    final index = _store.indexWhere((s) => s.id == site.id);
-    if (index == -1) {
-      throw StateError('Site ${site.id} not found');
-    }
-    _store[index] = site;
-    return site;
+    final response = await _dio.patch<Map<String, dynamic>>(
+      Endpoints.siteById(site.id),
+      data: site.toJson(),
+    );
+    return SiteDto.fromJson(_unwrapMap(response.data));
   }
 
-  SiteDto? findById(String id) {
-    for (final s in _store) {
-      if (s.id == id) return s;
-    }
-    return null;
+  // ── Site images (multipart upload + slot delete + gallery list) ─────────
+
+  /// `GET /sites/{id}/images`. Returns the site's gallery ordered by
+  /// `sortOrder` ascending. Returns `[]` if the response envelope is
+  /// shaped unexpectedly so the edit page can still render.
+  Future<List<SiteImageRef>> listImages(String siteId) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      Endpoints.siteImages(siteId),
+    );
+    final body = response.data;
+    if (body == null || body['success'] == false) return const [];
+    final data = body['data'];
+    if (data is! List<dynamic>) return const [];
+    return data
+        .map((j) => SiteImageRef.fromJson(j as Map<String, dynamic>))
+        .toList(growable: false);
   }
 
+  /// `POST /sites/{id}/images` — multipart `image` file + integer
+  /// `imageNumber` form field. Slot-based upsert: re-posting the same
+  /// slot replaces the existing image. Mirrors `PartiesApi.uploadImage`
+  /// — same Multer parsing order pitfall and Cloudinary content-type
+  /// requirement apply here.
+  Future<void> uploadImage({
+    required String siteId,
+    required String filePath,
+    required int imageNumber,
+  }) async {
+    final filename = filePath.split(RegExp(r'[\\/]')).last;
+    if (kDebugMode) {
+      try {
+        final bytes = await File(filePath).length();
+        debugPrint(
+          '[sites_api] uploadImage slot=$imageNumber '
+          'file=$filename size=${bytes}B (${(bytes / 1024 / 1024).toStringAsFixed(2)} MB)',
+        );
+      } on FileSystemException {
+        debugPrint(
+          '[sites_api] uploadImage slot=$imageNumber file=$filename '
+          'size=<stat failed>',
+        );
+      }
+    }
+    final form = FormData.fromMap(<String, dynamic>{
+      // `imageNumber` is added before the file: Multer streams parts
+      // in order and populates `req.body` text fields as it goes.
+      'imageNumber': imageNumber.toString(),
+      'image': await MultipartFile.fromFile(
+        filePath,
+        filename: filename,
+        contentType: _mediaTypeForFilename(filename),
+      ),
+    });
+    await _dio.post<Map<String, dynamic>>(
+      Endpoints.siteImages(siteId),
+      data: form,
+      options: Options(contentType: 'multipart/form-data'),
+    );
+  }
+
+  /// Maps a filename's extension to a `Content-Type`. The backend only
+  /// accepts JPEG and PNG; anything else falls back to
+  /// `application/octet-stream` so the mime filter rejects it
+  /// explicitly. Form-level validation in `isAllowedImageFile`
+  /// (`shared/utils/image_validation.dart`) is meant to catch this
+  /// earlier — this branch is defence-in-depth.
+  MediaType _mediaTypeForFilename(String filename) {
+    final dotIdx = filename.lastIndexOf('.');
+    final ext = dotIdx >= 0 ? filename.substring(dotIdx + 1).toLowerCase() : '';
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg':
+        return MediaType('image', 'jpeg');
+      case 'png':
+        return MediaType('image', 'png');
+      default:
+        return MediaType('application', 'octet-stream');
+    }
+  }
+
+  /// `DELETE /sites/{id}/images/{imageNumber}` — removes a specific
+  /// slot. 404 idempotency is up to the caller.
+  Future<void> removeImage({
+    required String siteId,
+    required int imageNumber,
+  }) async {
+    await _dio.delete<Map<String, dynamic>>(
+      Endpoints.siteImageSlot(siteId, imageNumber),
+    );
+  }
+
+  // ── Reference catalogues (real) ─────────────────────────────────────────
+
+  /// `GET /site-categories`. Reference-list shape; one large page is
+  /// fetched and flattened to a `category → brands` map for the
+  /// existing `InterestCatalogue.fromMap` constructor. If a real org
+  /// grows past `_kReferenceListPageLimit` categories we'll switch to
+  /// a paginated/search-driven picker.
   Future<Map<String, List<String>>> interestCatalogue() async {
-    await Future<void>.delayed(const Duration(milliseconds: 200));
-    // Defensive deep-copy so callers can't mutate the store directly.
-    return <String, List<String>>{
-      for (final entry in _catalogue.entries)
-        entry.key: List<String>.unmodifiable(entry.value),
-    };
+    final response = await _dio.get<Map<String, dynamic>>(
+      Endpoints.siteCategories,
+      queryParameters: <String, dynamic>{'limit': _kReferenceListPageLimit},
+    );
+    final data = _unwrapMap(response.data);
+    final rawItems = data['items'];
+    if (rawItems is! List<dynamic>) {
+      throw const FormatException(
+        'Malformed site-categories page: missing or invalid `items` array',
+      );
+    }
+    final out = <String, List<String>>{};
+    for (final item in rawItems) {
+      if (item is! Map<String, dynamic>) continue;
+      final dto = SiteCategoryDto.fromJson(item);
+      out[dto.name] = dto.brands;
+    }
+    return out;
   }
 
-  Future<void> addInterestCategory(String category) async {
-    await Future<void>.delayed(const Duration(milliseconds: 100));
-    _catalogue.putIfAbsent(category, () => <String>[]);
-  }
-
-  Future<void> addInterestBrand(String category, String brand) async {
-    await Future<void>.delayed(const Duration(milliseconds: 100));
-    final list = _catalogue.putIfAbsent(category, () => <String>[]);
-    if (!list.contains(brand)) list.add(brand);
-  }
-
+  /// `GET /site-sub-organizations`. Reference-list shape.
   Future<List<SubOrganizationDto>> subOrganizations() async {
-    // Simulated round-trip so callers exercise the loading state path.
-    await Future<void>.delayed(const Duration(milliseconds: 200));
-    return List<SubOrganizationDto>.unmodifiable(_subOrganizations);
+    final response = await _dio.get<Map<String, dynamic>>(
+      Endpoints.siteSubOrganizations,
+      queryParameters: <String, dynamic>{'limit': _kReferenceListPageLimit},
+    );
+    final data = _unwrapMap(response.data);
+    final rawItems = data['items'];
+    if (rawItems is! List<dynamic>) {
+      throw const FormatException(
+        'Malformed site-sub-organizations page: missing or invalid `items` array',
+      );
+    }
+    return rawItems
+        .map((j) => SubOrganizationDto.fromJson(j as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  /// `POST /sites`. Same writable body shape as `update()` (produced
+  /// by `SiteDto.toJson()`): `subOrganizationName` instead of id,
+  /// `interests: [{ categoryName, brands }]`, `siteContacts` as
+  /// tuples, `dateJoined` as `YYYY-MM-DD`. Server assigns `id`,
+  /// `status`, timestamps, etc. and echoes the created row.
+  Future<SiteDto> create(SiteDto draft) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      Endpoints.sites,
+      data: draft.toJson(),
+    );
+    return SiteDto.fromJson(_unwrapMap(response.data));
+  }
+
+  // Note: there are no separate "add category" / "add brand" endpoints.
+  // The server auto-upserts unknown category names and brand entries
+  // when they appear inside `POST /sites` (or `PATCH /sites/{id}`) under
+  // `interests: [{ categoryName, brands: [...] }]`. The interest picker
+  // adds the new entry to the user's selection locally and the write
+  // request carries it through — no separate round-trip needed.
+
+  // ── Envelope helper ─────────────────────────────────────────────────────
+  // Mirrors `parties_api.dart:_unwrapMap`. Promote to a shared helper
+  // once a third caller appears.
+  Map<String, dynamic> _unwrapMap(Map<String, dynamic>? body) {
+    if (body == null) {
+      throw const FormatException('Empty response body');
+    }
+    if (body['success'] == false) {
+      throw const FormatException('Sites API returned success=false');
+    }
+    final inner = body['data'];
+    if (inner is! Map<String, dynamic>) {
+      throw const FormatException(
+        'Malformed sites envelope: missing or invalid `data` object',
+      );
+    }
+    return inner;
   }
 }
 
-final sitesApiProvider = Provider<SitesApi>((_) => SitesApi());
+final sitesApiProvider = Provider<SitesApi>(
+  (ref) => SitesApi(ref.watch(dioProvider)),
+);
