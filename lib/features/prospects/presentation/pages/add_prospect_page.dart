@@ -7,10 +7,12 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/features/prospects/domain/prospect.dart';
+import 'package:sales_sphere_erp/features/prospects/domain/repositories/prospects_repository.dart';
 import 'package:sales_sphere_erp/features/prospects/presentation/controllers/prospects_controller.dart';
 import 'package:sales_sphere_erp/features/prospects/presentation/providers/prospects_providers.dart';
 import 'package:sales_sphere_erp/shared/domain/interest.dart';
 import 'package:sales_sphere_erp/shared/domain/interest_catalogue.dart';
+import 'package:sales_sphere_erp/shared/utils/image_validation.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
@@ -74,8 +76,23 @@ class _AddProspectPageState extends ConsumerState<AddProspectPage> {
       final file = await picker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 80,
+        // Cap the longest side so a 12MP phone photo doesn't land
+        // above the backend's 5MB ceiling. Native resize on device.
+        maxWidth: kPickerMaxDimension,
+        maxHeight: kPickerMaxDimension,
       );
       if (file == null) return;
+      if (!isAllowedImageFile(file.path)) {
+        if (!mounted) return;
+        SnackbarUtils.showError(context, kUnsupportedImageMessage);
+        return;
+      }
+      final bytes = await imageFileBytes(file.path);
+      if (bytes != null && bytes > kMaxImageBytes) {
+        if (!mounted) return;
+        SnackbarUtils.showError(context, imageTooLargeMessage(bytes));
+        return;
+      }
       setState(() => _imagePaths.add(file.path));
     } on Exception catch (_) {
       if (!mounted) return;
@@ -101,7 +118,7 @@ class _AddProspectPageState extends ConsumerState<AddProspectPage> {
     try {
       final draft = Prospect(
         id: '',
-        // assigned by the API mock
+        // assigned by the server on POST /prospects
         name: _nameController.text.trim(),
         address: _addressController.text.trim(),
         ownerName: _ownerController.text.trim(),
@@ -118,6 +135,18 @@ class _AddProspectPageState extends ConsumerState<AddProspectPage> {
       await ref.read(prospectsControllerProvider.notifier).addProspect(draft);
       if (!mounted) return;
       SnackbarUtils.showSuccess(context, 'Prospect added successfully.');
+      context.pop();
+    } on ProspectPartialImageUploadException catch (e) {
+      // Prospect was saved; one or more images didn't upload. Still pop
+      // back — the user has a row to look at and can re-attach the
+      // missing slots from the edit page.
+      if (!mounted) return;
+      final n = e.failedSlots.length;
+      SnackbarUtils.showError(
+        context,
+        "Prospect added, but $n image${n == 1 ? '' : 's'} didn't upload: "
+        '${e.firstMessage}',
+      );
       context.pop();
     } on Exception catch (_) {
       if (!mounted) return;

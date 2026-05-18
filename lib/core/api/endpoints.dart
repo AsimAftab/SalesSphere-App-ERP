@@ -19,6 +19,17 @@ class Endpoints {
   // ── Customer types (party-type picker) ────────────────────────────────────
   static const customerTypes = '/customer-types';
 
+  // ── Prospects (pre-conversion leads) ──────────────────────────────────────
+  static const prospects = '/prospects';
+  static String prospectById(String id) => '/prospects/$id';
+  static String prospectImages(String id) => '/prospects/$id/images';
+  static String prospectImageSlot(String id, int slot) =>
+      '/prospects/$id/images/$slot';
+  static String prospectConvert(String id) => '/prospects/$id/convert';
+
+  // ── Prospect interest catalogue ───────────────────────────────────────────
+  static const prospectCategories = '/prospect-categories';
+
   // ── Sites (project / outlet locations) ────────────────────────────────────
   static const sites = '/sites';
   static String siteById(String id) => '/sites/$id';
