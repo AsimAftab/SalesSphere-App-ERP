@@ -8,11 +8,15 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
+import 'package:sales_sphere_erp/core/router/routes.dart';
+import 'package:sales_sphere_erp/features/prospects/data/dto/prospect_image_ref.dart';
 import 'package:sales_sphere_erp/features/prospects/domain/prospect.dart';
 import 'package:sales_sphere_erp/features/prospects/presentation/controllers/prospects_controller.dart';
 import 'package:sales_sphere_erp/features/prospects/presentation/providers/prospects_providers.dart';
 import 'package:sales_sphere_erp/shared/domain/interest.dart';
 import 'package:sales_sphere_erp/shared/domain/interest_catalogue.dart';
+import 'package:sales_sphere_erp/shared/utils/image_validation.dart';
 import 'package:sales_sphere_erp/shared/utils/maps_launcher.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
@@ -66,16 +70,32 @@ class _EditProspectDetailPageState
   double _longitude = _defaultLng;
   final List<String> _imagePaths = <String>[];
 
+  /// Server-side images at the moment we render. Mutated as the user
+  /// removes thumbnails; `_originalExistingImages` is the snapshot used
+  /// by cancel to restore.
+  List<ProspectImageRef> _existingImages = const <ProspectImageRef>[];
+  List<ProspectImageRef> _originalExistingImages =
+      const <ProspectImageRef>[];
+
+  /// Slot numbers (1-indexed) the user asked to delete in this edit
+  /// session. Drained in `_save` before uploading new locals so the
+  /// freed slots become available targets.
+  final Set<int> _slotsToDelete = <int>{};
+
   bool _editing = false;
   bool _saving = false;
   bool _loading = false;
   bool _notFound = false;
+  bool _transferring = false;
 
   @override
   void initState() {
     super.initState();
     if (widget.initial != null) {
       _populate(widget.initial!);
+      // Fields are populated synchronously, but the gallery still needs
+      // a fetch — kick it off after first frame so the picker fills in.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _hydrateImages());
     } else {
       _loading = true;
       WidgetsBinding.instance.addPostFrameCallback((_) => _hydrate());
@@ -99,11 +119,29 @@ class _EditProspectDetailPageState
     if (prospect != null) {
       _populate(prospect);
       setState(() => _loading = false);
+      await _hydrateImages();
     } else {
       setState(() {
         _loading = false;
         _notFound = true;
       });
+    }
+  }
+
+  /// Fetch the gallery so the picker shows server-side images. Failures
+  /// are swallowed — an empty picker is graceful degradation.
+  Future<void> _hydrateImages() async {
+    try {
+      final images =
+          await ref.read(prospectsRepositoryProvider).listImages(widget.id);
+      if (!mounted) return;
+      setState(() {
+        _existingImages = images;
+        _originalExistingImages = List<ProspectImageRef>.unmodifiable(images);
+      });
+    } on Object catch (_) {
+      // Not fatal — picker stays empty on the network image side and
+      // the user can still pick new locals.
     }
   }
 
@@ -153,18 +191,43 @@ class _EditProspectDetailPageState
         ref.read(prospectByIdProvider(widget.id)).value ?? widget.initial;
     if (saved != null) _populate(saved);
     FocusManager.instance.primaryFocus?.unfocus();
-    setState(() => _editing = false);
+    setState(() {
+      _editing = false;
+      // Roll back image edits: restore server-side gallery, drop any
+      // queued deletions and any local picks.
+      _existingImages = List<ProspectImageRef>.from(_originalExistingImages);
+      _slotsToDelete.clear();
+      _imagePaths.clear();
+    });
   }
 
+  int get _totalAttachedImages =>
+      _imagePaths.length + _existingImages.length;
+
   Future<void> _pickImage() async {
-    if (!_editing || _imagePaths.length >= _maxImages) return;
+    if (!_editing || _totalAttachedImages >= _maxImages) return;
     try {
       final picker = ImagePicker();
       final file = await picker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 80,
+        // Cap the longest side so a 12MP phone photo doesn't land
+        // above the backend's 5MB ceiling. Native resize on device.
+        maxWidth: kPickerMaxDimension,
+        maxHeight: kPickerMaxDimension,
       );
       if (file == null) return;
+      if (!isAllowedImageFile(file.path)) {
+        if (!mounted) return;
+        SnackbarUtils.showError(context, kUnsupportedImageMessage);
+        return;
+      }
+      final bytes = await imageFileBytes(file.path);
+      if (bytes != null && bytes > kMaxImageBytes) {
+        if (!mounted) return;
+        SnackbarUtils.showError(context, imageTooLargeMessage(bytes));
+        return;
+      }
       setState(() => _imagePaths.add(file.path));
     } on Exception catch (_) {
       if (!mounted) return;
@@ -175,6 +238,19 @@ class _EditProspectDetailPageState
   void _removeImageAt(int index) {
     if (!_editing) return;
     setState(() => _imagePaths.removeAt(index));
+  }
+
+  /// Queue the existing image at [index] (in the current
+  /// `_existingImages` list) for deletion. Removed from the picker
+  /// immediately; the actual DELETE fires on save.
+  void _removeExistingImageAt(int index) {
+    if (!_editing) return;
+    setState(() {
+      final removed = _existingImages[index];
+      _existingImages = List<ProspectImageRef>.from(_existingImages)
+        ..removeAt(index);
+      _slotsToDelete.add(removed.slot);
+    });
   }
 
   void _onLocationChanged(double lat, double lng) {
@@ -210,21 +286,113 @@ class _EditProspectDetailPageState
         longitude: _longitude,
         imagePaths: List<String>.unmodifiable(_imagePaths),
       );
-      await ref.read(prospectsControllerProvider.notifier).updateProspect(updated);
+      await ref
+          .read(prospectsControllerProvider.notifier)
+          .updateProspect(updated);
+      final imageResult = await _syncImageChanges();
       if (!mounted) return;
       setState(() {
         _saving = false;
         _editing = false;
+        // Local picks have been uploaded into slots; the next gallery
+        // hydrate will reflect them. Clear locals + deletion queue so
+        // a follow-up edit starts clean.
+        _imagePaths.clear();
+        _slotsToDelete.clear();
       });
-      SnackbarUtils.showSuccess(
-        context,
-        'Prospect details updated successfully.',
-      );
+      // Re-fetch the now-current gallery to refresh the picker's
+      // network thumbnails (new slot URLs + the original snapshot).
+      await _hydrateImages();
+      if (!mounted) return;
+      if (imageResult.uploadFailures > 0 ||
+          imageResult.deleteFailures > 0) {
+        SnackbarUtils.showError(
+          context,
+          _formatImageSyncWarning(imageResult),
+        );
+      } else {
+        SnackbarUtils.showSuccess(
+          context,
+          'Prospect details updated successfully.',
+        );
+      }
     } on Exception catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
       SnackbarUtils.showError(context, 'Could not save. Please try again.');
     }
+  }
+
+  /// Drains [_slotsToDelete] first (frees up slots), then uploads each
+  /// new local file into the next free slot. Returns the per-bucket
+  /// failure counts + the first backend error message we ran into, so
+  /// [_save] can show a snackbar that says *why* something failed
+  /// (not just how many). The prospect PATCH already succeeded by the
+  /// time this runs, so failures are non-fatal — the user can retry
+  /// the missing slot on a subsequent edit.
+  Future<
+      ({
+        int uploadFailures,
+        int deleteFailures,
+        String? firstError,
+      })> _syncImageChanges() async {
+    if (_slotsToDelete.isEmpty && _imagePaths.isEmpty) {
+      return (uploadFailures: 0, deleteFailures: 0, firstError: null);
+    }
+    final repo = ref.read(prospectsRepositoryProvider);
+    var deleteFailures = 0;
+    String? firstError;
+    for (final slot in _slotsToDelete) {
+      try {
+        await repo.removeImage(prospectId: widget.id, slot: slot);
+      } on Object catch (e) {
+        deleteFailures++;
+        firstError ??= extractBackendErrorMessage(e) ?? 'Delete failed';
+      }
+    }
+    final keptSlots = _existingImages.map((e) => e.slot).toSet();
+    final freeSlots = <int>[
+      for (var s = 1; s <= _maxImages; s++)
+        if (!keptSlots.contains(s)) s,
+    ];
+    var uploadFailures = 0;
+    for (var i = 0; i < _imagePaths.length && i < freeSlots.length; i++) {
+      try {
+        await repo.uploadImage(
+          prospectId: widget.id,
+          filePath: _imagePaths[i],
+          slot: freeSlots[i],
+        );
+      } on Object catch (e) {
+        uploadFailures++;
+        firstError ??= extractBackendErrorMessage(e) ?? 'Upload failed';
+      }
+    }
+    return (
+      uploadFailures: uploadFailures,
+      deleteFailures: deleteFailures,
+      firstError: firstError,
+    );
+  }
+
+  String _formatImageSyncWarning(
+    ({int uploadFailures, int deleteFailures, String? firstError}) r,
+  ) {
+    final parts = <String>[];
+    if (r.uploadFailures > 0) {
+      parts.add(
+        "${r.uploadFailures} image${r.uploadFailures == 1 ? '' : 's'} "
+        "didn't upload",
+      );
+    }
+    if (r.deleteFailures > 0) {
+      parts.add(
+        "${r.deleteFailures} image${r.deleteFailures == 1 ? '' : 's'} "
+        "couldn't be removed",
+      );
+    }
+    final summary = 'Saved with issues: ${parts.join(', ')}';
+    return r.firstError == null ? '$summary.' : '$summary — ${r.firstError}.';
   }
 
   void _back() {
@@ -234,6 +402,7 @@ class _EditProspectDetailPageState
   }
 
   Future<void> _transferToParty() async {
+    if (_transferring) return;
     final displayName = _nameController.text.trim().isEmpty
         ? 'this prospect'
         : '"${_nameController.text.trim()}"';
@@ -253,7 +422,8 @@ class _EditProspectDetailPageState
           ),
         ),
         content: Text(
-          'Are you sure you want to transfer $displayName to a party? This action cannot be undone.',
+          'Are you sure you want to transfer $displayName to a party? '
+          'This action cannot be undone.',
           style: TextStyle(
             color: AppColors.textPrimary,
             fontSize: 14.sp,
@@ -293,7 +463,38 @@ class _EditProspectDetailPageState
       ),
     );
     if (!mounted || confirmed != true) return;
-    SnackbarUtils.showInfo(context, 'Transfer to Party — coming soon.');
+    setState(() => _transferring = true);
+    try {
+      final result = await ref
+          .read(prospectsControllerProvider.notifier)
+          .convertToParty(prospectId: widget.id);
+      if (!mounted) return;
+      final imgs = result.transferredImageCount;
+      SnackbarUtils.showSuccess(
+        context,
+        imgs == 0
+            ? 'Transferred to party.'
+            : "Transferred to party with $imgs image${imgs == 1 ? '' : 's'}.",
+      );
+      // Prospect row is gone server-side, so the detail page no longer
+      // has anything to show. Pop back to the prospects list (the
+      // controller already invalidated `prospectsListProvider`, so the
+      // row is also gone there). Fall back to the list route when
+      // there's nothing to pop — e.g. cold-start deep-link.
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go(Routes.prospects);
+      }
+    } on Exception catch (e) {
+      if (!mounted) return;
+      setState(() => _transferring = false);
+      final backendMsg = extractBackendErrorMessage(e);
+      SnackbarUtils.showError(
+        context,
+        backendMsg ?? 'Could not transfer. Please try again.',
+      );
+    }
   }
 
   @override
@@ -309,6 +510,7 @@ class _EditProspectDetailPageState
         bottomNavigationBar: _SubmitBar(
           editing: _editing,
           isLoading: _saving,
+          isTransferring: _transferring,
           onPressed: _editing ? _save : _toggleEdit,
           onTransfer: _transferToParty,
         ),
@@ -492,7 +694,7 @@ class _EditProspectDetailPageState
                                     ),
                                     const Spacer(),
                                     Text(
-                                      '${_imagePaths.length}/$_maxImages',
+                                      '$_totalAttachedImages/$_maxImages',
                                       style: TextStyle(
                                         color: AppColors.textSecondary,
                                         fontSize: 12.sp,
@@ -504,6 +706,10 @@ class _EditProspectDetailPageState
                                 SizedBox(height: 10.h),
                                 PrimaryImagePicker(
                                   imagePaths: _imagePaths,
+                                  networkImageUrls: _existingImages
+                                      .map((e) => e.url)
+                                      .toList(growable: false),
+                                  onRemoveNetwork: _removeExistingImageAt,
                                   maxImages: _maxImages,
                                   enabled: _editing,
                                   showLabel: false,
@@ -727,12 +933,14 @@ class _SubmitBar extends StatelessWidget {
   const _SubmitBar({
     required this.editing,
     required this.isLoading,
+    required this.isTransferring,
     required this.onPressed,
     required this.onTransfer,
   });
 
   final bool editing;
   final bool isLoading;
+  final bool isTransferring;
   final VoidCallback onPressed;
   final VoidCallback onTransfer;
 
@@ -774,6 +982,7 @@ class _SubmitBar extends StatelessWidget {
                       child: PrimaryButton(
                         label: 'Transfer to Party',
                         leadingIcon: Icons.swap_horiz_rounded,
+                        isLoading: isTransferring,
                         onPressed: onTransfer,
                         customFontSize: 13.sp,
                         customIconSize: 16.sp,

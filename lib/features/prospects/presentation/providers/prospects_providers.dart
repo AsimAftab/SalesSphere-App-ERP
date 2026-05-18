@@ -19,19 +19,12 @@ Future<List<Prospect>> prospectsList(Ref ref) async {
   return ref.watch(prospectsRepositoryProvider).getProspects();
 }
 
-/// Resolves a single prospect by id. Derived from the list provider's
-/// `AsyncValue` so loading and error states propagate to consumers
-/// instead of collapsing into `null`. The previous shape called the
-/// repo's synchronous `findById` directly, which couldn't distinguish
-/// "still loading" from "actually not found" and made the async
-/// `_hydrate` flows on detail pages unreliable.
+/// Resolves a single prospect by id. Goes through the repository's
+/// `getProspectById` so cold-start deep-links work without depending on
+/// the list being loaded; the repo handles the 404→null mapping.
 @riverpod
 Future<Prospect?> prospectById(Ref ref, String id) async {
-  final prospects = await ref.watch(prospectsListProvider.future);
-  for (final prospect in prospects) {
-    if (prospect.id == id) return prospect;
-  }
-  return null;
+  return ref.watch(prospectsRepositoryProvider).getProspectById(id);
 }
 
 /// Catalogue of categories → brands used by the interest picker.
