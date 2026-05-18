@@ -42,8 +42,18 @@ class _AttendanceDetailsPageState extends ConsumerState<AttendanceDetailsPage> {
   }
 
   List<AttendanceRecord> _applyFilter(List<AttendanceRecord> source) {
-    if (_filter == null) return source;
-    return source.where((r) => r.status == _filter).toList(growable: false);
+    // Weekly-off rows aren't actionable on the details list — they're
+    // shown on the home calendar's legend but the user never needs to
+    // filter or open one. Strip them before any further filtering so
+    // both the "All Days" view and any specific-status view stay
+    // focused on real attendance days.
+    final actionable = source
+        .where((r) => r.status != AttendanceStatus.weeklyOff)
+        .toList(growable: false);
+    if (_filter == null) return actionable;
+    return actionable
+        .where((r) => r.status == _filter)
+        .toList(growable: false);
   }
 
   @override
@@ -92,13 +102,18 @@ class _AttendanceDetailsPageState extends ConsumerState<AttendanceDetailsPage> {
                           label: 'All Days',
                           icon: Icons.list_alt_rounded,
                         ),
+                        // Weekly-off intentionally omitted — see
+                        // `_applyFilter` for the matching list-side
+                        // exclusion. The user never needs to drill
+                        // into a weekend row.
                         for (final status in AttendanceStatus.values)
-                          SearchFilterOption<AttendanceStatus?>(
-                            value: status,
-                            label: status.palette.label,
-                            icon: status.palette.icon,
-                            iconColor: status.palette.accent,
-                          ),
+                          if (status != AttendanceStatus.weeklyOff)
+                            SearchFilterOption<AttendanceStatus?>(
+                              value: status,
+                              label: status.palette.label,
+                              icon: status.palette.icon,
+                              iconColor: status.palette.accent,
+                            ),
                       ],
                     ),
                   ),
@@ -168,13 +183,13 @@ class _AppBar extends StatelessWidget {
             onPressed: onBack,
             tooltip: 'Back',
           ),
-          SizedBox(width: 8.w),
+          SizedBox(width: 12.w),
           Text(
             'Attendance Details',
             style: TextStyle(
               color: AppColors.primary,
-              fontSize: 22.sp,
-              fontWeight: FontWeight.w700,
+              fontSize: 20.sp,
+              fontWeight: FontWeight.w600,
               letterSpacing: -0.5,
             ),
           ),

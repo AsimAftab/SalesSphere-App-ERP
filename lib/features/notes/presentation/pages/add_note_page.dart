@@ -175,8 +175,8 @@ class _AddNotePageState extends ConsumerState<AddNotePage> {
                               'Images (Optional)',
                               style: TextStyle(
                                 color: AppColors.textPrimary,
-                                fontSize: 13.sp,
-                                fontWeight: FontWeight.w600,
+                                fontSize: 14.sp,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                             const Spacer(),

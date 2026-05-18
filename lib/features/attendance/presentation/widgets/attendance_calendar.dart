@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/features/attendance/domain/attendance_status.dart';
+import 'package:sales_sphere_erp/features/attendance/presentation/widgets/month_nav_header.dart';
 
 /// Stateless 6×7 month grid with a status dot under each in-month day.
 /// Parent owns `displayedMonth` and `selected` so the same state can
@@ -56,9 +56,10 @@ class AttendanceCalendar extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        _Header(
+        MonthNavHeader(
           displayedMonth: displayedMonth,
           onMonthChange: onMonthChange,
+          showCard: false,
         ),
         SizedBox(height: 12.h),
         const _WeekdayRow(),
@@ -97,9 +98,25 @@ class AttendanceCalendar extends StatelessWidget {
   }) {
     final cellIndex = row * 7 + col;
     final day = cellIndex - leadingOffset + 1;
-    if (day < 1 || day > lastDay) {
-      return SizedBox(height: 44.h);
+
+    // Off-month days (trailing days of the previous month before the
+    // 1st, and leading days of the next month after `lastDay`) render
+    // in a muted color so the grid reads as a continuous calendar
+    // rather than dropping rows of empty cells. They're not tappable
+    // and never carry a status dot — that data belongs to the
+    // displayed month only.
+    if (day < 1) {
+      // Trailing days of the previous month.
+      final prevLast = DateTime(year, month, 0).day;
+      final prevDay = prevLast + day; // `day` is <= 0 here
+      return _OffMonthCell(label: '$prevDay');
     }
+    if (day > lastDay) {
+      // Leading days of the next month.
+      final nextDay = day - lastDay;
+      return _OffMonthCell(label: '$nextDay');
+    }
+
     final cellDate = DateTime(year, month, day);
     final isSelected = cellDate.year == selected.year &&
         cellDate.month == selected.month &&
@@ -155,51 +172,43 @@ class AttendanceCalendar extends StatelessWidget {
   }
 }
 
-class _Header extends StatelessWidget {
-  const _Header({required this.displayedMonth, required this.onMonthChange});
+/// Faded numeric cell for days that belong to the previous or next
+/// month. Non-interactive — taps fall through. Mirrors the in-month
+/// cell's exact layout (32×32 number circle + 4h gap + 6×6 dot slot)
+/// so day numbers line up across the row even though off-month cells
+/// don't render a status dot.
+class _OffMonthCell extends StatelessWidget {
+  const _OffMonthCell({required this.label});
 
-  final DateTime displayedMonth;
-  final ValueChanged<DateTime> onMonthChange;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: <Widget>[
-        IconButton(
-          icon: Icon(
-            Icons.chevron_left_rounded,
-            color: AppColors.textPrimary,
-            size: 24.sp,
-          ),
-          onPressed: () => onMonthChange(
-            DateTime(displayedMonth.year, displayedMonth.month - 1),
-          ),
-          tooltip: 'Previous month',
-        ),
-        Expanded(
-          child: Center(
-            child: Text(
-              DateFormat('MMMM yyyy').format(displayedMonth),
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w700,
+    return SizedBox(
+      height: 44.h,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          SizedBox(
+            width: 32.r,
+            height: 32.r,
+            child: Center(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: AppColors.textSecondary.withValues(alpha: 0.4),
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ),
-        ),
-        IconButton(
-          icon: Icon(
-            Icons.chevron_right_rounded,
-            color: AppColors.textPrimary,
-            size: 24.sp,
-          ),
-          onPressed: () => onMonthChange(
-            DateTime(displayedMonth.year, displayedMonth.month + 1),
-          ),
-          tooltip: 'Next month',
-        ),
-      ],
+          SizedBox(height: 4.h),
+          // Empty placeholder occupies the same height as the in-month
+          // dot so the row's vertical rhythm stays aligned.
+          SizedBox(width: 6.r, height: 6.r),
+        ],
+      ),
     );
   }
 }

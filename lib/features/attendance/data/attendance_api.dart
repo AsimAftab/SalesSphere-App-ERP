@@ -16,16 +16,16 @@ class AttendanceApi {
   final Map<String, AttendanceRecordDto> _store =
       <String, AttendanceRecordDto>{};
 
-  /// Seeds a deterministic mix of statuses across the current month so
-  /// the demo is always live without a manual date bump. Future days
-  /// have no record, which is what drives the home page's "Not Checked
-  /// In" state.
+  /// Seeds a deterministic mix of statuses for every day **before**
+  /// today in the current month. Today itself is intentionally left
+  /// blank so the home page lands on the "Not Checked In" state and
+  /// the user can click Check In → Check Out → Checked Out naturally
+  /// without the seed pre-populating the row.
   void _seedCurrentMonth() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final lastDay = DateTime(now.year, now.month + 1, 0).day;
-    final upto = today.day;
-    for (var day = 1; day <= lastDay && day <= upto; day++) {
+    final upto = today.day - 1;
+    for (var day = 1; day <= upto; day++) {
       final date = DateTime(now.year, now.month, day);
       final status = _seededStatus(date);
       // Only present/half-day rows seed timestamps + location; leave

@@ -62,8 +62,8 @@ class DayDetailCard extends StatelessWidget {
                             DateFormat('EEEE').format(record.date),
                             style: TextStyle(
                               color: AppColors.textPrimary,
-                              fontSize: 18.sp,
-                              fontWeight: FontWeight.w700,
+                              fontSize: 16.sp,
+                              fontWeight: FontWeight.w600,
                               letterSpacing: -0.2,
                             ),
                           ),
@@ -72,7 +72,7 @@ class DayDetailCard extends StatelessWidget {
                             DateFormat('MMM d, yyyy').format(record.date),
                             style: TextStyle(
                               color: AppColors.textSecondary,
-                              fontSize: 13.sp,
+                              fontSize: 12.sp,
                               fontWeight: FontWeight.w400,
                             ),
                           ),
@@ -156,15 +156,16 @@ class _MiniTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: <Widget>[
-        Row(
-          children: <Widget>[
-            Icon(icon, color: iconColor, size: 16.sp),
-            SizedBox(width: 6.w),
-            Flexible(
-              child: Text(
+        Icon(icon, color: iconColor, size: 18.sp),
+        SizedBox(width: 8.w),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -174,18 +175,18 @@ class _MiniTile extends StatelessWidget {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-            ),
-          ],
-        ),
-        SizedBox(height: 4.h),
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 14.sp,
-            fontWeight: FontWeight.w700,
+              SizedBox(height: 2.h),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ),
       ],

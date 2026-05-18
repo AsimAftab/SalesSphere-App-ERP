@@ -587,7 +587,7 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
                                   label: 'Date Joined',
                                   hintText: 'Select date',
                                   prefixIcon: Icons.calendar_today_outlined,
-                                  enabled: _editing,
+                                  enabled: false,
                                   initialDate: _dateJoined,
                                   firstDate: DateTime(DateTime.now().year - 50),
                                   lastDate: DateTime(DateTime.now().year + 5),
@@ -598,11 +598,11 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
                                 Row(
                                   children: <Widget>[
                                     Text(
-                                      'Site Image',
+                                      'Site Image (Optional)',
                                       style: TextStyle(
-                                        color: AppColors.primary,
-                                        fontSize: 12.sp,
-                                        fontWeight: FontWeight.w400,
+                                        color: AppColors.textPrimary,
+                                        fontSize: 14.sp,
+                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
                                     const Spacer(),
@@ -610,7 +610,7 @@ class _EditSiteDetailPageState extends ConsumerState<EditSiteDetailPage> {
                                       '$_totalAttachedImages/$_maxImages',
                                       style: TextStyle(
                                         color: AppColors.textSecondary,
-                                        fontSize: 11.sp,
+                                        fontSize: 12.sp,
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),

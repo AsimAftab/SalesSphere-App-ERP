@@ -11,7 +11,6 @@ import 'package:sales_sphere_erp/features/attendance/domain/attendance_status.da
 import 'package:sales_sphere_erp/features/attendance/presentation/providers/attendance_providers.dart';
 import 'package:sales_sphere_erp/features/attendance/presentation/widgets/attendance_calendar.dart';
 import 'package:sales_sphere_erp/features/attendance/presentation/widgets/check_in_out_button.dart';
-import 'package:sales_sphere_erp/features/attendance/presentation/widgets/legend_row.dart';
 import 'package:sales_sphere_erp/features/attendance/presentation/widgets/monthly_summary_card.dart';
 import 'package:sales_sphere_erp/features/attendance/presentation/widgets/today_status_card.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
@@ -90,43 +89,56 @@ class _AttendanceHomePageState extends ConsumerState<AttendanceHomePage> {
               ),
             ),
             SafeArea(
-              child: SingleChildScrollView(
-                physics: const ClampingScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 32.h),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    _AppBar(onBack: _back),
-                    SizedBox(height: 18.h),
-                    TodayStatusCard(today: todayAsync.value),
-                    SizedBox(height: 18.h),
-                    const CheckInOutButton(),
-                    SizedBox(height: 22.h),
-                    _CalendarCard(
-                      child: AttendanceCalendar(
-                        displayedMonth: _displayedMonth,
-                        selected: _selected,
-                        statusByDay: _statusByDay(
-                          monthAsync.value ?? const <AttendanceRecord>[],
-                        ),
-                        onSelect: (date) {
-                          setState(() => _selected = date);
-                          context.push(
-                            Routes.attendanceDayDetailPath(
-                              date.toIso8601String().split('T').first,
+              // Header is pinned at the top of the SafeArea — the
+              // scrolling content sits inside an Expanded below it so
+              // the back button + "Attendance" stay visible regardless
+              // of scroll offset.
+              child: Column(
+                children: <Widget>[
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 0),
+                    child: _AppBar(onBack: _back),
+                  ),
+                  SizedBox(height: 18.h),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      physics: const ClampingScrollPhysics(),
+                      padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 32.h),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          TodayStatusCard(today: todayAsync.value),
+                          SizedBox(height: 18.h),
+                          const CheckInOutButton(),
+                          SizedBox(height: 22.h),
+                          _CalendarCard(
+                            child: AttendanceCalendar(
+                              displayedMonth: _displayedMonth,
+                              selected: _selected,
+                              statusByDay: _statusByDay(
+                                monthAsync.value ?? const <AttendanceRecord>[],
+                              ),
+                              onSelect: (date) {
+                                setState(() => _selected = date);
+                                context.push(
+                                  Routes.attendanceDayDetailPath(
+                                    date.toIso8601String().split('T').first,
+                                  ),
+                                );
+                              },
+                              onMonthChange: (next) =>
+                                  setState(() => _displayedMonth = next),
                             ),
-                          );
-                        },
-                        onMonthChange: (next) =>
-                            setState(() => _displayedMonth = next),
+                          ),
+                          SizedBox(height: 18.h),
+                          const _LegendRow(),
+                          SizedBox(height: 22.h),
+                          MonthlySummaryCard(summary: summary),
+                        ],
                       ),
                     ),
-                    SizedBox(height: 18.h),
-                    const LegendRow(),
-                    SizedBox(height: 22.h),
-                    MonthlySummaryCard(summary: summary),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -161,8 +173,8 @@ class _AppBar extends StatelessWidget {
           'Attendance',
           style: TextStyle(
             color: AppColors.primary,
-            fontSize: 24.sp,
-            fontWeight: FontWeight.w700,
+            fontSize: 20.sp,
+            fontWeight: FontWeight.w600,
             letterSpacing: -0.5,
           ),
         ),
@@ -192,6 +204,76 @@ class _CalendarCard extends StatelessWidget {
         ],
       ),
       child: child,
+    );
+  }
+}
+
+/// Five colour-coded chips that decode the calendar's status dots.
+/// Inlined here rather than living in its own file because it's
+/// home-page-specific chrome — the legend has no other consumer.
+///
+/// Two explicit rows so the chips line up cleanly across screen sizes:
+/// row 1 stacks Present / Absent / Half-Day, row 2 stacks Leave /
+/// Weekly Off. A `Wrap` would let chip widths drift the row break
+/// around as the device width changes; fixing the layout reads more
+/// deliberate.
+class _LegendRow extends StatelessWidget {
+  const _LegendRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        const Row(
+          children: <Widget>[
+            Expanded(child: _LegendChip(status: AttendanceStatus.present)),
+            Expanded(child: _LegendChip(status: AttendanceStatus.absent)),
+            Expanded(child: _LegendChip(status: AttendanceStatus.halfDay)),
+          ],
+        ),
+        SizedBox(height: 8.h),
+        const Row(
+          children: <Widget>[
+            Expanded(child: _LegendChip(status: AttendanceStatus.leave)),
+            Expanded(child: _LegendChip(status: AttendanceStatus.weeklyOff)),
+            // Empty third slot keeps row-2 chips left-aligned with row 1
+            // instead of stretching across the full width.
+            Spacer(),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _LegendChip extends StatelessWidget {
+  const _LegendChip({required this.status});
+
+  final AttendanceStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = status.palette;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Container(
+          width: 10.r,
+          height: 10.r,
+          decoration: BoxDecoration(color: p.accent, shape: BoxShape.circle),
+        ),
+        SizedBox(width: 8.w),
+        Text(
+          p.label,
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 12.sp,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }

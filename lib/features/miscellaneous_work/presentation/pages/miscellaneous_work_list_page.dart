@@ -175,13 +175,13 @@ class _AppBar extends StatelessWidget {
             onPressed: onBack,
             tooltip: 'Back',
           ),
-          SizedBox(width: 8.w),
+          SizedBox(width: 12.w),
           Text(
             'Miscellaneous Work',
             style: TextStyle(
               color: AppColors.primary,
-              fontSize: 22.sp,
-              fontWeight: FontWeight.w700,
+              fontSize: 20.sp,
+              fontWeight: FontWeight.w600,
               letterSpacing: -0.5,
             ),
           ),

@@ -277,11 +277,11 @@ class _EditNoteDetailPageState extends ConsumerState<EditNoteDetailPage> {
                                 Row(
                                   children: <Widget>[
                                     Text(
-                                      'Images',
+                                      'Images (Optional)',
                                       style: TextStyle(
-                                        color: AppColors.primary,
-                                        fontSize: 12.sp,
-                                        fontWeight: FontWeight.w400,
+                                        color: AppColors.textPrimary,
+                                        fontSize: 14.sp,
+                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
                                     const Spacer(),
@@ -289,7 +289,7 @@ class _EditNoteDetailPageState extends ConsumerState<EditNoteDetailPage> {
                                       '${_imagePaths.length}/$_maxImages',
                                       style: TextStyle(
                                         color: AppColors.textSecondary,
-                                        fontSize: 11.sp,
+                                        fontSize: 12.sp,
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),
