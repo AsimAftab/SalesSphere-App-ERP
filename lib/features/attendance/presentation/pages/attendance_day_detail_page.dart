@@ -83,13 +83,13 @@ class _Scaffold extends StatelessWidget {
                           onPressed: () => context.pop(),
                           tooltip: 'Back',
                         ),
-                        SizedBox(width: 8.w),
+                        SizedBox(width: 12.w),
                         Text(
                           'Attendance Details',
                           style: TextStyle(
                             color: AppColors.primary,
-                            fontSize: 22.sp,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 20.sp,
+                            fontWeight: FontWeight.w600,
                             letterSpacing: -0.5,
                           ),
                         ),
@@ -121,8 +121,12 @@ class _DetailBody extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           _StatusHeroCard(record: record),
-          SizedBox(height: 16.h),
-          if (record.hasCheckIn)
+          if (record.hasCheckIn) ...<Widget>[
+            SizedBox(height: 16.h),
+            _WorkingHoursCard(record: record),
+          ],
+          if (record.hasCheckIn) ...<Widget>[
+            SizedBox(height: 16.h),
             _CheckEventCard(
               kind: _CheckEventKind.checkIn,
               at: record.checkInAt!,
@@ -130,6 +134,7 @@ class _DetailBody extends StatelessWidget {
               lng: record.checkInLng,
               address: record.checkInAddress,
             ),
+          ],
           if (record.hasCheckOut) ...<Widget>[
             SizedBox(height: 16.h),
             _CheckEventCard(
@@ -153,53 +158,171 @@ class _DetailBody extends StatelessWidget {
   }
 }
 
+/// Compact summary card showing the duration the user spent on the
+/// clock for this day. Renders below the status hero and above the
+/// check-in card so the hours read first, before the user dives into
+/// the per-event details. Falls back to `--` until a check-out lands.
+class _WorkingHoursCard extends StatelessWidget {
+  const _WorkingHoursCard({required this.record});
+
+  final AttendanceRecord record;
+
+  String _formatHours(Duration? d) {
+    if (d == null) return '--';
+    final hours = d.inMinutes ~/ 60;
+    final minutes = d.inMinutes % 60;
+    return '${hours}h ${minutes.toString().padLeft(2, '0')}m';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hoursLabel = _formatHours(record.hoursWorked);
+    final inProgress = record.hasCheckIn && !record.hasCheckOut;
+    return SectionCard(
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Container(
+              width: 40.r,
+              height: 40.r,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.secondary.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(10.r),
+              ),
+              child: Icon(
+                Icons.timer_outlined,
+                color: AppColors.secondary,
+                size: 20.sp,
+              ),
+            ),
+            SizedBox(width: 12.w),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Hours Worked',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  SizedBox(height: 2.h),
+                  Text(
+                    hoursLabel,
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (inProgress)
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                decoration: BoxDecoration(
+                  color: AppColors.green500.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(40.r),
+                ),
+                child: Text(
+                  'In progress',
+                  style: TextStyle(
+                    color: AppColors.green500,
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 class _StatusHeroCard extends StatelessWidget {
   const _StatusHeroCard({required this.record});
 
   final AttendanceRecord record;
 
+  /// Stroke-only icon variants used inside the hero badge so the
+  /// circle reads as a single solid disc with a white glyph instead
+  /// of a filled status icon (e.g. `check_circle`) painting its own
+  /// inner white background and fighting the accent fill.
+  IconData _heroIcon(AttendanceStatus s) {
+    switch (s) {
+      case AttendanceStatus.present:
+        return Icons.check_rounded;
+      case AttendanceStatus.absent:
+        return Icons.close_rounded;
+      case AttendanceStatus.halfDay:
+        return Icons.schedule_rounded;
+      case AttendanceStatus.leave:
+        return Icons.event_busy_rounded;
+      case AttendanceStatus.weeklyOff:
+        return Icons.home_rounded;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = record.status.palette;
     return Container(
-      padding: EdgeInsets.fromLTRB(20.w, 24.h, 20.w, 24.h),
       decoration: BoxDecoration(
         color: p.accent.withValues(alpha: 0.10),
+        border: Border.all(
+          color: p.accent.withValues(alpha: 0.25),
+          width: 1.0,
+        ),
         borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: p.accent.withValues(alpha: 0.25)),
       ),
-      child: Column(
-        children: <Widget>[
-          Container(
-            width: 64.r,
-            height: 64.r,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: p.accent,
-              shape: BoxShape.circle,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20.w, 24.h, 20.w, 24.h),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            Container(
+              width: 56.r,
+              height: 56.r,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: p.accent,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                _heroIcon(record.status),
+                color: Colors.white,
+                size: 28.sp,
+              ),
             ),
-            child: Icon(p.icon, color: Colors.white, size: 36.sp),
-          ),
-          SizedBox(height: 14.h),
-          Text(
-            p.label,
-            style: TextStyle(
-              color: p.accent,
-              fontSize: 28.sp,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.4,
+            SizedBox(height: 14.h),
+            Text(
+              p.label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: p.accent,
+                fontSize: 24.sp,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.4,
+              ),
             ),
-          ),
-          SizedBox(height: 4.h),
-          Text(
-            DateFormat('EEEE, MMM d, yyyy').format(record.date),
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w500,
+            SizedBox(height: 6.h),
+            Text(
+              DateFormat('EEEE, MMM d, yyyy').format(record.date),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w400,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -271,7 +394,7 @@ class _CheckEventCard extends StatelessWidget {
                   _heading,
                   style: TextStyle(
                     color: AppColors.textSecondary,
-                    fontSize: 13.sp,
+                    fontSize: 12.sp,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -306,7 +429,7 @@ class _CheckEventCard extends StatelessWidget {
                 '$_heading Location',
                 style: TextStyle(
                   color: AppColors.textSecondary,
-                  fontSize: 13.sp,
+                  fontSize: 12.sp,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -376,7 +499,7 @@ class _MarkedByCard extends StatelessWidget {
               'Marked By',
               style: TextStyle(
                 color: AppColors.textPrimary,
-                fontSize: 15.sp,
+                fontSize: 14.sp,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -419,7 +542,7 @@ class _MarkedByCard extends StatelessWidget {
                   role,
                   style: TextStyle(
                     color: AppColors.textSecondary,
-                    fontSize: 13.sp,
+                    fontSize: 12.sp,
                     fontWeight: FontWeight.w400,
                   ),
                 ),

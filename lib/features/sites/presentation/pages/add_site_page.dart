@@ -263,6 +263,8 @@ class _AddSitePageState extends ConsumerState<AddSitePage> {
                           initialDate: _dateJoined,
                           firstDate: DateTime(DateTime.now().year - 50),
                           lastDate: DateTime(DateTime.now().year + 5),
+                          validator: (v) =>
+                              Validators.requiredField(v, 'Date joined'),
                           onDateSelected: (date) =>
                               setState(() => _dateJoined = date),
                         ),
@@ -326,8 +328,8 @@ class _AddSitePageState extends ConsumerState<AddSitePage> {
                               'Site Image (Optional)',
                               style: TextStyle(
                                 color: AppColors.textPrimary,
-                                fontSize: 13.sp,
-                                fontWeight: FontWeight.w600,
+                                fontSize: 14.sp,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                             const Spacer(),

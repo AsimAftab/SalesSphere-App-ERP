@@ -43,15 +43,15 @@ class MonthlySummaryCard extends StatelessWidget {
             Icon(
               Icons.trending_up_rounded,
               color: AppColors.secondary,
-              size: 20.sp,
+              size: 22.sp,
             ),
-            SizedBox(width: 8.w),
+            SizedBox(width: 12.w),
             Text(
               'Monthly Summary',
               style: TextStyle(
                 color: AppColors.textPrimary,
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w700,
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
@@ -99,7 +99,7 @@ class _StatTile extends StatelessWidget {
           value,
           style: TextStyle(
             color: AppColors.textPrimary,
-            fontSize: 22.sp,
+            fontSize: 20.sp,
             fontWeight: FontWeight.w700,
             height: 1.1,
           ),

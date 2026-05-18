@@ -6,9 +6,11 @@ import 'package:sales_sphere_erp/features/attendance/presentation/providers/atte
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 
-/// Flips label between "Check In" / "Check Out" / "Checked Out" based
-/// on `todayAttendanceProvider`. Disabled in the third state so the
-/// user can't double-check-out.
+/// Flips label between "Check In" and "Check Out" based on
+/// `todayAttendanceProvider`. Collapses to `SizedBox.shrink()` once
+/// the day's check-out is recorded — at that point the user has
+/// nothing left to do and the "Today's Status" card carries the
+/// timestamps.
 class CheckInOutButton extends ConsumerStatefulWidget {
   const CheckInOutButton({super.key});
 
@@ -47,23 +49,30 @@ class _CheckInOutButtonState extends ConsumerState<CheckInOutButton> {
     final hasCheckIn = today?.hasCheckIn ?? false;
     final hasCheckOut = today?.hasCheckOut ?? false;
 
-    if (hasCheckOut) {
-      return PrimaryButton(
-        label: 'Checked Out',
-        leadingIcon: Icons.check_circle_outline_rounded,
-        isDisabled: true,
-        size: ButtonSize.large,
-        onPressed: () {},
-      );
-    }
-
     final isCheckIn = !hasCheckIn;
-    return PrimaryButton(
+    final button = PrimaryButton(
       label: isCheckIn ? 'Check In' : 'Check Out',
       leadingIcon: isCheckIn ? Icons.login_rounded : Icons.logout_rounded,
       isLoading: _busy,
       size: ButtonSize.large,
       onPressed: () => _onPressed(isCheckIn: isCheckIn),
     );
+
+    // Once the day is closed out the button has nothing left to do —
+    // hide it but keep the slot occupied so the surrounding spacers
+    // don't collapse and the calendar doesn't jump up. `maintainSize`
+    // reserves the height; `maintainState` skips rebuilds; the inert
+    // hit-test stops a stray tap from firing on an invisible widget.
+    if (hasCheckOut) {
+      return Visibility(
+        visible: false,
+        maintainSize: true,
+        maintainAnimation: true,
+        maintainState: true,
+        child: button,
+      );
+    }
+
+    return button;
   }
 }

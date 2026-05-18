@@ -154,9 +154,7 @@ class _CustomDatePickerState extends State<CustomDatePicker> {
                 ? FloatingLabelBehavior.auto
                 : FloatingLabelBehavior.never,
             labelStyle: TextStyle(
-              color: shouldShowGreyStyle
-                  ? AppColors.textSecondary.withValues(alpha: 0.5)
-                  : AppColors.textSecondary,
+              color: AppColors.textSecondary,
               fontSize: 14.sp,
               fontFamily: 'Poppins',
             ),
@@ -164,7 +162,7 @@ class _CustomDatePickerState extends State<CustomDatePicker> {
               color: hasError
                   ? AppColors.error
                   : (shouldShowGreyStyle
-                        ? AppColors.textPrimary
+                        ? AppColors.textSecondary
                         : AppColors.secondary),
               fontSize: 13.sp,
               fontFamily: 'Poppins',

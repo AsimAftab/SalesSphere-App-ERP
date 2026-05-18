@@ -171,7 +171,7 @@ class _InterestPickerState extends State<InterestPicker> {
                           : AppColors.textPrimary,
                       fontSize: 15.sp,
                       fontFamily: 'Poppins',
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w400,
                     ),
                   )
                 : null,

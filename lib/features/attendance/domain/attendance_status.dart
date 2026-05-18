@@ -26,19 +26,19 @@ extension AttendanceStatusPalette on AttendanceStatus {
         );
       case AttendanceStatus.leave:
         return (
-          icon: Icons.beach_access_rounded,
+          icon: Icons.event_busy_rounded,
           accent: AppColors.yellow500,
           label: 'Leave',
         );
       case AttendanceStatus.halfDay:
         return (
-          icon: Icons.timelapse_rounded,
+          icon: Icons.schedule_rounded,
           accent: AppColors.purple500,
           label: 'Half-Day',
         );
       case AttendanceStatus.weeklyOff:
         return (
-          icon: Icons.weekend_rounded,
+          icon: Icons.home_rounded,
           accent: AppColors.blue500,
           label: 'Weekly Off',
         );
