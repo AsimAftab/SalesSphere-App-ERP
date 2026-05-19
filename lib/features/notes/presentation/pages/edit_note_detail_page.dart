@@ -104,7 +104,7 @@ class _EditNoteDetailPageState extends ConsumerState<EditNoteDetailPage> {
       displayName: n.linkDisplayName,
     );
     _createdAt = n.createdAt;
-    _dateController.text = DateFormat('dd MMM yyyy').format(n.createdAt);
+    _dateController.text = DateFormat('dd MMM yyyy, hh:mm a').format(n.createdAt);
     _nextFollowUpAt = n.nextFollowUpAt;
     _nextFollowUpController.text = n.nextFollowUpAt == null
         ? ''
@@ -269,9 +269,10 @@ class _EditNoteDetailPageState extends ConsumerState<EditNoteDetailPage> {
                                 SizedBox(height: 12.h),
                                 PrimaryTextField(
                                   controller: _dateController,
-                                  label: 'Created on',
-                                  prefixIcon: Icons.calendar_today_outlined,
+                                  label: 'Created On',
+                                  prefixIcon: Icons.access_time_rounded,
                                   enabled: false,
+                                  readOnly: true,
                                 ),
                                 SizedBox(height: 18.h),
                                 Row(
