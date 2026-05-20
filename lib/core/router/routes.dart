@@ -49,6 +49,12 @@ class Routes {
   static String miscellaneousWorkDetailPath(String id) =>
       '/miscellaneous-work/detail/$id';
 
+  static const leaves = '/leaves';
+  static const addLeave = '/leaves/add';
+  static const leaveDetail = '/leaves/detail/:id';
+
+  static String leaveDetailPath(String id) => '/leaves/detail/$id';
+
   static const splashName = 'splash';
   static const loginName = 'login';
   static const forgotPasswordName = 'forgotPassword';
@@ -77,4 +83,7 @@ class Routes {
   static const miscellaneousWorksName = 'miscellaneousWorks';
   static const addMiscellaneousWorkName = 'addMiscellaneousWork';
   static const miscellaneousWorkDetailName = 'miscellaneousWorkDetail';
+  static const leavesName = 'leaves';
+  static const addLeaveName = 'addLeave';
+  static const leaveDetailName = 'leaveDetail';
 }

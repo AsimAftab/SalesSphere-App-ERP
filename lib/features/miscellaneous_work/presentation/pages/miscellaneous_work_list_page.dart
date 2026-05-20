@@ -263,16 +263,6 @@ class _WorkCard extends StatelessWidget {
                           fontSize: 12.sp,
                         ),
                       ),
-                      SizedBox(height: 2.h),
-                      Text(
-                        'Assigned by: ${work.assignedBy}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12.sp,
-                        ),
-                      ),
                     ],
                   ),
                 ),

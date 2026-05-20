@@ -15,6 +15,10 @@ import 'package:sales_sphere_erp/features/billing/presentation/pages/billing_pag
 import 'package:sales_sphere_erp/features/catalog/presentation/pages/catalog_page.dart';
 import 'package:sales_sphere_erp/features/customers/presentation/pages/customers_hub_page.dart';
 import 'package:sales_sphere_erp/features/home/presentation/pages/home_page.dart';
+import 'package:sales_sphere_erp/features/leaves/domain/leave.dart';
+import 'package:sales_sphere_erp/features/leaves/presentation/pages/add_leave_page.dart';
+import 'package:sales_sphere_erp/features/leaves/presentation/pages/edit_leave_detail_page.dart';
+import 'package:sales_sphere_erp/features/leaves/presentation/pages/leaves_list_page.dart';
 import 'package:sales_sphere_erp/features/miscellaneous_work/domain/miscellaneous_work.dart';
 import 'package:sales_sphere_erp/features/miscellaneous_work/presentation/pages/add_miscellaneous_work_page.dart';
 import 'package:sales_sphere_erp/features/miscellaneous_work/presentation/pages/edit_miscellaneous_work_detail_page.dart';
@@ -265,6 +269,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return EditMiscellaneousWorkDetailPage(
             id: id,
             initial: extra is MiscellaneousWork ? extra : null,
+          );
+        },
+      ),
+      GoRoute(
+        path: Routes.leaves,
+        name: Routes.leavesName,
+        builder: (_, __) => const LeavesListPage(),
+      ),
+      GoRoute(
+        path: Routes.addLeave,
+        name: Routes.addLeaveName,
+        builder: (_, __) => const AddLeavePage(),
+      ),
+      GoRoute(
+        path: Routes.leaveDetail,
+        name: Routes.leaveDetailName,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          final extra = state.extra;
+          return EditLeaveDetailPage(
+            id: id,
+            initial: extra is Leave ? extra : null,
           );
         },
       ),

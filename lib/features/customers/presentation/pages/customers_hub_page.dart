@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
+import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
 /// Hub screen surfaced from the bottom-nav "Customers" tab. Groups
@@ -95,10 +96,15 @@ class CustomersHubPage extends StatelessWidget {
       icon: Icons.work_outline_rounded,
       title: 'Miscellaneous Work',
       subtitle: 'Log odd tasks',
-      // Navy matches the screenshot's icon block on each list-row card,
-      // so the tile reads as the on-ramp to that same surface.
-      iconColor: AppColors.primary,
+      iconColor: AppColors.purple500,
       onTap: () => context.push(Routes.miscellaneousWorks),
+    ),
+    _TileSpec(
+      icon: Icons.account_balance_wallet_outlined,
+      title: 'Collection',
+      subtitle: 'Record payments collected from parties',
+      iconColor: AppColors.yellow500,
+      onTap: () => SnackbarUtils.showInfo(context, 'Collection — coming soon.'),
     ),
   ];
 }
