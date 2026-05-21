@@ -7,45 +7,38 @@ import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
-import 'package:sales_sphere_erp/features/notes/domain/note.dart';
-import 'package:sales_sphere_erp/features/notes/presentation/providers/notes_providers.dart';
+import 'package:sales_sphere_erp/features/tour_plans/domain/tour_plan.dart';
+import 'package:sales_sphere_erp/features/tour_plans/presentation/providers/tour_plans_providers.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_search_filter.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/refreshable_list.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
-/// Per-link-type icon + colour. Mirrors the hub's identity so a row's
-/// link badge reads consistently with where the user picked it from.
-const _linkPalette = <NoteLinkType, ({IconData icon, Color accent})>{
-  NoteLinkType.party: (
-    icon: Icons.storefront_outlined,
-    accent: AppColors.secondary,
-  ),
-  NoteLinkType.prospect: (
-    icon: Icons.person_search_outlined,
-    accent: AppColors.warning,
-  ),
-  NoteLinkType.site: (
-    icon: Icons.location_city_outlined,
-    accent: AppColors.green500,
-  ),
+/// Per-status colour palette for the badge on each list-row card.
+/// Matches the leaves module so the two list surfaces read as the same
+/// family — pending amber, approved green, rejected red.
+({Color fg, Color bg}) _statusPalette(TourPlanStatus s) => switch (s) {
+  TourPlanStatus.pending => (fg: AppColors.warning, bg: AppColors.warning),
+  TourPlanStatus.approved => (fg: AppColors.green500, bg: AppColors.green500),
+  TourPlanStatus.rejected => (fg: AppColors.error, bg: AppColors.error),
 };
 
-class NotesListPage extends ConsumerStatefulWidget {
-  const NotesListPage({super.key});
+class TourPlansListPage extends ConsumerStatefulWidget {
+  const TourPlansListPage({super.key});
 
   @override
-  ConsumerState<NotesListPage> createState() => _NotesListPageState();
+  ConsumerState<TourPlansListPage> createState() => _TourPlansListPageState();
 }
 
-class _NotesListPageState extends ConsumerState<NotesListPage> {
+class _TourPlansListPageState extends ConsumerState<TourPlansListPage> {
   final _searchController = TextEditingController();
   String _query = '';
 
-  /// `null` means "All" — no link-type filter applied. Otherwise the
-  /// list is narrowed to notes whose [Note.linkType] matches.
-  NoteLinkType? _linkFilter;
+  /// `null` means "All" — no status filter applied. Otherwise the list
+  /// is narrowed to plans whose [TourPlan.status] matches.
+  TourPlanStatus? _statusFilter;
 
   @override
   void dispose() {
@@ -53,21 +46,17 @@ class _NotesListPageState extends ConsumerState<NotesListPage> {
     super.dispose();
   }
 
-  bool get _hasActiveFilter => _query.trim().isNotEmpty || _linkFilter != null;
+  bool get _hasActiveFilter =>
+      _query.trim().isNotEmpty || _statusFilter != null;
 
-  List<Note> _applyFilters(List<Note> source) {
-    final byType = _linkFilter == null
+  List<TourPlan> _applyFilters(List<TourPlan> source) {
+    final byStatus = _statusFilter == null
         ? source
-        : source.where((n) => n.linkType == _linkFilter);
+        : source.where((p) => p.status == _statusFilter);
     final q = _query.trim().toLowerCase();
-    if (q.isEmpty) return byType.toList(growable: false);
-    return byType
-        .where(
-          (n) =>
-              n.title.toLowerCase().contains(q) ||
-              n.description.toLowerCase().contains(q) ||
-              n.linkDisplayName.toLowerCase().contains(q),
-        )
+    if (q.isEmpty) return byStatus.toList(growable: false);
+    return byStatus
+        .where((p) => p.placeOfVisit.toLowerCase().contains(q))
         .toList(growable: false);
   }
 
@@ -75,20 +64,20 @@ class _NotesListPageState extends ConsumerState<NotesListPage> {
     if (context.canPop()) {
       context.pop();
     } else {
-      context.go(Routes.home);
+      context.go(Routes.more);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final notesAsync = ref.watch(notesListProvider);
+    final plansAsync = ref.watch(tourPlansListProvider);
 
     return DarkStatusBar(
       child: Scaffold(
         backgroundColor: AppColors.background,
         floatingActionButton: PrimaryFabButton(
-          label: 'Add Note',
-          onPressed: () => context.push(Routes.addNote),
+          label: 'Add Tour Plan',
+          onPressed: () => context.push(Routes.addTourPlan),
         ),
         body: Stack(
           children: <Widget>[
@@ -111,7 +100,7 @@ class _NotesListPageState extends ConsumerState<NotesListPage> {
                     padding: EdgeInsets.symmetric(horizontal: 20.w),
                     child: PrimaryTextField(
                       controller: _searchController,
-                      hintText: 'Search',
+                      hintText: 'Search by place of visit',
                       prefixIcon: Icons.search,
                       onChanged: (v) => setState(() => _query = v),
                       suffixWidget: _query.isEmpty
@@ -134,22 +123,34 @@ class _NotesListPageState extends ConsumerState<NotesListPage> {
                   SizedBox(height: 12.h),
                   Padding(
                     padding: EdgeInsets.symmetric(horizontal: 20.w),
-                    child: PrimarySearchFilter<NoteLinkType?>(
-                      selected: _linkFilter,
-                      onChanged: (next) => setState(() => _linkFilter = next),
-                      options: <SearchFilterOption<NoteLinkType?>>[
-                        const SearchFilterOption<NoteLinkType?>(
+                    child: PrimarySearchFilter<TourPlanStatus?>(
+                      selected: _statusFilter,
+                      onChanged: (next) =>
+                          setState(() => _statusFilter = next),
+                      options: const <SearchFilterOption<TourPlanStatus?>>[
+                        SearchFilterOption<TourPlanStatus?>(
                           value: null,
-                          label: 'All Notes',
+                          label: 'All Requests',
                           icon: Icons.list_alt_rounded,
                         ),
-                        for (final entry in _linkPalette.entries)
-                          SearchFilterOption<NoteLinkType?>(
-                            value: entry.key,
-                            label: _filterLabel(entry.key),
-                            icon: entry.value.icon,
-                            iconColor: entry.value.accent,
-                          ),
+                        SearchFilterOption<TourPlanStatus?>(
+                          value: TourPlanStatus.pending,
+                          label: 'Pending',
+                          icon: Icons.hourglass_empty_rounded,
+                          iconColor: AppColors.warning,
+                        ),
+                        SearchFilterOption<TourPlanStatus?>(
+                          value: TourPlanStatus.approved,
+                          label: 'Approved',
+                          icon: Icons.check_circle_outline_rounded,
+                          iconColor: AppColors.green500,
+                        ),
+                        SearchFilterOption<TourPlanStatus?>(
+                          value: TourPlanStatus.rejected,
+                          label: 'Rejected',
+                          icon: Icons.cancel_outlined,
+                          iconColor: AppColors.error,
+                        ),
                       ],
                     ),
                   ),
@@ -159,7 +160,7 @@ class _NotesListPageState extends ConsumerState<NotesListPage> {
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        'Notes',
+                        'My Plans',
                         style: TextStyle(
                           color: AppColors.primary,
                           fontSize: 18.sp,
@@ -170,23 +171,25 @@ class _NotesListPageState extends ConsumerState<NotesListPage> {
                   ),
                   SizedBox(height: 12.h),
                   Expanded(
-                    child: RefreshableList<Note>(
-                      async: notesAsync,
+                    child: RefreshableList<TourPlan>(
+                      async: plansAsync,
                       filter: _applyFilters,
                       onRefresh: () async {
-                        ref.invalidate(notesListProvider);
-                        await ref.read(notesListProvider.future);
+                        ref.invalidate(tourPlansListProvider);
+                        await ref.read(tourPlansListProvider.future);
                       },
                       padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 140.h),
-                      itemBuilder: (context, note) => _NoteCard(
-                        note: note,
+                      itemBuilder: (context, plan) => _TourPlanCard(
+                        plan: plan,
                         onTap: () => context.push(
-                          Routes.noteDetailPath(note.id),
-                          extra: note,
+                          Routes.tourPlanDetailPath(plan.id),
+                          extra: plan,
                         ),
                       ),
-                      skeletonItemBuilder: (_, __) =>
-                          _NoteCard(note: _placeholderNote, onTap: () {}),
+                      skeletonItemBuilder: (_, __) => _TourPlanCard(
+                        plan: _placeholderTourPlan,
+                        onTap: () {},
+                      ),
                       emptyBuilder: (_) =>
                           _EmptyState(hasActiveFilter: _hasActiveFilter),
                       errorBuilder: (_, __, ___) => const _ErrorState(),
@@ -224,7 +227,7 @@ class _AppBar extends StatelessWidget {
           ),
           SizedBox(width: 12.w),
           Text(
-            'Notes',
+            'Tour Plans',
             style: TextStyle(
               color: AppColors.primary,
               fontSize: 20.sp,
@@ -238,15 +241,22 @@ class _AppBar extends StatelessWidget {
   }
 }
 
-class _NoteCard extends StatelessWidget {
-  const _NoteCard({required this.note, required this.onTap});
+class _TourPlanCard extends StatelessWidget {
+  const _TourPlanCard({required this.plan, required this.onTap});
 
-  final Note note;
+  final TourPlan plan;
   final VoidCallback onTap;
+
+  /// Always shows the full date on both ends ("04 May 2026 - 08 May
+  /// 2026") so the user reads the range unambiguously, without having
+  /// to re-parse abbreviated forms when months or years differ.
+  String _dateRange() {
+    final fmt = DateFormat('dd MMM yyyy');
+    return '${fmt.format(plan.startDate)} - ${fmt.format(plan.endDate)}';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final palette = _linkPalette[note.linkType]!;
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -269,39 +279,55 @@ class _NoteCard extends StatelessWidget {
             padding: EdgeInsets.fromLTRB(14.w, 14.h, 14.w, 14.h),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
+                    Icon(
+                      Icons.location_on_outlined,
+                      color: AppColors.textPrimary,
+                      size: 18.sp,
+                    ),
+                    SizedBox(width: 8.w),
                     Expanded(
                       child: Text(
-                        note.title,
-                        maxLines: 2,
+                        plan.placeOfVisit,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: AppColors.primary,
                           fontSize: 16.sp,
                           fontWeight: FontWeight.w600,
-                          height: 1.25,
+                          height: 1.2,
                         ),
                       ),
                     ),
                     SizedBox(width: 8.w),
-                    Text(
-                      DateFormat('dd MMM yyyy').format(note.createdAt),
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w500,
+                    _StatusBadge(status: plan.status),
+                  ],
+                ),
+                SizedBox(height: 6.h),
+                Row(
+                  children: <Widget>[
+                    Icon(
+                      Icons.calendar_today_outlined,
+                      color: AppColors.textSecondary,
+                      size: 14.sp,
+                    ),
+                    SizedBox(width: 8.w),
+                    Expanded(
+                      child: Text(
+                        _dateRange(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ],
-                ),
-                SizedBox(height: 8.h),
-                _LinkChip(
-                  icon: palette.icon,
-                  accent: palette.accent,
-                  label: note.linkDisplayName,
                 ),
               ],
             ),
@@ -312,50 +338,53 @@ class _NoteCard extends StatelessWidget {
   }
 }
 
-class _LinkChip extends StatelessWidget {
-  const _LinkChip({
-    required this.icon,
-    required this.accent,
-    required this.label,
-  });
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge({required this.status});
 
-  final IconData icon;
-  final Color accent;
-  final String label;
+  final TourPlanStatus status;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        Icon(icon, size: 14.sp, color: accent),
-        SizedBox(width: 6.w),
-        Flexible(
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 12.sp,
-              fontWeight: FontWeight.w500,
-            ),
+    final palette = _statusPalette(status);
+    // `Skeleton.replace` swaps the colored pill for a neutral bone
+    // while the list is loading — without this, the tinted background
+    // and bold-coloured text ignore the skeletonizer wash and read as
+    // real content over a "loading" row.
+    return Skeleton.replace(
+      replacement: Bone(
+        width: 64.w,
+        height: 22.h,
+        borderRadius: BorderRadius.circular(20.r),
+      ),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+        decoration: BoxDecoration(
+          color: palette.bg.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(20.r),
+        ),
+        child: Text(
+          tourPlanStatusLabel(status),
+          style: TextStyle(
+            color: palette.fg,
+            fontSize: 10.sp,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.3,
           ),
         ),
-      ],
+      ),
     );
   }
 }
 
-/// Sample note fed to [_NoteCard] when the list is loading.
-/// Skeletonizer paints text bones over the rendered title/desc.
-final _placeholderNote = Note(
+/// Sample plan fed to [_TourPlanCard] when the list is loading.
+/// Skeletonizer paints text bones over the rendered place/dates.
+final _placeholderTourPlan = TourPlan(
   id: '',
-  title: 'Loading note title',
-  linkType: NoteLinkType.party,
-  linkId: '',
-  linkDisplayName: 'Loading',
-  description: 'Loading description line one\nLoading description line two',
+  placeOfVisit: 'Loading place',
+  startDate: DateTime(2026),
+  endDate: DateTime(2026),
+  purpose: 'Loading purpose',
+  status: TourPlanStatus.pending,
   createdAt: DateTime(2026),
 );
 
@@ -363,9 +392,9 @@ class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.hasActiveFilter});
 
   /// True when the empty result is the consequence of an active search
-  /// query or link-type filter, rather than the source list being
-  /// genuinely empty. Drives the copy: the "tap Add Note" prompt only
-  /// makes sense for the latter.
+  /// query or status filter, rather than the source list being
+  /// genuinely empty. Drives the copy: the "tap Add Tour Plan" prompt
+  /// only makes sense for the latter.
   final bool hasActiveFilter;
 
   @override
@@ -375,8 +404,8 @@ class _EmptyState extends StatelessWidget {
         padding: EdgeInsets.symmetric(horizontal: 32.w),
         child: Text(
           hasActiveFilter
-              ? 'No notes match the current filters.'
-              : 'No notes yet — tap "Add Note" to log your first visit.',
+              ? 'No tour plans match the current filters.'
+              : 'No tour plans yet — tap "Add Tour Plan" to submit one.',
           textAlign: TextAlign.center,
           style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
         ),
@@ -384,12 +413,6 @@ class _EmptyState extends StatelessWidget {
     );
   }
 }
-
-String _filterLabel(NoteLinkType type) => switch (type) {
-  NoteLinkType.party => 'Parties',
-  NoteLinkType.prospect => 'Prospects',
-  NoteLinkType.site => 'Sites',
-};
 
 class _ErrorState extends StatelessWidget {
   const _ErrorState();
@@ -400,7 +423,7 @@ class _ErrorState extends StatelessWidget {
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 32.w),
         child: Text(
-          "Couldn't load notes. Pull to retry.",
+          "Couldn't load tour plans. Pull to retry.",
           textAlign: TextAlign.center,
           style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
         ),

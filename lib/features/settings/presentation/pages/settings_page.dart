@@ -4,84 +4,26 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:sales_sphere_erp/core/auth/biometric_preference.dart';
-import 'package:sales_sphere_erp/core/auth/biometric_service.dart';
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
+import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
-/// Account-level settings reached from More → Settings. Carries the
-/// Profile entry (drills into `/profile`), the biometric-unlock
-/// toggle, and the destructive Sign-out action. Future settings
-/// (notifications, language, theme) join the existing sections — or
-/// take a new section.
+/// Account-level settings reached from More → Settings. Two sections:
+/// Personal (Profile + Change Password) and Other Settings (about,
+/// terms, sign out). Rows are uniform — neutral outline icon, title,
+/// chevron — so the page reads as a flat list of destinations.
 ///
-/// Chrome mirrors the parties / prospects / sites / notes list
-/// pages — corner-bubble decoration behind a custom `_AppBar` — minus
-/// the search bar (no list to filter), so the page reads as part of
-/// the same family even though the body is a static settings list.
-class SettingsPage extends ConsumerStatefulWidget {
+/// Chrome mirrors the parties / prospects / sites / notes list pages —
+/// corner-bubble decoration behind a custom `_AppBar` — so settings
+/// sits inside the same visual vocabulary even though the body is a
+/// static settings list.
+class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
-  @override
-  ConsumerState<SettingsPage> createState() => _SettingsPageState();
-}
-
-class _SettingsPageState extends ConsumerState<SettingsPage> {
-  bool _biometricEnabled = false;
-  bool _biometricAvailable = false;
-  bool _loading = true;
-  bool _busy = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _hydrate();
-  }
-
-  Future<void> _hydrate() async {
-    final enabled = await ref.read(biometricPreferenceProvider).isEnabled();
-    final available = await ref.read(biometricServiceProvider).isAvailable;
-    if (!mounted) return;
-    setState(() {
-      _biometricEnabled = enabled;
-      _biometricAvailable = available;
-      _loading = false;
-    });
-  }
-
-  Future<void> _toggleBiometric(bool next) async {
-    if (_busy) return;
-    setState(() => _busy = true);
-
-    if (next) {
-      // Enabling — confirm with a real biometric prompt so we know the
-      // hardware actually works on this device.
-      final ok = await ref
-          .read(biometricServiceProvider)
-          .authenticate(localizedReason: 'Confirm biometric unlock');
-      if (!mounted) return;
-      if (!ok) {
-        // Cancelled or failed — leave the toggle off.
-        setState(() => _busy = false);
-        SnackbarUtils.showInfo(context, 'Biometric unlock not enabled.');
-        return;
-      }
-      await ref.read(biometricPreferenceProvider).setEnabled(value: true);
-    } else {
-      await ref.read(biometricPreferenceProvider).setEnabled(value: false);
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _biometricEnabled = next;
-      _busy = false;
-    });
-  }
-
-  void _back() {
+  void _back(BuildContext context) {
     if (context.canPop()) {
       context.pop();
     } else {
@@ -89,12 +31,25 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
   }
 
-  Future<void> _signOut() async {
+  Future<void> _signOut(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierColor: AppColors.primary.withValues(alpha: 0.45),
+      builder: (_) => const _SignOutConfirmationDialog(),
+    );
+    if (confirmed != true) return;
     await ref.read(authControllerProvider.notifier).logout();
   }
 
+  /// Placeholder tap handler for entries that don't have a destination
+  /// wired yet. The snackbar's neutral tone (info, not error) reads as
+  /// a deliberate "not yet" rather than a failure.
+  void _comingSoon(BuildContext context, String label) {
+    SnackbarUtils.showInfo(context, '$label — coming soon.');
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return DarkStatusBar(
       child: Scaffold(
         backgroundColor: AppColors.background,
@@ -111,39 +66,54 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
             ),
             SafeArea(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : Column(
+              child: Column(
+                children: <Widget>[
+                  _AppBar(onBack: () => _back(context)),
+                  SizedBox(height: 24.h),
+                  Expanded(
+                    child: ListView(
+                      padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 24.h),
                       children: <Widget>[
-                        _AppBar(onBack: _back),
-                        SizedBox(height: 24.h),
-                        Expanded(
-                          child: ListView(
-                            padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 24.h),
-                            children: <Widget>[
-                              const _SectionLabel(label: 'Account'),
-                              SizedBox(height: 8.h),
-                              _NavRow(
-                                icon: Icons.person_outline,
-                                title: 'Profile',
-                                onTap: () => context.push(Routes.profile),
-                              ),
-                              SizedBox(height: 24.h),
-                              const _SectionLabel(label: 'Security'),
-                              SizedBox(height: 8.h),
-                              _BiometricRow(
-                                enabled: _biometricEnabled,
-                                available: _biometricAvailable,
-                                busy: _busy,
-                                onChanged: _toggleBiometric,
-                              ),
-                              SizedBox(height: 32.h),
-                              _SignOutRow(onTap: _signOut),
-                            ],
-                          ),
+                        const _SectionLabel(label: 'Personal'),
+                        SizedBox(height: 12.h),
+                        _NavRow(
+                          icon: Icons.person_outline,
+                          title: 'Profile',
+                          onTap: () => context.push(Routes.profile),
+                        ),
+                        SizedBox(height: 12.h),
+                        _NavRow(
+                          icon: Icons.lock_outline,
+                          title: 'Change Password',
+                          onTap: () => _comingSoon(context, 'Change Password'),
+                        ),
+                        SizedBox(height: 28.h),
+                        const _SectionLabel(label: 'Other Settings'),
+                        SizedBox(height: 12.h),
+                        _NavRow(
+                          icon: Icons.info_outline,
+                          title: 'About Sales Sphere',
+                          onTap: () =>
+                              _comingSoon(context, 'About Sales Sphere'),
+                        ),
+                        SizedBox(height: 12.h),
+                        _NavRow(
+                          icon: Icons.description_outlined,
+                          title: 'Terms and Conditions',
+                          onTap: () =>
+                              _comingSoon(context, 'Terms and Conditions'),
+                        ),
+                        SizedBox(height: 12.h),
+                        _NavRow(
+                          icon: Icons.logout_outlined,
+                          title: 'Sign Out',
+                          onTap: () => _signOut(context, ref),
                         ),
                       ],
                     ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -192,6 +162,9 @@ class _AppBar extends StatelessWidget {
   }
 }
 
+/// Mixed-case section header (matches the design spec: "Personal",
+/// "Other Settings"). Sits flush-left and reads as a label, not a
+/// shouting all-caps tag.
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel({required this.label});
 
@@ -202,24 +175,29 @@ class _SectionLabel extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.only(left: 4.w),
       child: Text(
-        label.toUpperCase(),
+        label,
         style: TextStyle(
-          color: AppColors.textSecondary,
-          fontSize: 11.sp,
+          color: AppColors.textPrimary,
+          fontSize: 16.sp,
           fontWeight: FontWeight.w600,
-          letterSpacing: 1,
+          letterSpacing: -0.2,
         ),
       ),
     );
   }
 }
 
-/// Single-line navigation row — icon block + title + chevron, soft
-/// shadow, 20.r radius. Reserved for entries that drill into another
-/// page; the absence of a subtitle keeps these compact and signals
-/// "tap to go" rather than "configurable here".
+/// Single-line navigation row — neutral outline icon + title +
+/// chevron, soft shadow, 16.r radius. No coloured icon block per the
+/// design spec; the icon sits inline so the row reads as a flat menu
+/// entry. Sign Out shares this chrome so the section reads as a
+/// uniform stack.
 class _NavRow extends StatelessWidget {
-  const _NavRow({required this.icon, required this.title, required this.onTap});
+  const _NavRow({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+  });
 
   final IconData icon;
   final String title;
@@ -229,11 +207,11 @@ class _NavRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.surface,
-      borderRadius: BorderRadius.circular(20.r),
+      borderRadius: BorderRadius.circular(16.r),
       child: Ink(
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(20.r),
+          borderRadius: BorderRadius.circular(16.r),
           boxShadow: <BoxShadow>[
             BoxShadow(
               color: AppColors.primary.withValues(alpha: 0.06),
@@ -244,29 +222,20 @@ class _NavRow extends StatelessWidget {
         ),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(20.r),
+          borderRadius: BorderRadius.circular(16.r),
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+            padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 16.h),
             child: Row(
               children: <Widget>[
-                Container(
-                  width: 40.r,
-                  height: 40.r,
-                  decoration: BoxDecoration(
-                    color: AppColors.secondary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12.r),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(icon, color: AppColors.secondary, size: 22.sp),
-                ),
-                SizedBox(width: 14.w),
+                Icon(icon, color: AppColors.textPrimary, size: 22.sp),
+                SizedBox(width: 16.w),
                 Expanded(
                   child: Text(
                     title,
                     style: TextStyle(
                       color: AppColors.textPrimary,
-                      fontSize: 15.sp,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
@@ -285,207 +254,86 @@ class _NavRow extends StatelessWidget {
   }
 }
 
-/// Biometric-unlock row — same chrome as [_NavRow] but two-line (the
-/// subtitle explains availability) and ends with [_AppToggle] instead
-/// of a chevron.
-class _BiometricRow extends StatelessWidget {
-  const _BiometricRow({
-    required this.enabled,
-    required this.available,
-    required this.busy,
-    required this.onChanged,
-  });
-
-  final bool enabled;
-  final bool available;
-  final bool busy;
-  final ValueChanged<bool> onChanged;
+/// Confirmation card for the destructive sign-out action. Returns
+/// `true` when the user taps "Sign Out", `false` (or null on dismiss)
+/// otherwise. Reads as a centred card rather than a full-width sheet
+/// so the destructive action stays bounded and obvious.
+class _SignOutConfirmationDialog extends StatelessWidget {
+  const _SignOutConfirmationDialog();
 
   @override
   Widget build(BuildContext context) {
-    final disabled = !available || busy;
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
+    return Dialog(
+      backgroundColor: AppColors.surface,
+      insetPadding: EdgeInsets.symmetric(horizontal: 28.w, vertical: 24.h),
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20.r),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.06),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
-        child: Row(
+        padding: EdgeInsets.fromLTRB(24.w, 24.h, 24.w, 20.h),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            Container(
-              width: 44.r,
-              height: 44.r,
-              decoration: BoxDecoration(
-                color: AppColors.secondary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12.r),
-              ),
-              alignment: Alignment.center,
-              child: Icon(
-                Icons.fingerprint,
-                color: AppColors.secondary,
-                size: 24.sp,
-              ),
-            ),
-            SizedBox(width: 14.w),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Text(
-                    'Biometric unlock',
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 15.sp,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  SizedBox(height: 2.h),
-                  Text(
-                    available
-                        ? 'Use your fingerprint to sign in faster.'
-                        : 'No biometric hardware enrolled on this device.',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 12.sp,
-                      height: 1.4,
-                    ),
-                  ),
-                ],
+            // Tinted error icon block — same red treatment used on the
+            // detail-page status banner so the visual signal for
+            // "destructive" stays consistent across the app.
+            Center(
+              child: Container(
+                width: 56.r,
+                height: 56.r,
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  Icons.logout_rounded,
+                  color: AppColors.error,
+                  size: 28.sp,
+                ),
               ),
             ),
-            SizedBox(width: 8.w),
-            _AppToggle(value: enabled, onChanged: disabled ? null : onChanged),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Brand-themed pill switch. Reads more "polished" than the default
-/// Material switch on Android — flat secondary track when on, soft
-/// border-grey track when off, white thumb either way with a subtle
-/// shadow. The default Switch.adaptive renders a stockier widget with
-/// a coloured thumb; this trades that for a lighter visual that
-/// matches the rest of the settings chrome.
-class _AppToggle extends StatelessWidget {
-  const _AppToggle({required this.value, required this.onChanged});
-
-  final bool value;
-  final ValueChanged<bool>? onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final disabled = onChanged == null;
-    return Opacity(
-      opacity: disabled ? 0.5 : 1,
-      child: GestureDetector(
-        onTap: disabled ? null : () => onChanged!(!value),
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          width: 46.w,
-          height: 26.h,
-          padding: EdgeInsets.all(2.r),
-          decoration: BoxDecoration(
-            color: value
-                ? AppColors.secondary
-                : AppColors.border.withValues(alpha: 0.9),
-            borderRadius: BorderRadius.circular(40.r),
-          ),
-          child: AnimatedAlign(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-            child: Container(
-              width: 22.r,
-              height: 22.r,
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                shape: BoxShape.circle,
-                boxShadow: <BoxShadow>[
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.18),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
+            SizedBox(height: 16.h),
+            Text(
+              'Sign out?',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.primary,
+                fontSize: 18.sp,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.3,
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Destructive sign-out row. Same chrome as [_NavRow] but red-tinted —
-/// red icon block, red label, hairline red border — so it reads as a
-/// commit action instead of a navigation. No chevron: tapping signs
-/// out, it doesn't drill into a page.
-class _SignOutRow extends StatelessWidget {
-  const _SignOutRow({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(20.r),
-      child: Ink(
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(20.r),
-          border: Border.all(color: AppColors.error.withValues(alpha: 0.25)),
-        ),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(20.r),
-          splashColor: AppColors.error.withValues(alpha: 0.12),
-          highlightColor: AppColors.error.withValues(alpha: 0.06),
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-            child: Row(
+            SizedBox(height: 8.h),
+            Text(
+              "You'll need to sign back in to access your account.",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14.sp,
+                height: 1.4,
+              ),
+            ),
+            SizedBox(height: 24.h),
+            Row(
               children: <Widget>[
-                Container(
-                  width: 40.r,
-                  height: 40.r,
-                  decoration: BoxDecoration(
-                    color: AppColors.error.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12.r),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(
-                    Icons.logout,
-                    color: AppColors.error,
-                    size: 22.sp,
+                Expanded(
+                  child: OutlinedCustomButton(
+                    label: 'Cancel',
+                    onPressed: () => Navigator.of(context).pop(false),
                   ),
                 ),
-                SizedBox(width: 14.w),
+                SizedBox(width: 12.w),
                 Expanded(
-                  child: Text(
-                    'Sign out',
-                    style: TextStyle(
-                      color: AppColors.error,
-                      fontSize: 15.sp,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  child: PrimaryButton(
+                    label: 'Sign Out',
+                    onPressed: () => Navigator.of(context).pop(true),
                   ),
                 ),
               ],
             ),
-          ),
+          ],
         ),
       ),
     );
