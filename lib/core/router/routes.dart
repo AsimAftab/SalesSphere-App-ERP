@@ -55,6 +55,12 @@ class Routes {
 
   static String leaveDetailPath(String id) => '/leaves/detail/$id';
 
+  static const tourPlans = '/tour-plans';
+  static const addTourPlan = '/tour-plans/add';
+  static const tourPlanDetail = '/tour-plans/detail/:id';
+
+  static String tourPlanDetailPath(String id) => '/tour-plans/detail/$id';
+
   static const splashName = 'splash';
   static const loginName = 'login';
   static const forgotPasswordName = 'forgotPassword';
@@ -86,4 +92,7 @@ class Routes {
   static const leavesName = 'leaves';
   static const addLeaveName = 'addLeave';
   static const leaveDetailName = 'leaveDetail';
+  static const tourPlansName = 'tourPlans';
+  static const addTourPlanName = 'addTourPlan';
+  static const tourPlanDetailName = 'tourPlanDetail';
 }

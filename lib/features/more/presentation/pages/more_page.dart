@@ -105,7 +105,7 @@ class MorePage extends ConsumerWidget {
           title: 'Tour Plan',
           subtitle: 'Plan and manage daily field visits',
           iconColor: AppColors.tertiary,
-          onTap: () => _comingSoon(context, 'Tour Plan'),
+          onTap: () => context.push(Routes.tourPlans),
         ),
         _TileSpec(
           icon: Icons.settings_outlined,
