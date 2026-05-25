@@ -53,8 +53,24 @@ class _NoteLinkFieldState extends State<NoteLinkField> {
     }
   }
 
+  /// Pushes `widget.value`'s display name into the controller. Setting
+  /// `controller.text` fires `TextFormField`'s listener which calls
+  /// `Form.setState`, so we have to defer past the current build —
+  /// `didUpdateWidget` runs *during* the parent's rebuild, and a
+  /// listener-driven setState in that window trips Flutter's
+  /// build-phase assertion.
+  ///
+  /// Skipping when the text already matches avoids both the deferred
+  /// notify and an unnecessary frame schedule when the resolved name
+  /// happens to equal the prior value (e.g. fallback → fallback).
   void _syncControllerToValue() {
-    _controller.text = widget.value?.displayName ?? '';
+    final next = widget.value?.displayName ?? '';
+    if (_controller.text == next) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_controller.text == next) return;
+      _controller.text = next;
+    });
   }
 
   @override
