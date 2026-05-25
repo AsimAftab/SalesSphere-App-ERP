@@ -48,9 +48,20 @@ class _NoteLinkFieldState extends State<NoteLinkField> {
   @override
   void didUpdateWidget(NoteLinkField oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.value != widget.value) {
-      _syncControllerToValue();
-    }
+    if (oldWidget.value == widget.value) return;
+    final next = widget.value?.displayName ?? '';
+    if (_controller.text == next) return;
+    // didUpdateWidget runs *during* the parent's rebuild. Setting
+    // `controller.text` synchronously fires TextFormField's listener
+    // which calls Form.setState — that trips Flutter's build-phase
+    // assertion. Defer to the next frame so the controller mutates
+    // outside the build window. (initState stays synchronous because
+    // no Form is mounting at that point.)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_controller.text == next) return;
+      _controller.text = next;
+    });
   }
 
   void _syncControllerToValue() {

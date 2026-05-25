@@ -1,107 +1,193 @@
+import 'dart:io';
+
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http_parser/http_parser.dart';
 
+import 'package:sales_sphere_erp/core/api/dio_client.dart';
 import 'package:sales_sphere_erp/features/notes/data/dto/note_dto.dart';
+import 'package:sales_sphere_erp/features/notes/data/dto/note_image_ref.dart';
+import 'package:sales_sphere_erp/features/notes/data/dto/notes_page_dto.dart';
 
-/// Raw data source for the notes endpoints. Currently backed by
-/// a mutable in-memory list — swap for Dio calls once the notes
-/// endpoint lands in the backend OpenAPI spec. Repository callers stay
-/// unchanged.
+/// Wire value for the `relatedTo` query parameter. Server narrows the
+/// list to notes with the matching FK populated.
+enum NotesRelatedTo { customer, prospect, site }
+
+/// HTTP layer for the notes feature. The list + create + image-upload
+/// paths hit the real backend; `update` is still in-memory until
+/// `PATCH /notes/{id}` ships.
 class NotesApi {
-  NotesApi() {
-    _store
-      ..clear()
-      ..addAll(_seed.map(NoteDto.fromJson));
-  }
+  NotesApi(this._dio);
 
-  static final List<Map<String, dynamic>> _seed = <Map<String, dynamic>>[
-    <String, dynamic>{
-      'id': '1',
-      'title': 'Quarterly review with Anil',
-      'linkType': 'party',
-      'linkId': '1',
-      'linkDisplayName': 'Bibhuti Traders',
-      'description':
-          'Discussed Q1 performance, restock schedule, and renewal of the supply contract.',
-      'createdAt': '2026-04-22T10:30:00.000',
-    },
-    <String, dynamic>{
-      'id': '2',
-      'title': 'Initial pitch — Eastern Region',
-      'linkType': 'prospect',
-      'linkId': '1',
-      'linkDisplayName': 'Sample Prospect 1',
-      'description':
-          'Walked through the catalogue, left product samples, follow-up scheduled for next week.',
-      'createdAt': '2026-04-25T14:15:00.000',
-    },
-    <String, dynamic>{
-      'id': '3',
-      'title': 'Site visit — power outage check',
-      'linkType': 'site',
-      'linkId': '1',
-      'linkDisplayName': 'Acme Warehouse',
-      'description':
-          'Backup generator inspected, fuel topped up. Recommend a quarterly load test.',
-      'createdAt': '2026-04-28T09:00:00.000',
-    },
-  ];
+  final Dio _dio;
 
-  final List<NoteDto> _store = <NoteDto>[];
-
-  Future<List<NoteDto>> list() async {
-    // Simulated round-trip so callers exercise the loading state path.
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    final sorted = _store.toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return List<NoteDto>.unmodifiable(sorted.map(_cloneDto));
-  }
-
-  Future<NoteDto> create(NoteDto draft) async {
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    final created = NoteDto(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
-      title: draft.title,
-      linkType: draft.linkType,
-      linkId: draft.linkId,
-      linkDisplayName: draft.linkDisplayName,
-      description: draft.description,
-      createdAt: DateTime.now(),
-      imagePaths: List<String>.unmodifiable(draft.imagePaths),
-      nextFollowUpAt: draft.nextFollowUpAt,
+  /// Fetch one paginated page from `GET /notes`.
+  ///
+  /// The server is authoritative on pagination — the inner envelope
+  /// carries `items`, `hasMore`, and `nextCursor`. We trust
+  /// `nextCursor` when `hasMore` is true and clear it otherwise.
+  Future<NotesPageDto> list({
+    int limit = 10,
+    String? cursor,
+    NotesRelatedTo? relatedTo,
+  }) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      Endpoints.notes,
+      queryParameters: <String, dynamic>{
+        'limit': limit,
+        if (cursor != null) 'cursor': cursor,
+        if (relatedTo != null) 'relatedTo': relatedTo.name,
+      },
     );
-    _store.add(created);
-    return _cloneDto(created);
-  }
-
-  Future<NoteDto> update(NoteDto note) async {
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    final index = _store.indexWhere((n) => n.id == note.id);
-    if (index == -1) {
-      throw StateError('Note ${note.id} not found');
+    final data = _unwrapMap(response.data);
+    final rawItems = data['items'];
+    if (rawItems is! List<dynamic>) {
+      throw const FormatException(
+        'Malformed notes page: missing or invalid `items` array',
+      );
     }
-    final updated = _cloneDto(note);
-    _store[index] = updated;
-    return _cloneDto(updated);
+    final items = rawItems
+        .map((j) => NoteDto.fromJson(j as Map<String, dynamic>))
+        .toList(growable: false);
+    final hasMore = (data['hasMore'] as bool?) ?? false;
+    final nextCursor = hasMore ? data['nextCursor'] as String? : null;
+    return NotesPageDto(items: items, nextCursor: nextCursor);
   }
 
-  /// Defensive copy of a DTO. The mock store needs to insulate itself
-  /// from caller mutation in both directions: callers can't mutate
-  /// what they put in (so a later `imagePaths.add(...)` doesn't bleed
-  /// into seeded state) and can't mutate what they get out (so a
-  /// `list()` consumer can't reorder the store by sorting in place).
-  /// `imagePaths` is wrapped in `unmodifiable` to enforce that on the
-  /// list as well, not just the DTO reference.
-  NoteDto _cloneDto(NoteDto dto) => NoteDto(
-    id: dto.id,
-    title: dto.title,
-    linkType: dto.linkType,
-    linkId: dto.linkId,
-    linkDisplayName: dto.linkDisplayName,
-    description: dto.description,
-    createdAt: dto.createdAt,
-    imagePaths: List<String>.unmodifiable(dto.imagePaths),
-    nextFollowUpAt: dto.nextFollowUpAt,
-  );
+  /// `POST /notes`. Body is the writable subset produced by
+  /// `NoteDto.toJson()` — server assigns `id`, `createdAt`,
+  /// `createdById`, etc. The `customerId` / `prospectId` / `siteId`
+  /// XOR is enforced by `toJson` only emitting the non-null one.
+  Future<NoteDto> create(NoteDto draft) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      Endpoints.notes,
+      data: draft.toJson(),
+    );
+    return NoteDto.fromJson(_unwrapMap(response.data));
+  }
+
+  /// `PATCH /notes/{id}`. Same writable shape as `create`; the server
+  /// treats an explicit `null` as a clear (relevant for `followUpDate`
+  /// and the inactive link-id fields when the user re-links the note).
+  Future<NoteDto> update(NoteDto note) async {
+    final response = await _dio.patch<Map<String, dynamic>>(
+      Endpoints.noteById(note.id),
+      data: note.toJson(),
+    );
+    return NoteDto.fromJson(_unwrapMap(response.data));
+  }
+
+  /// `GET /notes/{id}/images`. Returns the note's gallery, ordered by
+  /// `sortOrder` ascending. Returns `[]` if the response shape is
+  /// unexpected so the edit page can still render.
+  Future<List<NoteImageRef>> listImages(String noteId) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      Endpoints.noteImages(noteId),
+    );
+    final body = response.data;
+    if (body == null || body['success'] == false) return const [];
+    final data = body['data'];
+    if (data is! List<dynamic>) return const [];
+    return data
+        .map((j) => NoteImageRef.fromJson(j as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  /// `POST /notes/{id}/images` — multipart `image` file +
+  /// `imageNumber` form field. Slot-based upsert: re-posting the same
+  /// slot replaces the existing image.
+  ///
+  /// Same two non-obvious details as the parties / sites variants:
+  ///   * `imageNumber` is added **before** the file. Multer streams
+  ///     parts in order and populates `req.body` text fields as it
+  ///     goes — text after a file part can be left unread.
+  ///   * The file's `Content-Type` is set explicitly from the
+  ///     extension. Without it, `MultipartFile.fromFile` ships
+  ///     `application/octet-stream`, Cloudinary refuses the blob, and
+  ///     the backend wraps the failure as a generic 500.
+  Future<NoteImageRef> uploadImage({
+    required String noteId,
+    required String filePath,
+    required int imageNumber,
+  }) async {
+    final filename = filePath.split(RegExp(r'[\\/]')).last;
+    if (kDebugMode) {
+      try {
+        final bytes = await File(filePath).length();
+        debugPrint(
+          '[notes_api] uploadImage slot=$imageNumber '
+          'file=$filename size=${bytes}B (${(bytes / 1024 / 1024).toStringAsFixed(2)} MB)',
+        );
+      } on FileSystemException {
+        debugPrint(
+          '[notes_api] uploadImage slot=$imageNumber file=$filename '
+          'size=<stat failed>',
+        );
+      }
+    }
+    final form = FormData.fromMap(<String, dynamic>{
+      'imageNumber': imageNumber.toString(),
+      'image': await MultipartFile.fromFile(
+        filePath,
+        filename: filename,
+        contentType: _mediaTypeForFilename(filename),
+      ),
+    });
+    final response = await _dio.post<Map<String, dynamic>>(
+      Endpoints.noteImages(noteId),
+      data: form,
+      options: Options(contentType: 'multipart/form-data'),
+    );
+    return NoteImageRef.fromJson(_unwrapMap(response.data));
+  }
+
+  /// `DELETE /notes/{id}/images/{slot}` — removes a specific slot.
+  /// No-op idempotency on 404 is up to the caller.
+  Future<void> removeImage({
+    required String noteId,
+    required int imageNumber,
+  }) async {
+    await _dio.delete<Map<String, dynamic>>(
+      Endpoints.noteImageSlot(noteId, imageNumber),
+    );
+  }
+
+  /// Maps a filename's extension to a `Content-Type`. The backend only
+  /// accepts JPEG and PNG; anything else falls back to
+  /// `application/octet-stream` so the server's mime filter rejects it
+  /// explicitly.
+  MediaType _mediaTypeForFilename(String filename) {
+    final dotIdx = filename.lastIndexOf('.');
+    final ext = dotIdx >= 0 ? filename.substring(dotIdx + 1).toLowerCase() : '';
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg':
+        return MediaType('image', 'jpeg');
+      case 'png':
+        return MediaType('image', 'png');
+      default:
+        return MediaType('application', 'octet-stream');
+    }
+  }
+
+  Map<String, dynamic> _unwrapMap(Map<String, dynamic>? body) {
+    if (body == null) {
+      throw const FormatException('Empty response body');
+    }
+    if (body['success'] == false) {
+      throw const FormatException('Notes API returned success=false');
+    }
+    final inner = body['data'];
+    if (inner is! Map<String, dynamic>) {
+      throw const FormatException(
+        'Malformed notes envelope: missing or invalid `data` object',
+      );
+    }
+    return inner;
+  }
 }
 
-final notesApiProvider = Provider<NotesApi>((_) => NotesApi());
+final notesApiProvider = Provider<NotesApi>(
+  (ref) => NotesApi(ref.watch(dioProvider)),
+);
