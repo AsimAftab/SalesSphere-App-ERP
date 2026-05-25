@@ -5,8 +5,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
+import 'package:sales_sphere_erp/features/notes/data/dto/note_image_ref.dart';
 import 'package:sales_sphere_erp/features/notes/domain/note.dart';
 import 'package:sales_sphere_erp/features/notes/presentation/controllers/notes_controller.dart';
 import 'package:sales_sphere_erp/features/notes/presentation/providers/notes_providers.dart';
@@ -48,7 +49,21 @@ class _EditNoteDetailPageState extends ConsumerState<EditNoteDetailPage> {
   NoteLinkSelection? _link;
   DateTime? _createdAt;
   DateTime? _nextFollowUpAt;
+
+  /// Local file paths picked in this edit session — uploaded to free
+  /// slots in `_save`.
   final List<String> _imagePaths = <String>[];
+
+  /// Server-side images at the moment we render. Mutated as the user
+  /// removes thumbnails; `_originalExistingImages` is the snapshot
+  /// used by cancel to restore.
+  List<NoteImageRef> _existingImages = const <NoteImageRef>[];
+  List<NoteImageRef> _originalExistingImages = const <NoteImageRef>[];
+
+  /// Slot numbers (1-indexed) the user asked to delete in this edit
+  /// session. Drained in `_save` before uploading new locals so the
+  /// freed slots become available targets.
+  final Set<int> _slotsToDelete = <int>{};
 
   bool _editing = false;
   bool _saving = false;
@@ -60,6 +75,12 @@ class _EditNoteDetailPageState extends ConsumerState<EditNoteDetailPage> {
     super.initState();
     if (widget.initial != null) {
       _populate(widget.initial!);
+      // Fields populate synchronously, but the gallery still needs a
+      // fetch — kick it off after first frame so the picker fills in.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _hydrateImages();
+        _hydrateLinkName();
+      });
     } else {
       _loading = true;
       WidgetsBinding.instance.addPostFrameCallback((_) => _hydrate());
@@ -78,11 +99,58 @@ class _EditNoteDetailPageState extends ConsumerState<EditNoteDetailPage> {
     if (note != null) {
       _populate(note);
       setState(() => _loading = false);
+      await _hydrateImages();
+      await _hydrateLinkName();
     } else {
       setState(() {
         _loading = false;
         _notFound = true;
       });
+    }
+  }
+
+  /// Fetch the gallery so the picker shows server-side images.
+  /// Failures are swallowed — an empty picker is graceful degradation.
+  Future<void> _hydrateImages() async {
+    try {
+      final images =
+          await ref.read(notesRepositoryProvider).listImages(widget.id);
+      if (!mounted) return;
+      setState(() {
+        _existingImages = images;
+        _originalExistingImages = List<NoteImageRef>.unmodifiable(images);
+      });
+    } on Object catch (_) {
+      // Not fatal — picker stays empty on the network image side and
+      // the user can still pick new locals.
+    }
+  }
+
+  /// Resolve the real linked-entity name (Party / Prospect / Site)
+  /// and patch [_link] so the `NoteLinkField` shows the actual party,
+  /// prospect, or site name instead of the generic fallback the wire
+  /// shape forces on us. No-op when the lookup misses (the fallback
+  /// stays).
+  Future<void> _hydrateLinkName() async {
+    final current = _link;
+    if (current == null || current.id.isEmpty) return;
+    try {
+      final name = await ref.read(
+        noteLinkDisplayNameProvider(current.type, current.id).future,
+      );
+      if (!mounted) return;
+      // Avoid a needless rebuild when the resolver returned the same
+      // string we already had (e.g. lookup miss → fallback label).
+      if (name == current.displayName) return;
+      setState(() {
+        _link = NoteLinkSelection(
+          type: current.type,
+          id: current.id,
+          displayName: name,
+        );
+      });
+    } on Object catch (_) {
+      // Fallback already in place; nothing to do.
     }
   }
 
@@ -104,14 +172,15 @@ class _EditNoteDetailPageState extends ConsumerState<EditNoteDetailPage> {
       displayName: n.linkDisplayName,
     );
     _createdAt = n.createdAt;
-    _dateController.text = DateFormat('dd MMM yyyy, hh:mm a').format(n.createdAt);
+    // The wire ships UTC (`Z`-suffixed); show the user their local
+    // wall time so "10:30 AM" matches what they actually wrote.
+    _dateController.text =
+        DateFormat('dd MMM yyyy, hh:mm a').format(n.createdAt.toLocal());
     _nextFollowUpAt = n.nextFollowUpAt;
     _nextFollowUpController.text = n.nextFollowUpAt == null
         ? ''
-        : DateFormat('dd MMM yyyy').format(n.nextFollowUpAt!);
-    _imagePaths
-      ..clear()
-      ..addAll(n.imagePaths);
+        : DateFormat('dd MMM yyyy').format(n.nextFollowUpAt!.toLocal());
+    _imagePaths.clear();
   }
 
   void _toggleEdit() {
@@ -122,11 +191,21 @@ class _EditNoteDetailPageState extends ConsumerState<EditNoteDetailPage> {
     final saved = ref.read(noteByIdProvider(widget.id)).value ?? widget.initial;
     if (saved != null) _populate(saved);
     FocusManager.instance.primaryFocus?.unfocus();
-    setState(() => _editing = false);
+    setState(() {
+      _editing = false;
+      // Roll back image edits: restore server-side gallery, drop any
+      // queued deletions and any local picks.
+      _existingImages = List<NoteImageRef>.from(_originalExistingImages);
+      _slotsToDelete.clear();
+      _imagePaths.clear();
+    });
   }
 
+  int get _totalAttachedImages =>
+      _imagePaths.length + _existingImages.length;
+
   Future<void> _pickImage() async {
-    if (!_editing || _imagePaths.length >= _maxImages) return;
+    if (!_editing || _totalAttachedImages >= _maxImages) return;
     try {
       final picker = ImagePicker();
       final file = await picker.pickImage(
@@ -146,6 +225,19 @@ class _EditNoteDetailPageState extends ConsumerState<EditNoteDetailPage> {
     setState(() => _imagePaths.removeAt(index));
   }
 
+  /// Queue the existing image at [index] (in the current
+  /// `_existingImages` list) for deletion. Removed from the picker
+  /// immediately; the actual DELETE fires on save.
+  void _removeExistingImageAt(int index) {
+    if (!_editing) return;
+    setState(() {
+      final removed = _existingImages[index];
+      _existingImages = List<NoteImageRef>.from(_existingImages)
+        ..removeAt(index);
+      _slotsToDelete.add(removed.slot);
+    });
+  }
+
   Future<void> _save() async {
     if (_formKey.currentState?.validate() != true) return;
     final link = _link;
@@ -161,21 +253,106 @@ class _EditNoteDetailPageState extends ConsumerState<EditNoteDetailPage> {
         linkDisplayName: link.displayName,
         description: _descriptionController.text.trim(),
         createdAt: _createdAt ?? DateTime.now(),
-        imagePaths: List<String>.unmodifiable(_imagePaths),
+        // imagePaths is left at its default (empty) — local picks are
+        // uploaded separately via _syncImageChanges, the PATCH body
+        // doesn't carry filesystem paths.
         nextFollowUpAt: _nextFollowUpAt,
       );
       await ref.read(notesControllerProvider.notifier).updateNote(updated);
+      final imageResult = await _syncImageChanges();
       if (!mounted) return;
       setState(() {
         _saving = false;
         _editing = false;
+        _imagePaths.clear();
+        _slotsToDelete.clear();
       });
-      SnackbarUtils.showSuccess(context, 'Note updated successfully.');
+      // Re-fetch the now-current gallery to refresh the picker's
+      // network thumbnails (new slot URLs + the original snapshot).
+      await _hydrateImages();
+      if (!mounted) return;
+      if (imageResult.uploadFailures > 0 ||
+          imageResult.deleteFailures > 0) {
+        SnackbarUtils.showError(
+          context,
+          _formatImageSyncWarning(imageResult),
+        );
+      } else {
+        SnackbarUtils.showSuccess(context, 'Note updated successfully.');
+      }
     } on Exception catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
       SnackbarUtils.showError(context, 'Could not save. Please try again.');
     }
+  }
+
+  /// Drains [_slotsToDelete] first (frees up slots), then uploads each
+  /// new local file into the next free slot. Returns per-bucket
+  /// failure counts + the first backend error message we ran into,
+  /// so [_save] can show a snackbar that says *why* something failed
+  /// (not just how many). The note PATCH already succeeded by the
+  /// time this runs, so failures are non-fatal — the user can retry
+  /// the missing slot on a subsequent edit.
+  Future<({int uploadFailures, int deleteFailures, String? firstError})>
+      _syncImageChanges() async {
+    if (_slotsToDelete.isEmpty && _imagePaths.isEmpty) {
+      return (uploadFailures: 0, deleteFailures: 0, firstError: null);
+    }
+    final repo = ref.read(notesRepositoryProvider);
+    var deleteFailures = 0;
+    String? firstError;
+    for (final slot in _slotsToDelete) {
+      try {
+        await repo.removeImage(noteId: widget.id, slot: slot);
+      } on Object catch (e) {
+        deleteFailures++;
+        firstError ??= extractBackendErrorMessage(e) ?? 'Delete failed';
+      }
+    }
+    final keptSlots = _existingImages.map((e) => e.slot).toSet();
+    final freeSlots = <int>[
+      for (var s = 1; s <= _maxImages; s++)
+        if (!keptSlots.contains(s)) s,
+    ];
+    var uploadFailures = 0;
+    for (var i = 0; i < _imagePaths.length && i < freeSlots.length; i++) {
+      try {
+        await repo.uploadImage(
+          noteId: widget.id,
+          filePath: _imagePaths[i],
+          slot: freeSlots[i],
+        );
+      } on Object catch (e) {
+        uploadFailures++;
+        firstError ??= extractBackendErrorMessage(e) ?? 'Upload failed';
+      }
+    }
+    return (
+      uploadFailures: uploadFailures,
+      deleteFailures: deleteFailures,
+      firstError: firstError,
+    );
+  }
+
+  String _formatImageSyncWarning(
+    ({int uploadFailures, int deleteFailures, String? firstError}) r,
+  ) {
+    final parts = <String>[];
+    if (r.uploadFailures > 0) {
+      parts.add(
+        "${r.uploadFailures} image${r.uploadFailures == 1 ? '' : 's'} "
+        "didn't upload",
+      );
+    }
+    if (r.deleteFailures > 0) {
+      parts.add(
+        "${r.deleteFailures} image${r.deleteFailures == 1 ? '' : 's'} "
+        "couldn't be removed",
+      );
+    }
+    final summary = 'Saved with issues: ${parts.join(', ')}';
+    return r.firstError == null ? '$summary.' : '$summary — ${r.firstError}.';
   }
 
   void _back() {
@@ -260,8 +437,9 @@ class _EditNoteDetailPageState extends ConsumerState<EditNoteDetailPage> {
                                   prefixIcon: Icons.event_outlined,
                                   enabled: _editing,
                                   initialDate: _nextFollowUpAt,
-                                  // Block past dates — a follow-up in the
-                                  // past is never what the user means.
+                                  // Block past dates — a follow-up in
+                                  // the past is never what the user
+                                  // means.
                                   firstDate: DateTime.now(),
                                   onDateSelected: (picked) =>
                                       setState(() => _nextFollowUpAt = picked),
@@ -287,7 +465,7 @@ class _EditNoteDetailPageState extends ConsumerState<EditNoteDetailPage> {
                                     ),
                                     const Spacer(),
                                     Text(
-                                      '${_imagePaths.length}/$_maxImages',
+                                      '$_totalAttachedImages/$_maxImages',
                                       style: TextStyle(
                                         color: AppColors.textSecondary,
                                         fontSize: 12.sp,
@@ -299,6 +477,10 @@ class _EditNoteDetailPageState extends ConsumerState<EditNoteDetailPage> {
                                 SizedBox(height: 10.h),
                                 PrimaryImagePicker(
                                   imagePaths: _imagePaths,
+                                  networkImageUrls: _existingImages
+                                      .map((e) => e.url)
+                                      .toList(growable: false),
+                                  onRemoveNetwork: _removeExistingImageAt,
                                   maxImages: _maxImages,
                                   enabled: _editing,
                                   showLabel: false,

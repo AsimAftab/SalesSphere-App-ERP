@@ -11,11 +11,17 @@ part 'notes_controller.g.dart';
 /// repository. Reads stay on `notesListProvider` and
 /// `noteByIdProvider`.
 ///
+/// On success the controller patches the paginated list notifier
+/// directly (`prependLocal` / `replaceLocal`) instead of invalidating
+/// it. Invalidation would refetch every page from scratch and lose
+/// the user's scroll position; an in-place patch keeps the new row
+/// at the top while leaving the rest of the list untouched.
+///
 /// Each write method opens a `ref.keepAlive()` link for the duration
 /// of its in-flight `await` and closes it in `finally`. That keeps
-/// the notifier (and its `ref`) valid through the post-await
-/// `ref.invalidate(...)` without permanently pinning a write-only
-/// controller in memory.
+/// the notifier (and its `ref`) valid through the post-await state
+/// patch without permanently pinning a write-only controller in
+/// memory.
 @riverpod
 class NotesController extends _$NotesController {
   @override
@@ -25,7 +31,7 @@ class NotesController extends _$NotesController {
     final link = ref.keepAlive();
     try {
       final created = await ref.read(notesRepositoryProvider).addNote(draft);
-      ref.invalidate(notesListProvider);
+      ref.read(notesListProvider.notifier).prependLocal(created);
       return created;
     } finally {
       link.close();
@@ -36,7 +42,7 @@ class NotesController extends _$NotesController {
     final link = ref.keepAlive();
     try {
       final updated = await ref.read(notesRepositoryProvider).updateNote(note);
-      ref.invalidate(notesListProvider);
+      ref.read(notesListProvider.notifier).replaceLocal(updated);
       return updated;
     } finally {
       link.close();

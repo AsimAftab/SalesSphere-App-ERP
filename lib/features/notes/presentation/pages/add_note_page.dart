@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/features/notes/domain/note.dart';
+import 'package:sales_sphere_erp/features/notes/domain/repositories/notes_repository.dart';
 import 'package:sales_sphere_erp/features/notes/presentation/controllers/notes_controller.dart';
 import 'package:sales_sphere_erp/features/notes/presentation/widgets/note_link_field.dart';
 import 'package:sales_sphere_erp/features/notes/presentation/widgets/note_link_picker.dart';
@@ -88,6 +89,18 @@ class _AddNotePageState extends ConsumerState<AddNotePage> {
       await ref.read(notesControllerProvider.notifier).addNote(draft);
       if (!mounted) return;
       SnackbarUtils.showSuccess(context, 'Note added.');
+      context.pop();
+    } on PartialImageUploadException catch (e) {
+      // Note was saved; one or more images didn't upload. Still pop
+      // back — the user has a row to look at and can re-attach the
+      // missing slots from the edit page.
+      if (!mounted) return;
+      final n = e.failedSlots.length;
+      SnackbarUtils.showError(
+        context,
+        "Note added, but $n image${n == 1 ? '' : 's'} didn't upload: "
+        '${e.firstMessage}',
+      );
       context.pop();
     } on Exception catch (_) {
       if (!mounted) return;
