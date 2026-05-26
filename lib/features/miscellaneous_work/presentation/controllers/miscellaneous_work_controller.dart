@@ -11,11 +11,17 @@ part 'miscellaneous_work_controller.g.dart';
 /// repository. Reads stay on `miscellaneousWorkListProvider` and
 /// `miscellaneousWorkByIdProvider`.
 ///
+/// On success the controller patches the paginated list notifier
+/// directly (`prependLocal` / `replaceLocal`) instead of invalidating
+/// it. Invalidation would refetch every page from scratch and lose
+/// the user's scroll position; an in-place patch keeps the new row
+/// at the top while leaving the rest of the list untouched.
+///
 /// Each write method opens a `ref.keepAlive()` link for the duration
 /// of its in-flight `await` and closes it in `finally`. That keeps
-/// the notifier (and its `ref`) valid through the post-await
-/// `ref.invalidate(...)` without permanently pinning a write-only
-/// controller in memory.
+/// the notifier (and its `ref`) valid through the post-await state
+/// patch without permanently pinning a write-only controller in
+/// memory.
 @riverpod
 class MiscellaneousWorkController extends _$MiscellaneousWorkController {
   @override
@@ -26,7 +32,7 @@ class MiscellaneousWorkController extends _$MiscellaneousWorkController {
     try {
       final created =
           await ref.read(miscellaneousWorkRepositoryProvider).addWork(draft);
-      ref.invalidate(miscellaneousWorkListProvider);
+      ref.read(miscellaneousWorkListProvider.notifier).prependLocal(created);
       return created;
     } finally {
       link.close();
@@ -38,7 +44,7 @@ class MiscellaneousWorkController extends _$MiscellaneousWorkController {
     try {
       final updated =
           await ref.read(miscellaneousWorkRepositoryProvider).updateWork(work);
-      ref.invalidate(miscellaneousWorkListProvider);
+      ref.read(miscellaneousWorkListProvider.notifier).replaceLocal(updated);
       return updated;
     } finally {
       link.close();

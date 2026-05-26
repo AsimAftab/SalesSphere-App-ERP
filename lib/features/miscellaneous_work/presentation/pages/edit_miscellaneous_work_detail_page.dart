@@ -7,6 +7,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
+import 'package:sales_sphere_erp/features/miscellaneous_work/data/dto/miscellaneous_work_image_ref.dart';
 import 'package:sales_sphere_erp/features/miscellaneous_work/domain/miscellaneous_work.dart';
 import 'package:sales_sphere_erp/features/miscellaneous_work/presentation/controllers/miscellaneous_work_controller.dart';
 import 'package:sales_sphere_erp/features/miscellaneous_work/presentation/providers/miscellaneous_work_providers.dart';
@@ -62,7 +64,23 @@ class _EditMiscellaneousWorkDetailPageState
   double _latitude = _defaultLat;
   double _longitude = _defaultLng;
   DateTime? _createdAt;
+
+  /// Local file paths picked in this edit session — uploaded to free
+  /// slots in `_save`.
   final List<String> _imagePaths = <String>[];
+
+  /// Server-side images at the moment we render. Mutated as the user
+  /// removes thumbnails; `_originalExistingImages` is the snapshot
+  /// used by cancel to restore.
+  List<MiscellaneousWorkImageRef> _existingImages =
+      const <MiscellaneousWorkImageRef>[];
+  List<MiscellaneousWorkImageRef> _originalExistingImages =
+      const <MiscellaneousWorkImageRef>[];
+
+  /// Slot numbers (1-indexed) the user asked to delete in this edit
+  /// session. Drained in `_save` before uploading new locals so the
+  /// freed slots become available targets.
+  final Set<int> _slotsToDelete = <int>{};
 
   bool _editing = false;
   bool _saving = false;
@@ -74,6 +92,9 @@ class _EditMiscellaneousWorkDetailPageState
     super.initState();
     if (widget.initial != null) {
       _populate(widget.initial!);
+      // Fields populate synchronously, but the gallery still needs a
+      // fetch — kick it off after first frame so the picker fills in.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _hydrateImages());
     } else {
       _loading = true;
       WidgetsBinding.instance.addPostFrameCallback((_) => _hydrate());
@@ -92,11 +113,31 @@ class _EditMiscellaneousWorkDetailPageState
     if (work != null) {
       _populate(work);
       setState(() => _loading = false);
+      await _hydrateImages();
     } else {
       setState(() {
         _loading = false;
         _notFound = true;
       });
+    }
+  }
+
+  /// Fetch the gallery so the picker shows server-side images.
+  /// Failures are swallowed — an empty picker is graceful degradation.
+  Future<void> _hydrateImages() async {
+    try {
+      final images = await ref
+          .read(miscellaneousWorkRepositoryProvider)
+          .listImages(widget.id);
+      if (!mounted) return;
+      setState(() {
+        _existingImages = images;
+        _originalExistingImages =
+            List<MiscellaneousWorkImageRef>.unmodifiable(images);
+      });
+    } on Object catch (_) {
+      // Not fatal — picker stays empty on the network image side and
+      // the user can still pick new locals.
     }
   }
 
@@ -127,12 +168,9 @@ class _EditMiscellaneousWorkDetailPageState
     _latitude = w.latitude;
     _longitude = w.longitude;
     _createdAt = w.createdAt;
-    _createdAtController.text = DateFormat(
-      'dd MMM yyyy, hh:mm a',
-    ).format(w.createdAt);
-    _imagePaths
-      ..clear()
-      ..addAll(w.imagePaths);
+    _createdAtController.text =
+        DateFormat('dd MMM yyyy, hh:mm a').format(w.createdAt.toLocal());
+    _imagePaths.clear();
   }
 
   void _toggleEdit() => setState(() => _editing = !_editing);
@@ -143,11 +181,22 @@ class _EditMiscellaneousWorkDetailPageState
             widget.initial;
     if (saved != null) _populate(saved);
     FocusManager.instance.primaryFocus?.unfocus();
-    setState(() => _editing = false);
+    setState(() {
+      _editing = false;
+      // Roll back image edits: restore server-side gallery, drop any
+      // queued deletions and any local picks.
+      _existingImages =
+          List<MiscellaneousWorkImageRef>.from(_originalExistingImages);
+      _slotsToDelete.clear();
+      _imagePaths.clear();
+    });
   }
 
+  int get _totalAttachedImages =>
+      _imagePaths.length + _existingImages.length;
+
   Future<void> _pickImage() async {
-    if (!_editing || _imagePaths.length >= _maxImages) return;
+    if (!_editing || _totalAttachedImages >= _maxImages) return;
     try {
       final picker = ImagePicker();
       final file = await picker.pickImage(
@@ -165,6 +214,20 @@ class _EditMiscellaneousWorkDetailPageState
   void _removeImageAt(int index) {
     if (!_editing) return;
     setState(() => _imagePaths.removeAt(index));
+  }
+
+  /// Queue the existing image at [index] (in the current
+  /// `_existingImages` list) for deletion. Removed from the picker
+  /// immediately; the actual DELETE fires on save.
+  void _removeExistingImageAt(int index) {
+    if (!_editing) return;
+    setState(() {
+      final removed = _existingImages[index];
+      _existingImages =
+          List<MiscellaneousWorkImageRef>.from(_existingImages)
+            ..removeAt(index);
+      _slotsToDelete.add(removed.slot);
+    });
   }
 
   void _onLocationChanged(double lat, double lng) {
@@ -189,22 +252,106 @@ class _EditMiscellaneousWorkDetailPageState
         latitude: _latitude,
         longitude: _longitude,
         createdAt: _createdAt ?? DateTime.now(),
-        imagePaths: List<String>.unmodifiable(_imagePaths),
+        // imagePaths is left at its default (empty) — local picks are
+        // uploaded separately via _syncImageChanges, the PATCH body
+        // doesn't carry filesystem paths.
       );
       await ref
           .read(miscellaneousWorkControllerProvider.notifier)
           .updateWork(updated);
+      final imageResult = await _syncImageChanges();
       if (!mounted) return;
       setState(() {
         _saving = false;
         _editing = false;
+        _imagePaths.clear();
+        _slotsToDelete.clear();
       });
-      SnackbarUtils.showSuccess(context, 'Work updated successfully.');
+      // Re-fetch the now-current gallery to refresh the picker's
+      // network thumbnails (new slot URLs + the original snapshot).
+      await _hydrateImages();
+      if (!mounted) return;
+      if (imageResult.uploadFailures > 0 || imageResult.deleteFailures > 0) {
+        SnackbarUtils.showError(
+          context,
+          _formatImageSyncWarning(imageResult),
+        );
+      } else {
+        SnackbarUtils.showSuccess(context, 'Work updated successfully.');
+      }
     } on Exception catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
       SnackbarUtils.showError(context, 'Could not save. Please try again.');
     }
+  }
+
+  /// Drains [_slotsToDelete] first (frees up slots), then uploads each
+  /// new local file into the next free slot. Returns per-bucket
+  /// failure counts + the first backend error message we ran into,
+  /// so [_save] can show a snackbar that says *why* something failed
+  /// (not just how many). The PATCH already succeeded by the time
+  /// this runs, so failures are non-fatal — the user can retry the
+  /// missing slot on a subsequent edit.
+  Future<({int uploadFailures, int deleteFailures, String? firstError})>
+      _syncImageChanges() async {
+    if (_slotsToDelete.isEmpty && _imagePaths.isEmpty) {
+      return (uploadFailures: 0, deleteFailures: 0, firstError: null);
+    }
+    final repo = ref.read(miscellaneousWorkRepositoryProvider);
+    var deleteFailures = 0;
+    String? firstError;
+    for (final slot in _slotsToDelete) {
+      try {
+        await repo.removeImage(id: widget.id, slot: slot);
+      } on Object catch (e) {
+        deleteFailures++;
+        firstError ??= extractBackendErrorMessage(e) ?? 'Delete failed';
+      }
+    }
+    final keptSlots = _existingImages.map((e) => e.slot).toSet();
+    final freeSlots = <int>[
+      for (var s = 1; s <= _maxImages; s++)
+        if (!keptSlots.contains(s)) s,
+    ];
+    var uploadFailures = 0;
+    for (var i = 0; i < _imagePaths.length && i < freeSlots.length; i++) {
+      try {
+        await repo.uploadImage(
+          id: widget.id,
+          filePath: _imagePaths[i],
+          slot: freeSlots[i],
+        );
+      } on Object catch (e) {
+        uploadFailures++;
+        firstError ??= extractBackendErrorMessage(e) ?? 'Upload failed';
+      }
+    }
+    return (
+      uploadFailures: uploadFailures,
+      deleteFailures: deleteFailures,
+      firstError: firstError,
+    );
+  }
+
+  String _formatImageSyncWarning(
+    ({int uploadFailures, int deleteFailures, String? firstError}) r,
+  ) {
+    final parts = <String>[];
+    if (r.uploadFailures > 0) {
+      parts.add(
+        "${r.uploadFailures} image${r.uploadFailures == 1 ? '' : 's'} "
+        "didn't upload",
+      );
+    }
+    if (r.deleteFailures > 0) {
+      parts.add(
+        "${r.deleteFailures} image${r.deleteFailures == 1 ? '' : 's'} "
+        "couldn't be removed",
+      );
+    }
+    final summary = 'Saved with issues: ${parts.join(', ')}';
+    return r.firstError == null ? '$summary.' : '$summary — ${r.firstError}.';
   }
 
   void _back() {
@@ -329,7 +476,7 @@ class _EditMiscellaneousWorkDetailPageState
                                     ),
                                     const Spacer(),
                                     Text(
-                                      '${_imagePaths.length}/$_maxImages',
+                                      '$_totalAttachedImages/$_maxImages',
                                       style: TextStyle(
                                         color: AppColors.textSecondary,
                                         fontSize: 12.sp,
@@ -341,6 +488,10 @@ class _EditMiscellaneousWorkDetailPageState
                                 SizedBox(height: 10.h),
                                 PrimaryImagePicker(
                                   imagePaths: _imagePaths,
+                                  networkImageUrls: _existingImages
+                                      .map((e) => e.url)
+                                      .toList(growable: false),
+                                  onRemoveNetwork: _removeExistingImageAt,
                                   maxImages: _maxImages,
                                   enabled: _editing,
                                   showLabel: false,
