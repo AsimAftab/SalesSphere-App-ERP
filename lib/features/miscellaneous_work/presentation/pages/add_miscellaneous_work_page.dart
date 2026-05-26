@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/features/miscellaneous_work/domain/miscellaneous_work.dart';
+import 'package:sales_sphere_erp/features/miscellaneous_work/domain/repositories/miscellaneous_work_repository.dart';
 import 'package:sales_sphere_erp/features/miscellaneous_work/presentation/controllers/miscellaneous_work_controller.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
@@ -114,6 +115,18 @@ class _AddMiscellaneousWorkPageState
           .addWork(draft);
       if (!mounted) return;
       SnackbarUtils.showSuccess(context, 'Work added.');
+      context.pop();
+    } on MiscellaneousWorkPartialImageUploadException catch (e) {
+      // Row was created but ≥1 image failed to upload. Pop back so
+      // the new row appears in the list, but warn so the user knows
+      // why the gallery is incomplete.
+      if (!mounted) return;
+      final n = e.failedSlots.length;
+      SnackbarUtils.showError(
+        context,
+        "Work added, but $n image${n == 1 ? '' : 's'} didn't upload: "
+        '${e.firstMessage}',
+      );
       context.pop();
     } on Exception catch (_) {
       if (!mounted) return;

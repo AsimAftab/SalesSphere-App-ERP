@@ -1,113 +1,216 @@
+import 'dart:io';
+
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http_parser/http_parser.dart';
 
+import 'package:sales_sphere_erp/core/api/dio_client.dart';
 import 'package:sales_sphere_erp/features/miscellaneous_work/data/dto/miscellaneous_work_dto.dart';
+import 'package:sales_sphere_erp/features/miscellaneous_work/data/dto/miscellaneous_work_image_ref.dart';
+import 'package:sales_sphere_erp/features/miscellaneous_work/data/dto/miscellaneous_work_page_dto.dart';
 
-/// Raw data source for the miscellaneous-work endpoints. Currently
-/// backed by a mutable in-memory list — swap for Dio calls once the
-/// endpoint lands in the backend OpenAPI spec. Repository callers
-/// stay unchanged.
+/// HTTP layer for the miscellaneous-work feature. The list, create,
+/// update, and image upload/delete paths all hit the real backend.
 class MiscellaneousWorkApi {
-  MiscellaneousWorkApi() {
-    _store
-      ..clear()
-      ..addAll(_seed.map(MiscellaneousWorkDto.fromJson));
-  }
+  MiscellaneousWorkApi(this._dio);
 
-  /// Hand-rolled seed rows so the screen has plausible content on
-  /// first launch. Dates are anchored to today / yesterday at
-  /// construction time so the list never looks stale during demos.
-  static List<Map<String, dynamic>> get _seed {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
-    return <Map<String, dynamic>>[
-      <String, dynamic>{
-        'id': '1',
-        'natureOfWork': 'Generator maintenance',
-        'assignedBy': 'Anita Desai',
-        'workDate': today.toIso8601String(),
-        'address':
-            '4HP8+2RJ, Avalahalli, Bangalore Division, 560119, India',
-        'latitude': 13.134963,
-        'longitude': 77.566870,
-        'createdAt': today
-            .add(const Duration(hours: 10, minutes: 30))
-            .toIso8601String(),
+  final Dio _dio;
+
+  /// Fetch one paginated page from `GET /miscellaneous-work`.
+  ///
+  /// The server is authoritative on pagination — the inner envelope
+  /// carries `items`, `hasMore`, and `nextCursor`. We trust
+  /// `nextCursor` when `hasMore` is true and clear it otherwise.
+  Future<MiscellaneousWorkPageDto> list({
+    int limit = 10,
+    String? cursor,
+  }) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      Endpoints.miscellaneousWork,
+      queryParameters: <String, dynamic>{
+        'limit': limit,
+        if (cursor != null) 'cursor': cursor,
       },
-      <String, dynamic>{
-        'id': '2',
-        'natureOfWork': 'Inventory audit at warehouse',
-        'assignedBy': 'Ramesh Kulkarni',
-        'workDate': yesterday.toIso8601String(),
-        'address':
-            'Plot 14, Singanayakanahalli, Bengaluru, Karnataka 560064, India',
-        'latitude': 13.110000,
-        'longitude': 77.580000,
-        'createdAt': yesterday
-            .add(const Duration(hours: 14, minutes: 15))
-            .toIso8601String(),
-      },
-    ];
-  }
-
-  final List<MiscellaneousWorkDto> _store = <MiscellaneousWorkDto>[];
-
-  Future<List<MiscellaneousWorkDto>> list() async {
-    // Simulated round-trip so callers exercise the loading state.
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    final sorted = _store.toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return List<MiscellaneousWorkDto>.unmodifiable(sorted.map(_cloneDto));
-  }
-
-  Future<MiscellaneousWorkDto> create(MiscellaneousWorkDto draft) async {
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    final created = MiscellaneousWorkDto(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
-      natureOfWork: draft.natureOfWork,
-      assignedBy: draft.assignedBy,
-      workDate: draft.workDate,
-      address: draft.address,
-      latitude: draft.latitude,
-      longitude: draft.longitude,
-      createdAt: DateTime.now(),
-      imagePaths: List<String>.unmodifiable(draft.imagePaths),
     );
-    _store.add(created);
-    return _cloneDto(created);
-  }
-
-  Future<MiscellaneousWorkDto> update(MiscellaneousWorkDto work) async {
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    final index = _store.indexWhere((w) => w.id == work.id);
-    if (index == -1) {
-      throw StateError('MiscellaneousWork ${work.id} not found');
-    }
-    final updated = _cloneDto(work);
-    _store[index] = updated;
-    return _cloneDto(updated);
-  }
-
-  /// Defensive copy of a DTO. The mock store needs to insulate itself
-  /// from caller mutation in both directions: callers can't mutate
-  /// what they put in (so a later `imagePaths.add(...)` doesn't bleed
-  /// into seeded state) and can't mutate what they get out (so a
-  /// `list()` consumer can't reorder the store by sorting in place).
-  /// `imagePaths` is wrapped in `unmodifiable` to enforce that on the
-  /// list as well, not just the DTO reference.
-  MiscellaneousWorkDto _cloneDto(MiscellaneousWorkDto dto) =>
-      MiscellaneousWorkDto(
-        id: dto.id,
-        natureOfWork: dto.natureOfWork,
-        assignedBy: dto.assignedBy,
-        workDate: dto.workDate,
-        address: dto.address,
-        latitude: dto.latitude,
-        longitude: dto.longitude,
-        createdAt: dto.createdAt,
-        imagePaths: List<String>.unmodifiable(dto.imagePaths),
+    final data = _unwrapMap(response.data);
+    final rawItems = data['items'];
+    if (rawItems is! List<dynamic>) {
+      throw const FormatException(
+        'Malformed miscellaneous-work page: missing or invalid `items` array',
       );
+    }
+    final items = rawItems
+        .map((j) => MiscellaneousWorkDto.fromJson(j as Map<String, dynamic>))
+        .toList(growable: false);
+    final hasMore = (data['hasMore'] as bool?) ?? false;
+    final nextCursor = hasMore ? data['nextCursor'] as String? : null;
+    return MiscellaneousWorkPageDto(items: items, nextCursor: nextCursor);
+  }
+
+  /// `POST /miscellaneous-work`. Body is the writable subset produced
+  /// by `MiscellaneousWorkDto.toJson()` — server assigns `id`,
+  /// `createdAt`, `createdById`, `organizationId`, etc.
+  Future<MiscellaneousWorkDto> create(MiscellaneousWorkDto draft) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      Endpoints.miscellaneousWork,
+      data: draft.toJson(),
+    );
+    return MiscellaneousWorkDto.fromJson(_unwrapMap(response.data));
+  }
+
+  /// `PATCH /miscellaneous-work/{id}`. Same writable shape as
+  /// `create`. The response carries the full row including the
+  /// embedded `images` array, but image sync (upload/delete) is the
+  /// edit page's job — we just return the row.
+  Future<MiscellaneousWorkDto> update(
+    String id,
+    MiscellaneousWorkDto patch,
+  ) async {
+    final response = await _dio.patch<Map<String, dynamic>>(
+      Endpoints.miscellaneousWorkById(id),
+      data: patch.toJson(),
+    );
+    return MiscellaneousWorkDto.fromJson(_unwrapMap(response.data));
+  }
+
+  /// `GET /miscellaneous-work/{id}`. Same shape as the PATCH response —
+  /// the full row plus an embedded `images` array of full image objects
+  /// (with `sortOrder`, `imageUrl`, etc).
+  Future<MiscellaneousWorkDto> getById(String id) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      Endpoints.miscellaneousWorkById(id),
+    );
+    return MiscellaneousWorkDto.fromJson(_unwrapMap(response.data));
+  }
+
+  /// Returns the row's gallery as `MiscellaneousWorkImageRef`s,
+  /// ordered by `sortOrder` ascending. Reads the embedded image
+  /// objects from `GET /miscellaneous-work/{id}` so the edit page sees
+  /// real slot numbers (not array indices). Empty list when the row
+  /// has no images.
+  Future<List<MiscellaneousWorkImageRef>> listImages(String id) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      Endpoints.miscellaneousWorkById(id),
+    );
+    final body = response.data;
+    if (body == null || body['success'] == false) return const [];
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) return const [];
+    final raw = data['images'];
+    if (raw is! List<dynamic>) return const [];
+    final refs = <MiscellaneousWorkImageRef>[];
+    for (final entry in raw) {
+      // The list endpoint embeds images as plain URL strings; the
+      // detail endpoint embeds them as full objects. Only the latter
+      // carries enough data to derive a slot, so non-map entries are
+      // skipped here.
+      if (entry is Map<String, dynamic>) {
+        refs.add(MiscellaneousWorkImageRef.fromJson(entry));
+      }
+    }
+    refs.sort((a, b) => a.slot.compareTo(b.slot));
+    return List<MiscellaneousWorkImageRef>.unmodifiable(refs);
+  }
+
+  /// `POST /miscellaneous-work/{id}/images` — multipart `image` file +
+  /// `imageNumber` form field. Slot-based upsert: re-posting the same
+  /// slot replaces the existing image.
+  ///
+  /// Same two non-obvious details as the notes / parties / sites
+  /// variants:
+  ///   * `imageNumber` is added **before** the file. Multer streams
+  ///     parts in order and populates `req.body` text fields as it
+  ///     goes — text after a file part can be left unread.
+  ///   * The file's `Content-Type` is set explicitly from the
+  ///     extension. Without it, `MultipartFile.fromFile` ships
+  ///     `application/octet-stream`, Cloudinary refuses the blob, and
+  ///     the backend wraps the failure as a generic 500.
+  Future<MiscellaneousWorkImageRef> uploadImage({
+    required String id,
+    required String filePath,
+    required int imageNumber,
+  }) async {
+    final filename = filePath.split(RegExp(r'[\\/]')).last;
+    if (kDebugMode) {
+      try {
+        final bytes = await File(filePath).length();
+        debugPrint(
+          '[miscellaneous_work_api] uploadImage slot=$imageNumber '
+          'file=$filename size=${bytes}B '
+          '(${(bytes / 1024 / 1024).toStringAsFixed(2)} MB)',
+        );
+      } on FileSystemException {
+        debugPrint(
+          '[miscellaneous_work_api] uploadImage slot=$imageNumber '
+          'file=$filename size=<stat failed>',
+        );
+      }
+    }
+    final form = FormData.fromMap(<String, dynamic>{
+      'imageNumber': imageNumber.toString(),
+      'image': await MultipartFile.fromFile(
+        filePath,
+        filename: filename,
+        contentType: _mediaTypeForFilename(filename),
+      ),
+    });
+    final response = await _dio.post<Map<String, dynamic>>(
+      Endpoints.miscellaneousWorkImages(id),
+      data: form,
+      options: Options(contentType: 'multipart/form-data'),
+    );
+    return MiscellaneousWorkImageRef.fromJson(_unwrapMap(response.data));
+  }
+
+  /// `DELETE /miscellaneous-work/{id}/images/{slot}` — removes a
+  /// specific slot. No-op idempotency on 404 is up to the caller.
+  Future<void> removeImage({
+    required String id,
+    required int imageNumber,
+  }) async {
+    await _dio.delete<Map<String, dynamic>>(
+      Endpoints.miscellaneousWorkImageSlot(id, imageNumber),
+    );
+  }
+
+  /// Maps a filename's extension to a `Content-Type`. The backend only
+  /// accepts JPEG and PNG; anything else falls back to
+  /// `application/octet-stream` so the server's mime filter rejects
+  /// it explicitly.
+  MediaType _mediaTypeForFilename(String filename) {
+    final dotIdx = filename.lastIndexOf('.');
+    final ext = dotIdx >= 0 ? filename.substring(dotIdx + 1).toLowerCase() : '';
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg':
+        return MediaType('image', 'jpeg');
+      case 'png':
+        return MediaType('image', 'png');
+      default:
+        return MediaType('application', 'octet-stream');
+    }
+  }
+
+  Map<String, dynamic> _unwrapMap(Map<String, dynamic>? body) {
+    if (body == null) {
+      throw const FormatException('Empty response body');
+    }
+    if (body['success'] == false) {
+      throw const FormatException(
+        'Miscellaneous-work API returned success=false',
+      );
+    }
+    final inner = body['data'];
+    if (inner is! Map<String, dynamic>) {
+      throw const FormatException(
+        'Malformed miscellaneous-work envelope: missing or invalid `data` object',
+      );
+    }
+    return inner;
+  }
 }
 
-final miscellaneousWorkApiProvider =
-    Provider<MiscellaneousWorkApi>((_) => MiscellaneousWorkApi());
+final miscellaneousWorkApiProvider = Provider<MiscellaneousWorkApi>(
+  (ref) => MiscellaneousWorkApi(ref.watch(dioProvider)),
+);

@@ -65,6 +65,11 @@ class Endpoints {
 
   // ── Miscellaneous work ────────────────────────────────────────────────────
   static const miscellaneousWork = '/miscellaneous-work';
+  static String miscellaneousWorkById(String id) => '/miscellaneous-work/$id';
+  static String miscellaneousWorkImages(String id) =>
+      '/miscellaneous-work/$id/images';
+  static String miscellaneousWorkImageSlot(String id, int slot) =>
+      '/miscellaneous-work/$id/images/$slot';
 
   // ── Notes ─────────────────────────────────────────────────────────────────
   static const notes = '/notes';
