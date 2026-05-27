@@ -89,16 +89,30 @@ class SitesApi {
   /// `sortOrder` ascending. Returns `[]` if the response envelope is
   /// shaped unexpectedly so the edit page can still render.
   Future<List<SiteImageRef>> listImages(String siteId) async {
-    final response = await _dio.get<Map<String, dynamic>>(
-      Endpoints.siteImages(siteId),
-    );
-    final body = response.data;
-    if (body == null || body['success'] == false) return const [];
-    final data = body['data'];
-    if (data is! List<dynamic>) return const [];
-    return data
-        .map((j) => SiteImageRef.fromJson(j as Map<String, dynamic>))
-        .toList(growable: false);
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        Endpoints.siteImages(siteId),
+      );
+      final body = response.data;
+      if (body == null || body['success'] == false) {
+        debugPrint('[sites_api] listImages $siteId failed: body=$body');
+        return const [];
+      }
+      final data = body['data'];
+      if (data is! List<dynamic>) {
+        debugPrint('[sites_api] listImages $siteId: data is not a list, got ${data.runtimeType}');
+        return const [];
+      }
+      return data
+          .map((j) => SiteImageRef.fromJson(j as Map<String, dynamic>))
+          .toList(growable: false);
+    } on DioException catch (e) {
+      debugPrint('[sites_api] listImages $siteId network error: ${e.message}');
+      return const [];
+    } catch (e, st) {
+      debugPrint('[sites_api] listImages $siteId unexpected error: $e\n$st');
+      return const [];
+    }
   }
 
   /// `POST /sites/{id}/images` — multipart `image` file + integer
