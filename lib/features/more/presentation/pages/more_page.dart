@@ -13,6 +13,10 @@ import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 /// Mirrors `CustomersHubPage`'s chrome (large header, 2-col tile grid,
 /// soft-shadow flat surface, per-module accent colour) so both
 /// bottom-nav landing surfaces read as the same family.
+///
+/// Two tiles are wired (Settings and Attendance); the second column waits for
+/// future tiles (notifications, help & support, about, language…).
+/// Profile and Sign out both live one level deeper, inside Settings.
 class MorePage extends ConsumerWidget {
   const MorePage({super.key});
 
@@ -65,52 +69,46 @@ class MorePage extends ConsumerWidget {
   /// Built per-build so the closures can capture the current `context`
   /// for navigation. Append to this list as future tiles land — the
   /// 2-col grid auto-flows.
-  ///
-  /// Colour assignments are coordinated with the Customers hub so no
-  /// two tiles in the app share an accent. The palette is tight — only
-  /// ~8 truly distinct hues — so a few neighbours sit on different
-  /// shades of the same family (info-blue here vs secondary-blue on
-  /// Parties; success-green here vs green500 on Sites).
   List<_TileSpec> _tileSpecs(BuildContext context) => <_TileSpec>[
         _TileSpec(
-          icon: Icons.calendar_month_outlined,
+          icon: Icons.calendar_today_outlined,
           title: 'Attendance',
           subtitle: 'Mark and track daily attendance',
-          iconColor: AppColors.info,
+          iconColor: AppColors.secondary,
           onTap: () => context.push(Routes.attendance),
         ),
         _TileSpec(
           icon: Icons.event_busy_outlined,
           title: 'Leave Request',
-          subtitle: 'Apply for leaves and track approval status',
-          iconColor: AppColors.textOrange,
-          onTap: () => context.push(Routes.leaves),
+          subtitle: 'Apply for leave and track approval',
+          iconColor: AppColors.purple500,
+          onTap: () => _comingSoon(context, 'Leave Request'),
         ),
         _TileSpec(
           icon: Icons.speed_outlined,
           title: 'Odometer',
-          subtitle: 'Track travel distance during field visits',
-          iconColor: AppColors.primary,
+          subtitle: 'Track distance during field visits',
+          iconColor: AppColors.info,
           onTap: () => _comingSoon(context, 'Odometer'),
         ),
         _TileSpec(
           icon: Icons.currency_rupee,
           title: 'Expense Claims',
-          subtitle: 'Submit and manage expense claims',
-          iconColor: AppColors.success,
+          subtitle: 'Submit and manage expenses',
+          iconColor: AppColors.green500,
           onTap: () => _comingSoon(context, 'Expense Claims'),
         ),
         _TileSpec(
           icon: Icons.navigation_outlined,
           title: 'Tour Plan',
           subtitle: 'Plan and manage daily field visits',
-          iconColor: AppColors.tertiary,
-          onTap: () => context.push(Routes.tourPlans),
+          iconColor: AppColors.warning,
+          onTap: () => _comingSoon(context, 'Tour Plan'),
         ),
         _TileSpec(
           icon: Icons.settings_outlined,
           title: 'Settings',
-          subtitle: 'Manage app preferences and account',
+          subtitle: 'App preferences and account',
           // Settings is account chrome rather than a domain module, so
           // it picks up a neutral grey accent instead of one of the
           // hub palette colours.
