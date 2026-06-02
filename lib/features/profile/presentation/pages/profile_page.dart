@@ -8,8 +8,9 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
-import 'package:sales_sphere_erp/features/auth/domain/auth_user.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:sales_sphere_erp/features/profile/domain/entities/profile_entity.dart';
+import 'package:sales_sphere_erp/features/profile/presentation/controllers/profile_controller.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_image_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
@@ -84,8 +85,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = ref.watch(authControllerProvider);
-    final user = auth.value;
+    final profileState = ref.watch(profileControllerProvider);
+    final profile = profileState.value;
 
     return DarkStatusBar(
       child: Scaffold(
@@ -100,14 +101,14 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                     ref.read(authControllerProvider.notifier).logout(),
               ),
               Expanded(
-                child: auth.isLoading && user == null
+                child: profileState.isLoading && profile == null
                     ? const Center(
                         child: CircularProgressIndicator(
                           color: AppColors.primary,
                         ),
                       )
                     : _ProfileContent(
-                        user: user,
+                        profile: profile,
                         avatarPath: _avatarPath,
                         onChangeAvatar: _chooseAvatar,
                       ),
@@ -213,23 +214,23 @@ class _ProfileAppBar extends StatelessWidget {
 
 class _ProfileContent extends StatelessWidget {
   const _ProfileContent({
-    required this.user,
+    required this.profile,
     required this.avatarPath,
     required this.onChangeAvatar,
   });
 
-  final AuthUser? user;
+  final ProfileEntity? profile;
   final String? avatarPath;
   final VoidCallback onChangeAvatar;
 
   @override
   Widget build(BuildContext context) {
-    final userFullName = user?.fullName.trim();
+    final userFullName = profile?.user.name.trim();
     final fullName = (userFullName?.isNotEmpty ?? false)
         ? userFullName!
         : 'Profile';
-    final role = _formatRole(user?.systemRole);
-    final emailVerified = user?.emailVerified ?? false;
+    final role = _formatRole(profile?.activeMembership?.role.name ?? profile?.user.systemRole);
+    final emailVerified = profile?.user.emailVerified ?? false;
 
     return SingleChildScrollView(
       physics: const ClampingScrollPhysics(),
@@ -284,7 +285,7 @@ class _ProfileContent extends StatelessWidget {
               _InfoRowData(
                 icon: Icons.email_outlined,
                 label: 'Email Address',
-                value: user?.email ?? 'Not specified',
+                value: profile?.user.email ?? 'Not specified',
               ),
               const _InfoRowData(
                 icon: Icons.perm_contact_calendar_outlined,
@@ -320,6 +321,18 @@ class _ProfileContent extends StatelessWidget {
                 icon: Icons.work_outline,
                 label: 'Role',
                 value: role,
+              ),
+              _InfoRowData(
+                icon: Icons.business_outlined,
+                label: 'Organization',
+                value: profile?.activeMembership?.organization.name ?? 'Not specified',
+              ),
+              _InfoRowData(
+                icon: Icons.location_city_outlined,
+                label: 'Branches',
+                value: profile?.activeMembership?.organization.branches.isEmpty == false
+                    ? profile!.activeMembership!.organization.branches.map((b) => b.name).join(', ')
+                    : 'Not specified',
               ),
               _InfoRowData(
                 icon: Icons.verified_user_outlined,
