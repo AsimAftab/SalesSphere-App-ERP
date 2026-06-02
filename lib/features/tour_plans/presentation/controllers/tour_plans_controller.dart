@@ -39,7 +39,24 @@ class TourPlansController extends _$TourPlansController {
       final updated = await ref
           .read(tourPlansRepositoryProvider)
           .updateTourPlan(plan);
-      ref.invalidate(tourPlansListProvider);
+      ref
+        ..invalidate(tourPlansListProvider)
+        ..invalidate(tourPlanByIdProvider(updated.id));
+      return updated;
+    } finally {
+      link.close();
+    }
+  }
+
+  Future<TourPlan> markTourPlanCompleted(String id) async {
+    final link = ref.keepAlive();
+    try {
+      final updated = await ref
+          .read(tourPlansRepositoryProvider)
+          .markTourPlanCompleted(id);
+      ref
+        ..invalidate(tourPlansListProvider)
+        ..invalidate(tourPlanByIdProvider(id));
       return updated;
     } finally {
       link.close();

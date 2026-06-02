@@ -14,18 +14,12 @@ part 'tour_plans_providers.g.dart';
 
 /// Convenience provider for screens that just need the current list.
 @riverpod
-Future<List<TourPlan>> tourPlansList(Ref ref) async {
-  return ref.watch(tourPlansRepositoryProvider).getTourPlans();
+Future<List<TourPlan>> tourPlansList(Ref ref, {TourPlanStatus? status}) async {
+  return ref.watch(tourPlansRepositoryProvider).getTourPlans(status: status);
 }
 
-/// Resolves a single tour plan by id. Derived from the list provider's
-/// `AsyncValue` so loading and error states propagate to consumers
-/// instead of collapsing into `null`.
+/// Resolves a single tour plan by id from `GET /tour-plans/{id}`.
 @riverpod
 Future<TourPlan?> tourPlanById(Ref ref, String id) async {
-  final plans = await ref.watch(tourPlansListProvider.future);
-  for (final plan in plans) {
-    if (plan.id == id) return plan;
-  }
-  return null;
+  return ref.watch(tourPlansRepositoryProvider).getTourPlanById(id);
 }

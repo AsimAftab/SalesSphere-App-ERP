@@ -2,7 +2,7 @@
 /// list filter chip and per-row status badge read as the same family
 /// across the field-ops modules. Drives whether the detail page opens
 /// editable or read-only — only `pending` plans are user-mutable.
-enum TourPlanStatus { pending, approved, rejected }
+enum TourPlanStatus { pending, approved, rejected, completed }
 
 /// UI-facing tour-plan model. Decoupled from wire DTOs so backend
 /// renames don't ripple into widgets. Will be promoted to freezed once
@@ -19,6 +19,7 @@ class TourPlan {
     required this.purpose,
     required this.status,
     required this.createdAt,
+    this.rejectionReason,
   });
 
   final String id;
@@ -31,6 +32,9 @@ class TourPlan {
   final String purpose;
   final TourPlanStatus status;
   final DateTime createdAt;
+
+  /// Reason for rejection (only present if status is rejected).
+  final String? rejectionReason;
 }
 
 /// Inclusive day count between [start] and [end]. Apr 12 → Apr 12 is
@@ -54,4 +58,5 @@ String tourPlanStatusLabel(TourPlanStatus s) => switch (s) {
   TourPlanStatus.pending => 'Pending',
   TourPlanStatus.approved => 'Approved',
   TourPlanStatus.rejected => 'Rejected',
+  TourPlanStatus.completed => 'Completed',
 };

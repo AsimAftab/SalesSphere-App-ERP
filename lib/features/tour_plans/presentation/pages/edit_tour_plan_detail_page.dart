@@ -24,14 +24,11 @@ import 'package:skeletonizer/skeletonizer.dart';
   TourPlanStatus.pending => (fg: AppColors.warning, bg: AppColors.warning),
   TourPlanStatus.approved => (fg: AppColors.green500, bg: AppColors.green500),
   TourPlanStatus.rejected => (fg: AppColors.error, bg: AppColors.error),
+  TourPlanStatus.completed => (fg: AppColors.blue500, bg: AppColors.blue500),
 };
 
 class EditTourPlanDetailPage extends ConsumerStatefulWidget {
-  const EditTourPlanDetailPage({
-    required this.id,
-    this.initial,
-    super.key,
-  });
+  const EditTourPlanDetailPage({required this.id, this.initial, super.key});
 
   final String id;
 
@@ -59,6 +56,7 @@ class _EditTourPlanDetailPageState
   DateTime? _endDate;
   TourPlanStatus _status = TourPlanStatus.pending;
   DateTime? _createdAt;
+  String? _rejectionReason;
 
   bool _editing = false;
   bool _saving = false;
@@ -70,6 +68,12 @@ class _EditTourPlanDetailPageState
   /// page hides the edit affordance entirely so the user can't tap
   /// into a flow that would just throw on save.
   bool get _isMutable => _status == TourPlanStatus.pending;
+
+  /// Only approved plans can be marked as completed.
+  bool get _canMarkCompleted => _status == TourPlanStatus.approved;
+
+  /// Show bottom bar for pending (edit) or approved (mark completed) plans.
+  bool get _showBottomBar => _isMutable || _canMarkCompleted;
 
   @override
   void initState() {
@@ -127,6 +131,7 @@ class _EditTourPlanDetailPageState
     _purposeController.text = p.purpose;
     _status = p.status;
     _createdAt = p.createdAt;
+    _rejectionReason = p.rejectionReason;
     _createdAtController.text = DateFormat(
       'dd MMM yyyy, hh:mm a',
     ).format(p.createdAt);
@@ -192,6 +197,23 @@ class _EditTourPlanDetailPageState
     }
   }
 
+  Future<void> _markCompleted() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => _saving = true);
+    try {
+      await ref
+          .read(tourPlansControllerProvider.notifier)
+          .markTourPlanCompleted(widget.id);
+      if (!mounted) return;
+      SnackbarUtils.showSuccess(context, 'Tour plan marked as completed.');
+      context.pop();
+    } on Exception catch (_) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      SnackbarUtils.showError(context, 'Could not mark as completed. Please try again.');
+    }
+  }
+
   void _back() {
     if (context.canPop()) {
       context.pop();
@@ -208,12 +230,17 @@ class _EditTourPlanDetailPageState
     return DarkStatusBar(
       child: Scaffold(
         backgroundColor: AppColors.background,
-        bottomNavigationBar: _isMutable
-            ? _SubmitBar(
-                editing: _editing,
-                isLoading: _saving,
-                onPressed: _editing ? _save : _toggleEdit,
-              )
+        bottomNavigationBar: _showBottomBar
+            ? (_isMutable
+                ? _SubmitBar(
+                    editing: _editing,
+                    isLoading: _saving,
+                    onPressed: _editing ? _save : _toggleEdit,
+                  )
+                : _CompletionBar(
+                    isLoading: _saving,
+                    onPressed: _markCompleted,
+                  ))
             : null,
         body: Stack(
           children: <Widget>[
@@ -235,7 +262,10 @@ class _EditTourPlanDetailPageState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: <Widget>[
-                            _StatusBanner(status: _status),
+                            _StatusBanner(
+                              status: _status,
+                              rejectionReason: _rejectionReason,
+                            ),
                             SizedBox(height: 12.h),
                             SectionCard(
                               children: <Widget>[
@@ -263,10 +293,8 @@ class _EditTourPlanDetailPageState
                                     const Duration(days: 365),
                                   ),
                                   onDateSelected: _onStartDatePicked,
-                                  validator: (v) => Validators.requiredField(
-                                    v,
-                                    'Start Date',
-                                  ),
+                                  validator: (v) =>
+                                      Validators.requiredField(v, 'Start Date'),
                                 ),
                                 SizedBox(height: 12.h),
                                 CustomDatePicker(
@@ -284,10 +312,8 @@ class _EditTourPlanDetailPageState
                                     _endDate = picked;
                                     _refreshDuration();
                                   }),
-                                  validator: (v) => Validators.requiredField(
-                                    v,
-                                    'End Date',
-                                  ),
+                                  validator: (v) =>
+                                      Validators.requiredField(v, 'End Date'),
                                 ),
                                 SizedBox(height: 12.h),
                                 // Read-only duration. Computed from
@@ -347,9 +373,13 @@ class _EditTourPlanDetailPageState
 }
 
 class _StatusBanner extends StatelessWidget {
-  const _StatusBanner({required this.status});
+  const _StatusBanner({
+    required this.status,
+    this.rejectionReason,
+  });
 
   final TourPlanStatus status;
+  final String? rejectionReason;
 
   @override
   Widget build(BuildContext context) {
@@ -358,14 +388,15 @@ class _StatusBanner extends StatelessWidget {
       TourPlanStatus.pending => Icons.hourglass_empty_rounded,
       TourPlanStatus.approved => Icons.check_circle_outline_rounded,
       TourPlanStatus.rejected => Icons.cancel_outlined,
+      TourPlanStatus.completed => Icons.task_alt_rounded,
     };
     final note = switch (status) {
-      TourPlanStatus.pending =>
-        'Awaiting approver review. You can still edit.',
+      TourPlanStatus.pending => 'Awaiting approver review. You can still edit.',
       TourPlanStatus.approved =>
         'Approved by your approver. No changes allowed.',
       TourPlanStatus.rejected =>
         'Rejected by your approver. No changes allowed.',
+      TourPlanStatus.completed => 'Completed and closed. No changes allowed.',
     };
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
@@ -409,6 +440,29 @@ class _StatusBanner extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
+                if (status == TourPlanStatus.rejected &&
+                    (rejectionReason?.isNotEmpty ?? false)) ...[
+                  SizedBox(height: 8.h),
+                  Container(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                    decoration: BoxDecoration(
+                      color: palette.bg.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8.r),
+                    ),
+                    child: Text(
+                      'Reason: $rejectionReason',
+                      style: TextStyle(
+                        color: palette.fg,
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.w500,
+                        height: 1.4,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -523,6 +577,41 @@ class _SubmitBar extends StatelessWidget {
             leadingIcon: editing ? Icons.check : Icons.edit,
             isLoading: isLoading,
             onPressed: onPressed,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CompletionBar extends StatelessWidget {
+  const _CompletionBar({
+    required this.isLoading,
+    required this.onPressed,
+  });
+
+  final bool isLoading;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(top: BorderSide(color: AppColors.border)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 12.h),
+          child: Tooltip(
+            message: 'Mark this approved tour plan as completed',
+            child: PrimaryButton(
+              label: 'Mark Completed',
+              leadingIcon: Icons.task_alt_rounded,
+              isLoading: isLoading,
+              onPressed: onPressed,
+            ),
           ),
         ),
       ),

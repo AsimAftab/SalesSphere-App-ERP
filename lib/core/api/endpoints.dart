@@ -34,8 +34,7 @@ class Endpoints {
   static const sites = '/sites';
   static String siteById(String id) => '/sites/$id';
   static String siteImages(String id) => '/sites/$id/images';
-  static String siteImageSlot(String id, int slot) =>
-      '/sites/$id/images/$slot';
+  static String siteImageSlot(String id, int slot) => '/sites/$id/images/$slot';
 
   // ── Site reference catalogues ─────────────────────────────────────────────
   static const siteCategories = '/site-categories';
@@ -53,6 +52,8 @@ class Endpoints {
 
   // ── Tour plans ────────────────────────────────────────────────────────────
   static const tourPlans = '/tour-plans';
+  static String tourPlanById(String id) => '/tour-plans/$id';
+  static String tourPlanStatus(String id) => '/tour-plans/$id/status';
 
   // ── Odometer ──────────────────────────────────────────────────────────────
   static const odometerLogs = '/odometer/logs';
@@ -75,8 +76,7 @@ class Endpoints {
   static const notes = '/notes';
   static String noteById(String id) => '/notes/$id';
   static String noteImages(String id) => '/notes/$id/images';
-  static String noteImageSlot(String id, int slot) =>
-      '/notes/$id/images/$slot';
+  static String noteImageSlot(String id, int slot) => '/notes/$id/images/$slot';
 
   // ── Profile ───────────────────────────────────────────────────────────────
   static const profile = '/profile';

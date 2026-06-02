@@ -1,17 +1,18 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:sales_sphere_erp/core/api/dio_client.dart';
 import 'package:sales_sphere_erp/features/tour_plans/data/dto/tour_plan_dto.dart';
 
-/// Raw data source for the tour-plans endpoints. Currently backed by a
-/// mutable in-memory list — swap for Dio calls once the tour-plans
-/// endpoint lands in the backend OpenAPI spec. Repository callers stay
-/// unchanged.
+/// Raw data source for the tour-plans endpoints.
 class TourPlansApi {
-  TourPlansApi() {
+  TourPlansApi(this._dio) {
     _store
       ..clear()
       ..addAll(_seed.map(TourPlanDto.fromJson));
   }
+
+  final Dio _dio;
 
   static final List<Map<String, dynamic>> _seed = <Map<String, dynamic>>[
     <String, dynamic>{
@@ -54,41 +55,105 @@ class TourPlansApi {
 
   final List<TourPlanDto> _store = <TourPlanDto>[];
 
-  Future<List<TourPlanDto>> list() async {
-    // Simulated round-trip so callers exercise the loading state path.
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    final sorted = _store.toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return List<TourPlanDto>.unmodifiable(sorted);
+  Future<List<TourPlanDto>> list({String? status, int limit = 10}) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      Endpoints.tourPlans,
+      queryParameters: <String, dynamic>{
+        'limit': limit,
+        if (status != null) 'status': status,
+      },
+    );
+    final data = _unwrapMap(response.data);
+    final rawItems = data['items'];
+    if (rawItems is! List<dynamic>) {
+      throw const FormatException(
+        'Malformed tour-plans page: missing or invalid `items` array',
+      );
+    }
+    final items = rawItems
+        .map((j) => TourPlanDto.fromJson(j as Map<String, dynamic>))
+        .toList(growable: false);
+    _store
+      ..clear()
+      ..addAll(items);
+    return items;
+  }
+
+  Future<TourPlanDto?> getById(String id) async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        Endpoints.tourPlanById(id),
+      );
+      return TourPlanDto.fromJson(_unwrapMap(response.data));
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      rethrow;
+    }
   }
 
   Future<TourPlanDto> create(TourPlanDto draft) async {
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    // New requests always start as pending — the API mock owns status
-    // assignment so callers can't accidentally submit pre-approved
-    // rows. Real backend will enforce the same.
-    final created = TourPlanDto(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
-      placeOfVisit: draft.placeOfVisit,
-      startDate: draft.startDate,
-      endDate: draft.endDate,
-      purpose: draft.purpose,
-      status: 'pending',
-      createdAt: DateTime.now(),
+    final response = await _dio.post<Map<String, dynamic>>(
+      Endpoints.tourPlans,
+      data: draft.toCreateJson(),
     );
-    _store.add(created);
+    final created = TourPlanDto.fromJson(_unwrapMap(response.data));
+    _store
+      ..removeWhere((p) => p.id == created.id)
+      ..add(created);
     return created;
   }
 
   Future<TourPlanDto> update(TourPlanDto plan) async {
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    final index = _store.indexWhere((p) => p.id == plan.id);
-    if (index == -1) {
-      throw StateError('Tour plan ${plan.id} not found');
+    final response = await _dio.patch<Map<String, dynamic>>(
+      Endpoints.tourPlanById(plan.id),
+      data: plan.toCreateJson(),
+    );
+    final updated = TourPlanDto.fromJson(_unwrapMap(response.data));
+    _store
+      ..removeWhere((p) => p.id == updated.id)
+      ..add(updated);
+    return updated;
+  }
+
+  Future<TourPlanDto> markTourPlanCompleted(String id) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      Endpoints.tourPlanStatus(id),
+      data: <String, dynamic>{'action': 'COMPLETED'},
+    );
+    final updated = TourPlanDto.fromJson(_unwrapMap(response.data));
+    _store
+      ..removeWhere((p) => p.id == updated.id)
+      ..add(updated);
+    return updated;
+  }
+
+  Object _unwrapData(Map<String, dynamic>? body) {
+    if (body == null) {
+      throw const FormatException('Empty response body');
     }
-    _store[index] = plan;
-    return plan;
+    if (body['success'] == false) {
+      throw const FormatException('Tour plans API returned success=false');
+    }
+    final inner = body['data'];
+    if (inner == null) {
+      throw const FormatException(
+        'Malformed tour-plans envelope: missing `data`',
+      );
+    }
+    return inner as Object;
+  }
+
+  Map<String, dynamic> _unwrapMap(Map<String, dynamic>? body) {
+    final inner = _unwrapData(body);
+    if (inner is! Map<String, dynamic>) {
+      throw const FormatException(
+        'Malformed tour-plans envelope: missing or invalid `data` object',
+      );
+    }
+    return inner;
   }
 }
 
-final tourPlansApiProvider = Provider<TourPlansApi>((_) => TourPlansApi());
+final tourPlansApiProvider = Provider<TourPlansApi>(
+  (ref) => TourPlansApi(ref.watch(dioProvider)),
+);
