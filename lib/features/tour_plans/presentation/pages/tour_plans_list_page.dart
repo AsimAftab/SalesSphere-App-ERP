@@ -18,11 +18,12 @@ import 'package:skeletonizer/skeletonizer.dart';
 
 /// Per-status colour palette for the badge on each list-row card.
 /// Matches the leaves module so the two list surfaces read as the same
-/// family — pending amber, approved green, rejected red.
+/// family — pending amber, approved green, rejected red, completed blue.
 ({Color fg, Color bg}) _statusPalette(TourPlanStatus s) => switch (s) {
   TourPlanStatus.pending => (fg: AppColors.warning, bg: AppColors.warning),
   TourPlanStatus.approved => (fg: AppColors.green500, bg: AppColors.green500),
   TourPlanStatus.rejected => (fg: AppColors.error, bg: AppColors.error),
+  TourPlanStatus.completed => (fg: AppColors.blue500, bg: AppColors.blue500),
 };
 
 class TourPlansListPage extends ConsumerStatefulWidget {
@@ -70,7 +71,8 @@ class _TourPlansListPageState extends ConsumerState<TourPlansListPage> {
 
   @override
   Widget build(BuildContext context) {
-    final plansAsync = ref.watch(tourPlansListProvider);
+    final plansProvider = tourPlansListProvider(status: _statusFilter);
+    final plansAsync = ref.watch(plansProvider);
 
     return DarkStatusBar(
       child: Scaffold(
@@ -125,8 +127,7 @@ class _TourPlansListPageState extends ConsumerState<TourPlansListPage> {
                     padding: EdgeInsets.symmetric(horizontal: 20.w),
                     child: PrimarySearchFilter<TourPlanStatus?>(
                       selected: _statusFilter,
-                      onChanged: (next) =>
-                          setState(() => _statusFilter = next),
+                      onChanged: (next) => setState(() => _statusFilter = next),
                       options: const <SearchFilterOption<TourPlanStatus?>>[
                         SearchFilterOption<TourPlanStatus?>(
                           value: null,
@@ -150,6 +151,12 @@ class _TourPlansListPageState extends ConsumerState<TourPlansListPage> {
                           label: 'Rejected',
                           icon: Icons.cancel_outlined,
                           iconColor: AppColors.error,
+                        ),
+                        SearchFilterOption<TourPlanStatus?>(
+                          value: TourPlanStatus.completed,
+                          label: 'Completed',
+                          icon: Icons.task_alt_rounded,
+                          iconColor: AppColors.blue500,
                         ),
                       ],
                     ),
@@ -175,8 +182,8 @@ class _TourPlansListPageState extends ConsumerState<TourPlansListPage> {
                       async: plansAsync,
                       filter: _applyFilters,
                       onRefresh: () async {
-                        ref.invalidate(tourPlansListProvider);
-                        await ref.read(tourPlansListProvider.future);
+                        ref.invalidate(plansProvider);
+                        await ref.read(plansProvider.future);
                       },
                       padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 140.h),
                       itemBuilder: (context, plan) => _TourPlanCard(

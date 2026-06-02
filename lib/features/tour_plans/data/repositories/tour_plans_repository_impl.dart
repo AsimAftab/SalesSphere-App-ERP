@@ -14,9 +14,21 @@ class TourPlansRepositoryImpl implements TourPlansRepository {
   final TourPlansApi _api;
 
   @override
-  Future<List<TourPlan>> getTourPlans() async {
-    final dtos = await _api.list();
+  Future<List<TourPlan>> getTourPlans({
+    TourPlanStatus? status,
+    int limit = 10,
+  }) async {
+    final dtos = await _api.list(
+      status: status == null ? null : _statusToWire(status),
+      limit: limit,
+    );
     return dtos.map(_toDomain).toList(growable: false);
+  }
+
+  @override
+  Future<TourPlan?> getTourPlanById(String id) async {
+    final dto = await _api.getById(id);
+    return dto == null ? null : _toDomain(dto);
   }
 
   @override
@@ -31,6 +43,12 @@ class TourPlansRepositoryImpl implements TourPlansRepository {
     return _toDomain(updated);
   }
 
+  @override
+  Future<TourPlan> markTourPlanCompleted(String id) async {
+    final updated = await _api.markTourPlanCompleted(id);
+    return _toDomain(updated);
+  }
+
   TourPlan _toDomain(TourPlanDto dto) => TourPlan(
     id: dto.id,
     placeOfVisit: dto.placeOfVisit,
@@ -39,6 +57,7 @@ class TourPlansRepositoryImpl implements TourPlansRepository {
     purpose: dto.purpose,
     status: _statusFromWire(dto.status),
     createdAt: dto.createdAt,
+    rejectionReason: dto.rejectionReason,
   );
 
   TourPlanDto _toDto(TourPlan p) => TourPlanDto(
@@ -50,25 +69,29 @@ class TourPlansRepositoryImpl implements TourPlansRepository {
     purpose: p.purpose,
     status: _statusToWire(p.status),
     createdAt: p.createdAt,
+    rejectionReason: p.rejectionReason,
   );
 
   TourPlanStatus _statusFromWire(String wire) {
-    switch (wire) {
+    switch (wire.toLowerCase()) {
       case 'pending':
         return TourPlanStatus.pending;
       case 'approved':
         return TourPlanStatus.approved;
       case 'rejected':
         return TourPlanStatus.rejected;
+      case 'completed':
+        return TourPlanStatus.completed;
       default:
         throw FormatException('Unsupported tour-plan status: $wire');
     }
   }
 
   String _statusToWire(TourPlanStatus s) => switch (s) {
-    TourPlanStatus.pending => 'pending',
-    TourPlanStatus.approved => 'approved',
-    TourPlanStatus.rejected => 'rejected',
+    TourPlanStatus.pending => 'PENDING',
+    TourPlanStatus.approved => 'APPROVED',
+    TourPlanStatus.rejected => 'REJECTED',
+    TourPlanStatus.completed => 'COMPLETED',
   };
 }
 
