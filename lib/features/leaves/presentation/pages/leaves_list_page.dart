@@ -14,6 +14,7 @@ import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_search_filter.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/refreshable_list.dart';
+import 'package:sales_sphere_erp/shared/widgets/status_badge.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
@@ -309,7 +310,10 @@ class _LeaveCard extends StatelessWidget {
                       ),
                     ),
                     SizedBox(width: 8.w),
-                    _StatusBadge(status: leave.status),
+                    StatusBadge(
+                      label: leaveStatusLabel(leave.status),
+                      color: _statusPalette(leave.status).fg,
+                    ),
                   ],
                 ),
                 SizedBox(height: 6.h),
@@ -344,43 +348,7 @@ class _LeaveCard extends StatelessWidget {
   }
 }
 
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.status});
 
-  final LeaveStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = _statusPalette(status);
-    // `Skeleton.replace` swaps the colored pill for a neutral bone
-    // while the list is loading — without this, the tinted background
-    // and bold-coloured text ignore the skeletonizer wash and read as
-    // real content over a "loading" row.
-    return Skeleton.replace(
-      replacement: Bone(
-        width: 64.w,
-        height: 22.h,
-        borderRadius: BorderRadius.circular(20.r),
-      ),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-        decoration: BoxDecoration(
-          color: palette.bg.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(20.r),
-        ),
-        child: Text(
-          leaveStatusLabel(status),
-          style: TextStyle(
-            color: palette.fg,
-            fontSize: 10.sp,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.3,
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 /// Sample leave fed to [_LeaveCard] when the list is loading.
 /// Skeletonizer paints text bones over the rendered title/dates.

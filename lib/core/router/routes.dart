@@ -12,6 +12,7 @@ class Routes {
   static const more = '/more';
   static const profile = '/profile';
   static const settings = '/settings';
+  static const changePassword = '/change-password';
   static const parties = '/parties';
   static const addParty = '/parties/add';
   static const partyDetail = '/parties/detail/:id';
@@ -21,6 +22,8 @@ class Routes {
   static const prospects = '/prospects';
   static const addProspect = '/prospects/add';
   static const prospectDetail = '/prospects/detail/:id';
+
+  static const odometer = '/odometer';
 
   static String prospectDetailPath(String id) => '/prospects/detail/$id';
 
@@ -71,6 +74,7 @@ class Routes {
   static const moreName = 'more';
   static const profileName = 'profile';
   static const settingsName = 'settings';
+  static const changePasswordName = 'changePassword';
   static const partiesName = 'parties';
   static const addPartyName = 'addParty';
   static const partyDetailName = 'partyDetail';

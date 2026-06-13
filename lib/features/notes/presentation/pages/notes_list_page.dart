@@ -549,7 +549,7 @@ class _NoteCard extends ConsumerWidget {
                     Expanded(
                       child: Text(
                         note.title,
-                        maxLines: 2,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: AppColors.primary,
@@ -624,7 +624,7 @@ class _LinkChip extends StatelessWidget {
 /// Skeletonizer paints text bones over the rendered title/desc.
 final _placeholderNote = Note(
   id: '',
-  title: 'Loading note title',
+  title: 'Loading note title placeholder text here',
   linkType: NoteLinkType.party,
   linkId: '',
   linkDisplayName: 'Loading',

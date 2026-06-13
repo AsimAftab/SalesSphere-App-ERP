@@ -22,10 +22,8 @@ class MorePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(authControllerProvider).value;
-    final subtitle = (user?.fullName.isNotEmpty ?? false)
-        ? 'Signed in as ${user!.fullName}'
-        : 'Account & settings';
+
+    const subtitle = 'Manage features and settings';
 
     return DarkStatusBar(
       child: Scaffold(
@@ -82,14 +80,14 @@ class MorePage extends ConsumerWidget {
           title: 'Leave Request',
           subtitle: 'Apply for leave and track approval',
           iconColor: AppColors.purple500,
-          onTap: () => _comingSoon(context, 'Leave Request'),
+          onTap: () => context.push(Routes.leaves),
         ),
         _TileSpec(
           icon: Icons.speed_outlined,
           title: 'Odometer',
           subtitle: 'Track distance during field visits',
           iconColor: AppColors.info,
-          onTap: () => _comingSoon(context, 'Odometer'),
+          onTap: () => context.push(Routes.odometer),
         ),
         _TileSpec(
           icon: Icons.currency_rupee,

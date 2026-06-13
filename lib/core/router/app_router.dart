@@ -25,6 +25,7 @@ import 'package:sales_sphere_erp/features/miscellaneous_work/presentation/pages/
 import 'package:sales_sphere_erp/features/miscellaneous_work/presentation/pages/miscellaneous_work_list_page.dart';
 import 'package:sales_sphere_erp/features/more/presentation/pages/more_page.dart';
 import 'package:sales_sphere_erp/features/notes/domain/note.dart';
+import 'package:sales_sphere_erp/features/odometer/presentation/pages/odometer_home_page.dart';
 import 'package:sales_sphere_erp/features/notes/presentation/pages/add_note_page.dart';
 import 'package:sales_sphere_erp/features/notes/presentation/pages/edit_note_detail_page.dart';
 import 'package:sales_sphere_erp/features/notes/presentation/pages/notes_list_page.dart';
@@ -37,6 +38,7 @@ import 'package:sales_sphere_erp/features/prospects/domain/prospect.dart';
 import 'package:sales_sphere_erp/features/prospects/presentation/pages/add_prospect_page.dart';
 import 'package:sales_sphere_erp/features/prospects/presentation/pages/edit_prospect_detail_page.dart';
 import 'package:sales_sphere_erp/features/prospects/presentation/pages/prospects_list_page.dart';
+import 'package:sales_sphere_erp/features/settings/presentation/pages/change_password_page.dart';
 import 'package:sales_sphere_erp/features/settings/presentation/pages/settings_page.dart';
 import 'package:sales_sphere_erp/features/sites/domain/site.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/pages/add_site_page.dart';
@@ -142,6 +144,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const ProfilePage(),
       ),
       GoRoute(
+        path: Routes.changePassword,
+        name: Routes.changePasswordName,
+        builder: (_, __) => const ChangePasswordPage(),
+      ),
+      GoRoute(
         path: Routes.parties,
         name: Routes.partiesName,
         builder: (_, __) => const PartiesListPage(),
@@ -233,6 +240,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.attendance,
         name: Routes.attendanceName,
         builder: (_, __) => const AttendanceHomePage(),
+      ),
+      GoRoute(
+        path: Routes.odometer,
+        builder: (_, __) => const OdometerHomePage(),
       ),
       // Literal `/attendance/details` MUST be declared before the
       // `:date` route — go_router resolves on declaration order, and
