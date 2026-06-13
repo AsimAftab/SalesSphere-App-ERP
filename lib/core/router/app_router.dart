@@ -8,6 +8,7 @@ import 'package:sales_sphere_erp/core/router/shell_scaffold.dart';
 import 'package:sales_sphere_erp/features/attendance/presentation/pages/attendance_day_detail_page.dart';
 import 'package:sales_sphere_erp/features/attendance/presentation/pages/attendance_details_page.dart';
 import 'package:sales_sphere_erp/features/attendance/presentation/pages/attendance_home_page.dart';
+import 'package:sales_sphere_erp/features/beat_plan/presentation/pages/beat_plan_detail_page.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/pages/forgot_password_page.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/pages/login_page.dart';
@@ -329,6 +330,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             id: id,
             initial: extra is TourPlan ? extra : null,
           );
+        },
+      ),
+      GoRoute(
+        path: Routes.beatPlanDetail,
+        name: Routes.beatPlanDetailName,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return BeatPlanDetailPage(id: id);
         },
       ),
     ],
