@@ -4,7 +4,8 @@ import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/features/attendance/domain/attendance_record.dart';
-import 'package:sales_sphere_erp/features/attendance/presentation/widgets/attendance_status_pill.dart';
+import 'package:sales_sphere_erp/features/attendance/domain/attendance_status.dart';
+import 'package:sales_sphere_erp/shared/widgets/status_badge.dart';
 
 /// One row on the month-list page: weekday + date + status pill,
 /// horizontal divider, 2×2 mini-grid of (check-in, check-out, hours
@@ -79,7 +80,10 @@ class DayDetailCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    AttendanceStatusPill(status: record.status),
+                    StatusBadge(
+                      label: record.status.palette.label,
+                      color: record.status.palette.accent,
+                    ),
                   ],
                 ),
                 SizedBox(height: 12.h),

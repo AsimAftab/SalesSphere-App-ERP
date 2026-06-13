@@ -7,7 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/controllers/auth_controller.dart';
-import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
+
+import 'package:sales_sphere_erp/shared/utils/browser_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
@@ -39,13 +40,6 @@ class SettingsPage extends ConsumerWidget {
     );
     if (confirmed != true) return;
     await ref.read(authControllerProvider.notifier).logout();
-  }
-
-  /// Placeholder tap handler for entries that don't have a destination
-  /// wired yet. The snackbar's neutral tone (info, not error) reads as
-  /// a deliberate "not yet" rather than a failure.
-  void _comingSoon(BuildContext context, String label) {
-    SnackbarUtils.showInfo(context, '$label — coming soon.');
   }
 
   @override
@@ -85,23 +79,36 @@ class SettingsPage extends ConsumerWidget {
                         _NavRow(
                           icon: Icons.lock_outline,
                           title: 'Change Password',
-                          onTap: () => _comingSoon(context, 'Change Password'),
+                          onTap: () => context.pushNamed(Routes.changePasswordName),
                         ),
                         SizedBox(height: 28.h),
                         const _SectionLabel(label: 'Other Settings'),
                         SizedBox(height: 12.h),
                         _NavRow(
                           icon: Icons.info_outline,
-                          title: 'About Sales Sphere',
-                          onTap: () =>
-                              _comingSoon(context, 'About Sales Sphere'),
+                          title: 'About SalesSphere',
+                          onTap: () => BrowserUtils.openInAppBrowser(
+                            context,
+                            'https://salessphere360.com/#about',
+                          ),
                         ),
                         SizedBox(height: 12.h),
                         _NavRow(
                           icon: Icons.description_outlined,
                           title: 'Terms and Conditions',
-                          onTap: () =>
-                              _comingSoon(context, 'Terms and Conditions'),
+                          onTap: () => BrowserUtils.openInAppBrowser(
+                            context,
+                            'https://salessphere360.com/terms-and-conditions',
+                          ),
+                        ),
+                        SizedBox(height: 12.h),
+                        _NavRow(
+                          icon: Icons.privacy_tip_outlined,
+                          title: 'Privacy Policy',
+                          onTap: () => BrowserUtils.openInAppBrowser(
+                            context,
+                            'https://salessphere360.com/privacy-policy',
+                          ),
                         ),
                         SizedBox(height: 12.h),
                         _NavRow(

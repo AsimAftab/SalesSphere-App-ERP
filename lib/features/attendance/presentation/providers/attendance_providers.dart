@@ -1,4 +1,8 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+
+import 'package:sales_sphere_erp/features/attendance/domain/work_schedule.dart';
 
 import 'package:sales_sphere_erp/features/attendance/data/repositories/attendance_repository_impl.dart';
 import 'package:sales_sphere_erp/features/attendance/domain/attendance_record.dart';
@@ -98,3 +102,16 @@ Future<AttendanceRecord?> todayAttendance(Ref ref) async {
   final today = DateTime(now.year, now.month, now.day);
   return ref.watch(attendanceByDateProvider(today).future);
 }
+
+/// Organisation shift configuration.
+/// TODO: replace with a real `/org/schedule` API call once that endpoint lands.
+/// All consumers depend on the abstract [WorkSchedule] type so the swap is
+/// confined to this provider.
+final workScheduleProvider = Provider<WorkSchedule>(
+  (_) => const WorkSchedule(
+    scheduledCheckIn: TimeOfDay(hour: 10, minute: 30),
+    scheduledCheckOut: TimeOfDay(hour: 11, minute: 0),
+    scheduledHalfDayCheckOut: TimeOfDay(hour: 13, minute: 0),
+    weeklyOffDays: <int>{DateTime.saturday},
+  ),
+);

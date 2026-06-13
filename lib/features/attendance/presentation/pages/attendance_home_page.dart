@@ -4,6 +4,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:intl/intl.dart';
+
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/attendance/domain/attendance_record.dart';
@@ -11,9 +13,13 @@ import 'package:sales_sphere_erp/features/attendance/domain/attendance_status.da
 import 'package:sales_sphere_erp/features/attendance/presentation/providers/attendance_providers.dart';
 import 'package:sales_sphere_erp/features/attendance/presentation/widgets/attendance_calendar.dart';
 import 'package:sales_sphere_erp/features/attendance/presentation/widgets/check_in_out_button.dart';
-import 'package:sales_sphere_erp/features/attendance/presentation/widgets/monthly_summary_card.dart';
-import 'package:sales_sphere_erp/features/attendance/presentation/widgets/today_status_card.dart';
+
+import 'package:sales_sphere_erp/features/attendance/domain/monthly_summary.dart';
+
+import 'package:sales_sphere_erp/shared/widgets/status_badge.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
+import 'package:sales_sphere_erp/shared/widgets/summary_stats_card.dart';
+import 'package:sales_sphere_erp/shared/widgets/today_status_card.dart';
 
 /// `/attendance` — home surface for the Attendance feature, reached
 /// from the More tab. Owns the currently displayed month and the
@@ -96,7 +102,7 @@ class _AttendanceHomePageState extends ConsumerState<AttendanceHomePage> {
               child: Column(
                 children: <Widget>[
                   Padding(
-                    padding: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 0),
+                    padding: EdgeInsets.fromLTRB(12.w, 4.h, 20.w, 0),
                     child: _AppBar(onBack: _back),
                   ),
                   SizedBox(height: 18.h),
@@ -107,7 +113,7 @@ class _AttendanceHomePageState extends ConsumerState<AttendanceHomePage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: <Widget>[
-                          TodayStatusCard(today: todayAsync.value),
+                          _buildTodayStatusCard(todayAsync.value),
                           SizedBox(height: 18.h),
                           const CheckInOutButton(),
                           SizedBox(height: 22.h),
@@ -133,7 +139,7 @@ class _AttendanceHomePageState extends ConsumerState<AttendanceHomePage> {
                           SizedBox(height: 18.h),
                           const _LegendRow(),
                           SizedBox(height: 22.h),
-                          MonthlySummaryCard(summary: summary),
+                          _buildMonthlySummaryCard(context, summary),
                         ],
                       ),
                     ),
@@ -144,6 +150,63 @@ class _AttendanceHomePageState extends ConsumerState<AttendanceHomePage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildMonthlySummaryCard(BuildContext context, MonthlySummary summary) {
+    final pct = summary.attendancePct;
+    final pctLabel = pct >= 1
+        ? '${pct.round()}%'
+        : pct > 0
+            ? '${pct.toStringAsFixed(1)}%'
+            : '0%';
+
+    return SummaryStatsCard(
+      title: 'Monthly Summary',
+      icon: Icons.trending_up_rounded,
+      iconColor: AppColors.secondary,
+      crossAxisCount: 3,
+      onViewDetails: () => context.push(Routes.attendanceDetails),
+      stats: [
+        SummaryStatTile(value: '${summary.present}', label: 'Present'),
+        SummaryStatTile(value: '${summary.absent}', label: 'Absent'),
+        SummaryStatTile(value: '${summary.leave}', label: 'Leave'),
+        SummaryStatTile(value: '${summary.halfDay}', label: 'Half-Day'),
+        SummaryStatTile(value: '${summary.weeklyOff}', label: 'Weekend'),
+        SummaryStatTile(value: pctLabel, label: 'Attendance'),
+      ],
+    );
+  }
+
+  Widget _buildTodayStatusCard(AttendanceRecord? record) {
+    final hasCheckIn = record?.hasCheckIn ?? false;
+    final hasCheckOut = record?.hasCheckOut ?? false;
+
+    String formatTimes(AttendanceRecord r) {
+      final fmt = DateFormat('hh:mm a');
+      final inAt = fmt.format(r.checkInAt!);
+      final outAt = r.checkOutAt;
+      return outAt == null ? inAt : '$inAt | ${fmt.format(outAt)}';
+    }
+
+    return TodayStatusCard(
+      icon: Icons.access_time_rounded,
+      title: "Today's Status",
+      statusBadge: hasCheckOut
+          ? const StatusBadge(label: 'Checked Out', color: AppColors.blue500)
+          : hasCheckIn
+              ? const StatusBadge(label: 'Checked In', color: AppColors.green500)
+              : const StatusBadge(label: 'Not Checked In', color: AppColors.textSecondary),
+      trailingWidget: hasCheckIn
+          ? Text(
+              formatTimes(record!),
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w500,
+              ),
+            )
+          : null,
     );
   }
 }
