@@ -7,7 +7,9 @@ import '../../../../core/router/routes.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../shared/widgets/status_badge.dart';
 import '../../../../shared/widgets/custom_button.dart';
-import '../providers/beat_plan_providers.dart';
+import '../../../../shared/utils/snackbar_utils.dart';
+import '../../../tracking/domain/usecases/start_tracking_usecase.dart';
+import '../../../tracking/presentation/controllers/tracking_controller.dart';
 import '../../domain/beat_plan.dart';
 
 class BeatPlanSummaryCard extends ConsumerWidget {
@@ -224,10 +226,7 @@ class BeatPlanSummaryCard extends ConsumerWidget {
                 if (plan.status.toLowerCase() == 'pending')
                   PrimaryButton(
                     label: 'Start Beat',
-                    onPressed: () {
-                      ref.read(beatPlanControllerProvider.notifier).startPlan(plan.id);
-                      context.push(Routes.beatPlanDetailPath(plan.id));
-                    },
+                    onPressed: () => _startBeat(context, ref, plan),
                   )
                 else
                   PrimaryButton(
@@ -242,6 +241,33 @@ class BeatPlanSummaryCard extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _startBeat(
+    BuildContext context,
+    WidgetRef ref,
+    BeatPlan plan,
+  ) async {
+    final result =
+        await ref.read(trackingControllerProvider.notifier).startForPlan(plan);
+    if (!context.mounted) return;
+    switch (result.outcome) {
+      case StartTrackingOutcome.permissionDenied:
+        SnackbarUtils.showWarning(
+          context,
+          result.message ?? 'Location permission is required.',
+        );
+      case StartTrackingOutcome.error:
+        SnackbarUtils.showError(
+          context,
+          result.message ?? 'Could not start tracking.',
+        );
+      case StartTrackingOutcome.started:
+        if (result.warning != null) {
+          SnackbarUtils.showWarning(context, result.warning!);
+        }
+        context.push(Routes.beatPlanDetailPath(plan.id));
+    }
   }
 
   Widget _buildStatItem(String count, String label, Color countColor) {

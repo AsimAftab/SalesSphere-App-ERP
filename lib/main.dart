@@ -9,8 +9,9 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:sales_sphere_erp/app.dart';
 import 'package:sales_sphere_erp/core/config/env.dart';
 import 'package:sales_sphere_erp/core/providers/app_observer.dart';
+import 'package:sales_sphere_erp/core/sync/mutation_handler_overrides.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/controllers/auth_controller.dart';
-import 'package:sales_sphere_erp/features/parties/parties_overrides.dart';
+import 'package:sales_sphere_erp/features/tracking/service/tracking_service.dart';
 
 Future<void> bootstrap() async {
   await runZonedGuarded<Future<void>>(
@@ -22,12 +23,18 @@ Future<void> bootstrap() async {
         DeviceOrientation.portraitUp,
       ]);
 
+      // Create the tracking notification channel + register the foreground
+      // service (autoStart:false — it only runs once a rep starts a beat plan).
+      await configureTrackingService();
+
       final Future<void> Function() launch = () async {
         runApp(
           ProviderScope(
             overrides: [
               ...authProviderOverrides,
-              ...partiesProviderOverrides,
+              // Single merged registration of every feature's MutationHandler
+              // (parties + beat-plan visit/skip). See mutation_handler_overrides.
+              mutationHandlersOverride,
             ],
             observers: <ProviderObserver>[AppProviderObserver()],
             child: const SalesSphereApp(),

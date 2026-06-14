@@ -6,7 +6,7 @@ import 'package:sales_sphere_erp/features/attendance/domain/work_schedule.dart';
 
 import 'package:sales_sphere_erp/features/attendance/data/repositories/attendance_repository_impl.dart';
 import 'package:sales_sphere_erp/features/attendance/domain/attendance_record.dart';
-import 'package:sales_sphere_erp/features/attendance/domain/attendance_status.dart';
+import 'package:sales_sphere_erp/features/attendance/domain/monthly_report.dart';
 import 'package:sales_sphere_erp/features/attendance/domain/monthly_summary.dart';
 
 // Re-export the repository provider so downstream consumers
@@ -17,16 +17,31 @@ export 'package:sales_sphere_erp/features/attendance/data/repositories/attendanc
 
 part 'attendance_providers.g.dart';
 
-/// Records for `year/month`. Single fetch is fanned out into the
-/// calendar, monthly summary, and `attendanceByDate` derived
-/// providers, so consuming pages never duplicate the round-trip.
+/// The month's report — per-day records + server-computed summary —
+/// from `/attendance/my-monthly-report`. This is the single round-trip;
+/// `attendanceMonth`, `attendanceMonthlySummary`, and `attendanceByDate`
+/// all derive from it so consuming pages never refetch.
+@riverpod
+Future<MonthlyReport> attendanceMonthlyReport(
+  Ref ref,
+  int year,
+  int month,
+) async {
+  return ref.watch(attendanceRepositoryProvider).getMonthlyReport(year, month);
+}
+
+/// Records for `year/month`, projected out of [attendanceMonthlyReport]
+/// so the calendar and `attendanceByDate` keep their existing shape.
 @riverpod
 Future<List<AttendanceRecord>> attendanceMonth(
   Ref ref,
   int year,
   int month,
 ) async {
-  return ref.watch(attendanceRepositoryProvider).getMonth(year, month);
+  final report = await ref.watch(
+    attendanceMonthlyReportProvider(year, month).future,
+  );
+  return report.records;
 }
 
 /// Single day's record (or `null` if no attendance was logged). Pulled
@@ -47,50 +62,15 @@ Future<AttendanceRecord?> attendanceByDate(Ref ref, DateTime date) async {
   return null;
 }
 
-/// Synchronous roll-up for the home page's "Monthly Summary" card.
-/// Reads `.valueOrNull` so the card paints zeros while the underlying
-/// month is loading (instead of unwrapping an `AsyncLoading` and
-/// pushing a second skeleton state to the user).
+/// Synchronous roll-up for the home page's "Monthly Summary" card,
+/// taken straight from the server's tally on [attendanceMonthlyReport].
+/// Reads `.value` so the card paints zeros while the month is loading
+/// (instead of unwrapping an `AsyncLoading` and pushing a second
+/// skeleton state to the user).
 @riverpod
 MonthlySummary attendanceMonthlySummary(Ref ref, int year, int month) {
-  final records = ref.watch(attendanceMonthProvider(year, month)).value;
-  if (records == null) return MonthlySummary.empty;
-
-  var present = 0;
-  var absent = 0;
-  var leave = 0;
-  var halfDay = 0;
-  var weeklyOff = 0;
-  for (final r in records) {
-    switch (r.status) {
-      case AttendanceStatus.present:
-        present++;
-      case AttendanceStatus.absent:
-        absent++;
-      case AttendanceStatus.leave:
-        leave++;
-      case AttendanceStatus.halfDay:
-        halfDay++;
-      case AttendanceStatus.weeklyOff:
-        weeklyOff++;
-    }
-  }
-
-  // Half-day counts as 0.5 of a working day; weekly-offs are excluded
-  // from the denominator since they aren't attendance opportunities.
-  final workingDays = present + absent + leave + halfDay;
-  final attendancePct = workingDays == 0
-      ? 0.0
-      : ((present + halfDay * 0.5) / workingDays) * 100;
-
-  return MonthlySummary(
-    present: present,
-    absent: absent,
-    leave: leave,
-    halfDay: halfDay,
-    weeklyOff: weeklyOff,
-    attendancePct: attendancePct,
-  );
+  return ref.watch(attendanceMonthlyReportProvider(year, month)).value?.summary ??
+      MonthlySummary.empty;
 }
 
 /// Today's record (or `null` if the user hasn't checked in yet).

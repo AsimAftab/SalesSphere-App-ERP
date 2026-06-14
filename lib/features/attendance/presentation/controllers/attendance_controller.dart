@@ -50,7 +50,7 @@ class AttendanceController extends _$AttendanceController {
             lng: position?.longitude,
             address: address,
           );
-      ref.invalidate(attendanceMonthProvider(now.year, now.month));
+      ref.invalidate(attendanceMonthlyReportProvider(now.year, now.month));
       return created;
     } finally {
       link.close();
@@ -71,7 +71,7 @@ class AttendanceController extends _$AttendanceController {
             lng: position?.longitude,
             address: address,
           );
-      ref.invalidate(attendanceMonthProvider(now.year, now.month));
+      ref.invalidate(attendanceMonthlyReportProvider(now.year, now.month));
       return updated;
     } finally {
       link.close();

@@ -173,6 +173,7 @@ class _AttendanceHomePageState extends ConsumerState<AttendanceHomePage> {
         SummaryStatTile(value: '${summary.leave}', label: 'Leave'),
         SummaryStatTile(value: '${summary.halfDay}', label: 'Half-Day'),
         SummaryStatTile(value: '${summary.weeklyOff}', label: 'Weekend'),
+        SummaryStatTile(value: '${summary.late}', label: 'Late'),
         SummaryStatTile(value: pctLabel, label: 'Attendance'),
       ],
     );

@@ -25,13 +25,33 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _scrollController = ScrollController();
   bool _obscurePassword = true;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  /// Pins the form to the bottom of the space above the keyboard so the
+  /// whole card — including the Log in button — clears it. With the keyboard
+  /// closed the content is shorter than the viewport (maxScrollExtent == 0),
+  /// so this leaves the resting layout untouched. The brand header slides up
+  /// behind the card; that's intentional. `viewInsets` animates with the
+  /// keyboard, so re-pinning each frame produces a smooth lift.
+  void _pinFormAboveKeyboard(double keyboardInset) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      final target = keyboardInset > 0
+          ? _scrollController.position.maxScrollExtent
+          : 0.0;
+      if ((_scrollController.offset - target).abs() > 0.5) {
+        _scrollController.jumpTo(target);
+      }
+    });
   }
 
   Future<void> _submit() async {
@@ -58,12 +78,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     final auth = ref.watch(authControllerProvider);
     final isLoading = auth.isLoading;
-    final screenHeight = MediaQuery.of(context).size.height;
+    final mediaQuery = MediaQuery.of(context);
+    final screenHeight = mediaQuery.size.height;
+    final keyboardInset = mediaQuery.viewInsets.bottom;
+    _pinFormAboveKeyboard(keyboardInset);
 
     return LightStatusBar(
       child: Scaffold(
         backgroundColor: AppColors.background,
-        // Keeps the UI completely rigid when the keyboard opens
+        // The background gradient + bottom text stay rigid (they're
+        // anchored to the full screen and ignore the keyboard inset). Only
+        // the form layer below shrinks to the space above the keyboard so
+        // the focused field can scroll into view.
         resizeToAvoidBottomInset: false,
         body: GestureDetector(
           onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
@@ -93,11 +119,20 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 ),
               ),
 
-              // Main Content
-              Positioned.fill(
+              // Main Content — bounded to the area above the keyboard. When
+              // the keyboard opens this layer shrinks and the form is pinned
+              // to its bottom (see _pinFormAboveKeyboard) so the card lifts up
+              // over the brand header and the Log in button clears the
+              // keyboard. With the keyboard closed (inset 0) it fills the
+              // screen and the content is too short to scroll.
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: keyboardInset,
                 child: SingleChildScrollView(
-                  // Completely disables scrolling at all times
-                  physics: const NeverScrollableScrollPhysics(),
+                  controller: _scrollController,
+                  physics: const ClampingScrollPhysics(),
                   child: Column(
                     children: <Widget>[
                       SizedBox(height: 80.h),

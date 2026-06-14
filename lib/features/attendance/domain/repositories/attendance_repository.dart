@@ -1,13 +1,14 @@
 import 'package:sales_sphere_erp/features/attendance/domain/attendance_record.dart';
+import 'package:sales_sphere_erp/features/attendance/domain/monthly_report.dart';
 
 /// Contract for the attendance data source. The concrete impl
 /// (`AttendanceRepositoryImpl`) handles wire-DTO ↔ domain mapping and
 /// — once the backend lands — drift persistence + outbox enqueue.
 /// Tests substitute fakes via the Riverpod override.
 abstract class AttendanceRepository {
-  /// All records that fall within `year/month`. Sorted ascending by
-  /// `date` so the calendar can index by `date.day` directly.
-  Future<List<AttendanceRecord>> getMonth(int year, int month);
+  /// The month's per-day records plus the server-computed status tally
+  /// for `year/month`, from `GET /attendance/my-monthly-report`.
+  Future<MonthlyReport> getMonthlyReport(int year, int month);
 
   /// Records the user's check-in timestamp + location for `at.date`.
   /// Returns the upserted record so the controller can fold it back

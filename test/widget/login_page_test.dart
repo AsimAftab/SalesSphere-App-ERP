@@ -44,9 +44,9 @@ void main() {
     await tester.pumpWidget(_harness(const LoginPage()));
     await tester.pump();
 
-    expect(find.text('Welcome Back!'), findsOneWidget);
+    expect(find.text('Welcome back'), findsOneWidget);
     expect(find.byType(TextFormField), findsNWidgets(2));
-    expect(find.text('Login'), findsOneWidget);
+    expect(find.text('Log in'), findsOneWidget);
   });
 
   testWidgets('LoginPage shows validation errors when fields are empty',
@@ -56,7 +56,7 @@ void main() {
     await tester.pumpWidget(_harness(const LoginPage()));
     await tester.pump();
 
-    await tester.tap(find.text('Login'));
+    await tester.tap(find.text('Log in'));
     // PrimaryTextField surfaces validator errors via a post-frame setState,
     // so we need a couple of pumps for the error text to land in the tree.
     await tester.pump();

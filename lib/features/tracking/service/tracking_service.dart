@@ -1,0 +1,722 @@
+import 'dart:async';
+import 'dart:ui';
+
+import 'package:dio/dio.dart';
+import 'package:drift/drift.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:geolocator/geolocator.dart';
+
+import 'package:sales_sphere_erp/core/api/endpoints.dart';
+import 'package:sales_sphere_erp/core/auth/token_storage.dart';
+import 'package:sales_sphere_erp/core/config/env.dart';
+import 'package:sales_sphere_erp/core/db/app_database.dart';
+import 'package:sales_sphere_erp/core/db/daos/tracking_dao.dart';
+import 'package:sales_sphere_erp/core/db/daos/tracking_pings_dao.dart';
+import 'package:sales_sphere_erp/core/utils/uuid.dart';
+import 'package:sales_sphere_erp/features/tracking/data/tracking_socket_client.dart';
+import 'package:sales_sphere_erp/features/tracking/domain/tracking_models.dart';
+import 'package:sales_sphere_erp/features/tracking/service/tracking_ipc.dart';
+import 'package:sales_sphere_erp/features/tracking/service/tracking_notification.dart';
+import 'package:sales_sphere_erp/features/tracking/service/tracking_prefs.dart';
+
+/// Set by `app.dart` (main isolate) so a notification tap can deep-link to the
+/// plan. Lives as a global because the FLN foreground callback is a top-level
+/// function with no access to the widget tree.
+void Function(String beatPlanId)? trackingNotificationTapHandler;
+
+void _onForegroundNotificationTap(NotificationResponse response) {
+  final payload = response.payload;
+  if (payload == null || !payload.startsWith('beat-plans/')) return;
+  trackingNotificationTapHandler
+      ?.call(payload.substring('beat-plans/'.length));
+}
+
+// ── UI-isolate facade ───────────────────────────────────────────────────────
+
+/// Wire up the foreground service + notification channel. Call once in
+/// `bootstrap()` before `runApp`.
+Future<void> configureTrackingService() async {
+  final plugin = FlutterLocalNotificationsPlugin();
+  await initTrackingNotifications(
+    plugin,
+    onForegroundTap: _onForegroundNotificationTap,
+  );
+
+  await FlutterBackgroundService().configure(
+    androidConfiguration: AndroidConfiguration(
+      onStart: trackingServiceOnStart,
+      isForegroundMode: true,
+      autoStart: false,
+      autoStartOnBoot: false,
+      foregroundServiceTypes: <AndroidForegroundType>[
+        AndroidForegroundType.location,
+      ],
+      notificationChannelId: kTrackingChannelId,
+      foregroundServiceNotificationId: kTrackingNotificationId,
+      initialNotificationTitle: 'SalesSphere',
+      initialNotificationContent: 'Starting live tracking…',
+    ),
+    iosConfiguration: IosConfiguration(autoStart: false),
+  );
+}
+
+Future<bool> isTrackingServiceRunning() =>
+    FlutterBackgroundService().isRunning();
+
+/// Start (or hand the latest progress to) the tracking service for [beatPlanId].
+Future<void> startTrackingService({
+  required String beatPlanId,
+  required int total,
+  required int visited,
+  required int skipped,
+}) async {
+  await TrackingPrefs.saveStart(
+    beatPlanId: beatPlanId,
+    total: total,
+    visited: visited,
+    skipped: skipped,
+  );
+  final service = FlutterBackgroundService();
+  if (!await service.isRunning()) {
+    await service.startService();
+  }
+  // Primary start path is the prefs read inside onStart; this invoke is the
+  // immediate nudge for an already-running service / fast UI.
+  service.invoke(TrackingIpc.cmdStart, <String, dynamic>{
+    TrackingIpc.kBeatPlanId: beatPlanId,
+    TrackingIpc.kTotal: total,
+    TrackingIpc.kVisited: visited,
+    TrackingIpc.kSkipped: skipped,
+  });
+}
+
+void pauseTrackingService() =>
+    FlutterBackgroundService().invoke(TrackingIpc.cmdPause);
+
+void resumeTrackingService() =>
+    FlutterBackgroundService().invoke(TrackingIpc.cmdResume);
+
+Future<void> stopTrackingService() async {
+  FlutterBackgroundService().invoke(TrackingIpc.cmdStop);
+  await TrackingPrefs.clear();
+}
+
+void updateTrackingProgress({
+  required int total,
+  required int visited,
+  required int skipped,
+}) {
+  FlutterBackgroundService().invoke(TrackingIpc.cmdProgress, <String, dynamic>{
+    TrackingIpc.kTotal: total,
+    TrackingIpc.kVisited: visited,
+    TrackingIpc.kSkipped: skipped,
+  });
+}
+
+// ── Background-isolate entrypoint ───────────────────────────────────────────
+
+@pragma('vm:entry-point')
+Future<void> trackingServiceOnStart(ServiceInstance service) async {
+  DartPluginRegistrant.ensureInitialized();
+  try {
+    Env.initialise();
+  } on Object {
+    // Already initialised, or no flavor define — Env constants are baked in.
+  }
+  if (service is AndroidServiceInstance) {
+    await service.setAsForegroundService();
+  }
+  final runtime = _TrackingRuntime(service);
+  await runtime.bootstrap();
+}
+
+/// Owns the entire tracking runtime inside the foreground-service isolate: GPS
+/// stream, socket, durable ping outbox, notification, and server-event
+/// handling. The UI isolate never touches any of this — it sends commands and
+/// receives ephemeral state over the service channel.
+class _TrackingRuntime {
+  _TrackingRuntime(this._service);
+
+  final ServiceInstance _service;
+
+  late final AppDatabase _db;
+  late final TrackingDao _trackingDao;
+  late final TrackingPingsDao _pingsDao;
+  late final TokenStorage _tokens;
+  late final Dio _refreshDio;
+  final FlutterLocalNotificationsPlugin _notifications =
+      FlutterLocalNotificationsPlugin();
+
+  TrackingSocketClient? _socket;
+  StreamSubscription<TrackingServerEvent>? _socketSub;
+  StreamSubscription<Position>? _gpsSub;
+  Timer? _ticker;
+
+  String? _beatPlanId;
+  String? _sessionId;
+  bool _started = false;
+  bool _connected = false;
+  bool _refreshing = false;
+  TrackingStatus _status = TrackingStatus.active;
+
+  DateTime? _startedAt;
+  DateTime? _lastProcessedAt;
+  double _distanceKm = 0;
+  double? _lastLat;
+  double? _lastLng;
+  int _queued = 0;
+  int _total = 0;
+  int _visited = 0;
+  int _skipped = 0;
+
+  Future<void> bootstrap() async {
+    // flutter_local_notifications is per-isolate — initialise it here so the
+    // service can render/own the ongoing notification from this isolate.
+    await initTrackingNotifications(_notifications);
+
+    _db = AppDatabase();
+    _trackingDao = _db.trackingDao;
+    _pingsDao = _db.trackingPingsDao;
+    _tokens = TokenStorage(
+      const FlutterSecureStorage(
+        aOptions: AndroidOptions(encryptedSharedPreferences: true),
+      ),
+    );
+    _refreshDio = Dio(
+      BaseOptions(
+        baseUrl: '${Env.current.apiBaseUrl}/api/v1',
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 20),
+        headers: <String, String>{
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'x-client-type': 'mobile',
+        },
+      ),
+    );
+
+    _service.on(TrackingIpc.cmdStart).listen((args) {
+      if (args == null) return;
+      unawaited(start(
+        beatPlanId: args[TrackingIpc.kBeatPlanId] as String,
+        total: (args[TrackingIpc.kTotal] as num?)?.toInt() ?? 0,
+        visited: (args[TrackingIpc.kVisited] as num?)?.toInt() ?? 0,
+        skipped: (args[TrackingIpc.kSkipped] as num?)?.toInt() ?? 0,
+      ));
+    });
+    _service.on(TrackingIpc.cmdPause).listen((_) => unawaited(pause()));
+    _service.on(TrackingIpc.cmdResume).listen((_) => unawaited(resume()));
+    _service.on(TrackingIpc.cmdStop).listen((_) => unawaited(stop()));
+    _service.on(TrackingIpc.cmdSync).listen((_) {
+      _pushState();
+      unawaited(_updateNotification());
+    });
+    _service.on(TrackingIpc.cmdProgress).listen((args) {
+      if (args == null) return;
+      updateProgress(
+        total: (args[TrackingIpc.kTotal] as num?)?.toInt() ?? _total,
+        visited: (args[TrackingIpc.kVisited] as num?)?.toInt() ?? _visited,
+        skipped: (args[TrackingIpc.kSkipped] as num?)?.toInt() ?? _skipped,
+      );
+    });
+    _service.on(TrackingIpc.cmdAction).listen((args) {
+      switch (args?[TrackingIpc.kActionId]) {
+        case TrackingIpc.actionPause:
+          unawaited(pause());
+        case TrackingIpc.actionResume:
+          unawaited(resume());
+        case TrackingIpc.actionStop:
+          unawaited(stop());
+      }
+    });
+
+    // Primary start/resume path: the UI wrote the intent before starting us.
+    final intent = await TrackingPrefs.read();
+    if (intent != null && intent.active) {
+      await start(
+        beatPlanId: intent.beatPlanId,
+        total: intent.total,
+        visited: intent.visited,
+        skipped: intent.skipped,
+      );
+    }
+  }
+
+  Future<void> start({
+    required String beatPlanId,
+    required int total,
+    required int visited,
+    required int skipped,
+  }) async {
+    if (_started && _beatPlanId == beatPlanId) {
+      updateProgress(total: total, visited: visited, skipped: skipped);
+      return;
+    }
+    if (_started && _beatPlanId != beatPlanId) {
+      await _teardownTrackingOnly();
+    }
+    _started = true;
+    _beatPlanId = beatPlanId;
+    _total = total;
+    _visited = visited;
+    _skipped = skipped;
+    _status = TrackingStatus.active;
+    _startedAt = DateTime.now();
+    _distanceKm = 0;
+    _lastLat = null;
+    _lastLng = null;
+    _lastProcessedAt = null;
+    _sessionId = 'local_${generateUuidV4()}';
+
+    await _trackingDao.upsertSession(
+      TrackingSessionsCompanion.insert(
+        id: _sessionId!,
+        beatPlanId: beatPlanId,
+        status: const Value<String>('ACTIVE'),
+        startedAt: Value<DateTime>(_startedAt!),
+      ),
+    );
+
+    await _updateNotification();
+    await _connectSocket();
+    await _beginGps();
+
+    _ticker?.cancel();
+    _ticker = Timer.periodic(const Duration(seconds: 15), (_) {
+      unawaited(_tick());
+    });
+
+    _pushState();
+  }
+
+  Future<void> _connectSocket() async {
+    final token = await _tokens.readAccessToken();
+    if (token == null || token.isEmpty) {
+      // No token — run offline; GPS still buffers, flushed once we reconnect
+      // after a refresh / next app session.
+      return;
+    }
+    final socket = TrackingSocketClient(
+      origin: Env.current.wsBaseUrl,
+      token: token,
+    );
+    _socketSub = socket.events.listen(_onServerEvent);
+    _socket = socket;
+    socket.connect();
+  }
+
+  Future<void> _beginGps() async {
+    await _gpsSub?.cancel();
+    _gpsSub = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 10,
+      ),
+    ).listen(_onPosition, onError: (_) {});
+  }
+
+  Future<void> _onPosition(Position pos) async {
+    if (!_started || _beatPlanId == null) return;
+    // Always record while the service runs — there's no user pause. If the
+    // server stale-paused us, sending this fix gets a SESSION_PAUSED ack, which
+    // re-establishes (resumes) the session below.
+
+    final now = DateTime.now();
+    final speed = (pos.speed.isNaN || pos.speed < 0) ? 0.0 : pos.speed;
+    final minGap = speed < 0.5
+        ? const Duration(seconds: 30)
+        : const Duration(seconds: 8);
+    if (_lastProcessedAt != null && now.difference(_lastProcessedAt!) < minGap) {
+      return;
+    }
+    _lastProcessedAt = now;
+
+    final fix = LocationFix(
+      clientPingId: generateUuidV4(),
+      latitude: pos.latitude,
+      longitude: pos.longitude,
+      accuracy: pos.accuracy,
+      speed: speed,
+      heading: pos.heading,
+      recordedAt: pos.timestamp,
+    );
+
+    await _pingsDao.enqueue(
+      TrackingPingsCompanion.insert(
+        clientPingId: fix.clientPingId,
+        beatPlanId: _beatPlanId!,
+        latitude: fix.latitude,
+        longitude: fix.longitude,
+        recordedAt: fix.recordedAt,
+        accuracy: Value<double?>(fix.accuracy),
+        speed: Value<double?>(fix.speed),
+        heading: Value<double?>(fix.heading),
+      ),
+    );
+
+    if (_lastLat != null && _lastLng != null) {
+      _distanceKm += Geolocator.distanceBetween(
+            _lastLat!,
+            _lastLng!,
+            pos.latitude,
+            pos.longitude,
+          ) /
+          1000.0;
+    }
+    _lastLat = pos.latitude;
+    _lastLng = pos.longitude;
+
+    if (_sessionId != null) {
+      await _trackingDao.updateLocation(
+        _sessionId!,
+        latitude: pos.latitude,
+        longitude: pos.longitude,
+        recordedAt: fix.recordedAt,
+        totalDistanceKm: _distanceKm,
+      );
+    }
+
+    if (_connected && _socket != null) {
+      final ack = await _socket!.updateLocation(
+        beatPlanId: _beatPlanId!,
+        fix: fix,
+      );
+      if (ack.ok) {
+        await _pingsDao.deleteByClientId(fix.clientPingId);
+      } else if (ack.code == 'NO_ACTIVE_SESSION' ||
+          ack.code == 'SESSION_PAUSED') {
+        // Session lapsed / stale-paused server-side — re-establish (resumes);
+        // the ping stays buffered and flushes on success.
+        unawaited(_establishSession());
+      }
+      // RATE_LIMITED / transient → leave buffered for the next batch flush.
+    }
+
+    _queued = await _pingsDao.countPending();
+    _pushState();
+    await _updateNotification();
+  }
+
+  Future<void> _flushPending() async {
+    final socket = _socket;
+    if (socket == null || !socket.isConnected || _beatPlanId == null) return;
+    while (true) {
+      final rows = await _pingsDao.pendingForBeatPlan(_beatPlanId!, limit: 500);
+      if (rows.isEmpty) break;
+      final ack = await socket.updateLocationBatch(
+        beatPlanId: _beatPlanId!,
+        fixes: rows.map(_rowToFix).toList(growable: false),
+      );
+      if (!ack.ok) break;
+      await _pingsDao.deleteByClientIds(
+        rows.map((r) => r.clientPingId).toList(growable: false),
+      );
+      if (rows.length < 500) break;
+    }
+    _queued = await _pingsDao.countPending();
+    _pushState();
+  }
+
+  Future<void> _onServerEvent(TrackingServerEvent event) async {
+    switch (event) {
+      case ConnectionStateEvent(:final connected):
+        _connected = connected;
+        if (connected) await _establishSession();
+        _pushState();
+        await _updateNotification();
+      case StatusUpdateEvent(:final status):
+        _status = status;
+        if (_sessionId != null) {
+          await _trackingDao.setStatus(_sessionId!, _statusWire(status));
+        }
+        _pushState();
+        await _updateNotification();
+      case ForceStoppedEvent(:final reason, :final summary):
+        await _handleForceStopped(reason, summary);
+      case AuthExpiredEvent():
+        await _refreshToken();
+      case ServerShuttingDownEvent():
+        // Keep the outbox; socket auto-reconnects shortly.
+        break;
+      case TrackingErrorEvent():
+        // RATE_LIMITED / transient — pings stay buffered, no action.
+        break;
+      case LocationBroadcastEvent():
+        // Our own fixes aren't echoed back; nothing to do as the rep.
+        break;
+    }
+  }
+
+  /// Open (or resume) the server session and flush anything buffered. Sent on
+  /// every connect — the server makes `start-tracking` idempotent.
+  Future<void> _establishSession() async {
+    final socket = _socket;
+    if (socket == null || !socket.isConnected || _beatPlanId == null) return;
+    final ack = await socket.startTracking(_beatPlanId!);
+    if (!ack.ok) {
+      if (ack.code == 'BEAT_PLAN_NOT_ASSIGNED') {
+        await _handleForceStopped(
+          ForceStopReason.unknown,
+          null,
+          reasonLabel: 'Not assigned to you',
+        );
+      }
+      return;
+    }
+    // Re-established successfully — clear any prior stale-pause for display.
+    _status = TrackingStatus.active;
+    final sid = ack.sessionId;
+    if (sid != null && sid.isNotEmpty && sid != _sessionId) {
+      final prev = _sessionId;
+      _sessionId = sid;
+      if (prev != null) {
+        await _trackingDao.renameSession(prev, sid);
+      } else {
+        await _trackingDao.upsertSession(
+          TrackingSessionsCompanion.insert(
+            id: sid,
+            beatPlanId: _beatPlanId!,
+            status: const Value<String>('ACTIVE'),
+            startedAt: Value<DateTime>(_startedAt ?? DateTime.now()),
+          ),
+        );
+      }
+      _service.invoke(TrackingIpc.evtSession, <String, dynamic>{
+        TrackingIpc.kBeatPlanId: _beatPlanId,
+        TrackingIpc.kSessionId: sid,
+      });
+    }
+    await _flushPending();
+  }
+
+  Future<void> pause() async {
+    if (!_started) return;
+    _status = TrackingStatus.paused;
+    if (_sessionId != null) {
+      await _trackingDao.setStatus(_sessionId!, 'PAUSED');
+    }
+    if (_connected && _beatPlanId != null) {
+      await _socket?.pause(_beatPlanId!);
+    }
+    _pushState();
+    await _updateNotification();
+  }
+
+  Future<void> resume() async {
+    if (!_started) return;
+    _status = TrackingStatus.active;
+    if (_sessionId != null) {
+      await _trackingDao.setStatus(_sessionId!, 'ACTIVE');
+    }
+    if (_connected && _beatPlanId != null) {
+      await _socket?.resume(_beatPlanId!);
+    }
+    _pushState();
+    await _updateNotification();
+  }
+
+  Future<void> stop() async {
+    if (!_started) {
+      await _shutdown();
+      return;
+    }
+    TrackingSummary? summary;
+    if (_connected && _socket != null && _beatPlanId != null) {
+      await _flushPending();
+      final ack = await _socket!.stop(_beatPlanId!);
+      summary = ack.summary;
+    }
+    await _finish(
+      reason: null,
+      reasonLabel: null,
+      summary: summary,
+      event: TrackingIpc.evtStopped,
+    );
+  }
+
+  void updateProgress({
+    required int total,
+    required int visited,
+    required int skipped,
+  }) {
+    _total = total;
+    _visited = visited;
+    _skipped = skipped;
+    unawaited(TrackingPrefs.updateProgress(
+      total: total,
+      visited: visited,
+      skipped: skipped,
+    ));
+    _pushState();
+    unawaited(_updateNotification());
+  }
+
+  Future<void> _handleForceStopped(
+    ForceStopReason reason,
+    TrackingSummary? summary, {
+    String? reasonLabel,
+  }) async {
+    await _flushPending();
+    await _finish(
+      reason: reason,
+      reasonLabel: reasonLabel ?? reason.displayLabel,
+      summary: summary,
+      event: TrackingIpc.evtForceStopped,
+    );
+  }
+
+  Future<void> _finish({
+    required ForceStopReason? reason,
+    required String? reasonLabel,
+    required TrackingSummary? summary,
+    required String event,
+  }) async {
+    _status = TrackingStatus.completed;
+    await _gpsSub?.cancel();
+    _gpsSub = null;
+    if (_sessionId != null) {
+      await _trackingDao.markCompleted(_sessionId!, DateTime.now());
+    }
+
+    final payload = <String, dynamic>{
+      TrackingIpc.kBeatPlanId: _beatPlanId,
+      if (_sessionId != null) TrackingIpc.kSessionId: _sessionId,
+      if (reason != null) TrackingIpc.kReason: reason.name,
+      if (reasonLabel != null) TrackingIpc.kReasonLabel: reasonLabel,
+      if (summary != null) ...<String, dynamic>{
+        'totalDistanceKm': summary.totalDistanceKm,
+        'totalDurationMin': summary.totalDurationMin,
+        'averageSpeedKmh': summary.averageSpeedKmh,
+        'directoriesVisited': summary.directoriesVisited,
+      },
+    };
+    _service.invoke(event, payload);
+
+    await TrackingPrefs.clear();
+    await _pingsDao.clearForBeatPlan(_beatPlanId ?? '');
+    await cancelTrackingNotification(_notifications);
+    await _shutdown();
+  }
+
+  /// Tear down the socket/GPS for a plan switch without stopping the service.
+  Future<void> _teardownTrackingOnly() async {
+    await _gpsSub?.cancel();
+    _gpsSub = null;
+    await _socketSub?.cancel();
+    _socketSub = null;
+    await _socket?.dispose();
+    _socket = null;
+    _connected = false;
+  }
+
+  Future<void> _shutdown() async {
+    _started = false;
+    _ticker?.cancel();
+    _ticker = null;
+    await _teardownTrackingOnly();
+    await _db.close();
+    await _service.stopSelf();
+  }
+
+  Future<void> _refreshToken() async {
+    if (_refreshing) return;
+    _refreshing = true;
+    try {
+      final refresh = await _tokens.readRefreshToken();
+      if (refresh == null || refresh.isEmpty) return;
+      final resp = await _refreshDio.post<Map<String, dynamic>>(
+        Endpoints.refresh,
+        data: <String, String>{'refreshToken': refresh},
+      );
+      final data = resp.data?['data'];
+      final tokens = data is Map ? data['tokens'] : null;
+      final access = tokens is Map ? tokens['access'] as String? : null;
+      final newRefresh = tokens is Map ? tokens['refresh'] as String? : null;
+      if (access == null || newRefresh == null) return;
+      await _tokens.save(accessToken: access, refreshToken: newRefresh);
+      _socket?.updateToken(access);
+      _socket?.reconnect();
+    } on Object {
+      // Refresh failed — keep buffering; the UI's auth flow handles logout.
+    } finally {
+      _refreshing = false;
+    }
+  }
+
+  Future<void> _tick() async {
+    if (!_started) return;
+    _queued = await _pingsDao.countPending();
+    _pushState();
+    await _updateNotification();
+  }
+
+  void _pushState() {
+    _service.invoke(TrackingIpc.evtState, <String, dynamic>{
+      TrackingIpc.kBeatPlanId: _beatPlanId,
+      TrackingIpc.kStatus: _status.name,
+      TrackingIpc.kConnected: _connected,
+      TrackingIpc.kLat: _lastLat,
+      TrackingIpc.kLng: _lastLng,
+      TrackingIpc.kDistanceKm: _distanceKm,
+      TrackingIpc.kDurationSec: _startedAt == null
+          ? 0
+          : DateTime.now().difference(_startedAt!).inSeconds,
+      TrackingIpc.kQueued: _queued,
+      TrackingIpc.kTotal: _total,
+      TrackingIpc.kVisited: _visited,
+      TrackingIpc.kSkipped: _skipped,
+    });
+  }
+
+  Future<void> _updateNotification() async {
+    final connection = _connected ? '🟢 Online' : '🔴 Offline';
+    final title = _status == TrackingStatus.paused
+        ? 'Tracking paused'
+        : 'Tracking your beat plan';
+    final body = StringBuffer(connection);
+    if (_queued > 0) body.write(' · $_queued queued');
+    body.write('\n${_distanceKm.toStringAsFixed(2)} km');
+    if (_total > 0) {
+      body.write(' · ${_visited + _skipped}/$_total stops');
+    }
+    try {
+      await showTrackingNotification(
+        _notifications,
+        beatPlanId: _beatPlanId ?? '',
+        title: title,
+        body: body.toString(),
+        paused: _status == TrackingStatus.paused,
+        whenEpochMs: _startedAt?.millisecondsSinceEpoch ??
+            DateTime.now().millisecondsSinceEpoch,
+        maxProgress: _total > 0 ? _total : null,
+        progress: _total > 0 ? (_visited + _skipped) : null,
+      );
+    } on Object {
+      // A notification failure must never break the GPS/socket pipeline.
+    }
+  }
+
+  LocationFix _rowToFix(TrackingPingRow r) => LocationFix(
+        clientPingId: r.clientPingId,
+        latitude: r.latitude,
+        longitude: r.longitude,
+        recordedAt: r.recordedAt,
+        accuracy: r.accuracy,
+        speed: r.speed,
+        heading: r.heading,
+        address: r.address,
+      );
+
+  String _statusWire(TrackingStatus status) {
+    switch (status) {
+      case TrackingStatus.active:
+        return 'ACTIVE';
+      case TrackingStatus.paused:
+        return 'PAUSED';
+      case TrackingStatus.completed:
+        return 'COMPLETED';
+    }
+  }
+}

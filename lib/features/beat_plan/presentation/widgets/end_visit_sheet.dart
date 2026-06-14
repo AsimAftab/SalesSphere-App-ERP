@@ -10,7 +10,14 @@ import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 
 class EndVisitSheet extends StatefulWidget {
   final Map<String, dynamic> entity;
-  final VoidCallback onEndVisit;
+
+  /// Called with the captured visit details when the rep confirms. The photo
+  /// and notes are required by the form; [followUpDate] is optional.
+  final void Function({
+    required String notes,
+    required String photoPath,
+    DateTime? followUpDate,
+  }) onEndVisit;
 
   const EndVisitSheet({
     super.key,
@@ -230,7 +237,11 @@ class _EndVisitSheetState extends State<EndVisitSheet> {
                 }
 
                 Navigator.of(context).pop();
-                widget.onEndVisit();
+                widget.onEndVisit(
+                  notes: _notesController.text.trim(),
+                  photoPath: _photoPath!,
+                  followUpDate: _followUpDate,
+                );
               },
             ),
           ],

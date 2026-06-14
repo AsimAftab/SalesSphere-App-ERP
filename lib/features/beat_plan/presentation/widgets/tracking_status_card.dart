@@ -1,21 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import '../../../../core/constants/app_colors.dart';
 
+import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+
+/// Live tracking status + controls. Driven by the background service's pushed
+/// state (duration, distance, queued-ping count, connection) with Pause/Resume
+/// + Stop controls that mirror the persistent notification.
 class TrackingStatusCard extends StatelessWidget {
+  const TrackingStatusCard({
+    required this.duration,
+    required this.distanceKm,
+    required this.queuedCount,
+    required this.isConnected,
+    required this.isPaused,
+    super.key,
+  });
+
   final String duration;
+  final double distanceKm;
   final int queuedCount;
   final bool isConnected;
-
-  const TrackingStatusCard({
-    super.key,
-    required this.duration,
-    required this.queuedCount,
-    this.isConnected = true,
-  });
+  final bool isPaused;
 
   @override
   Widget build(BuildContext context) {
+    final accent = isPaused
+        ? AppColors.warning
+        : (isConnected ? AppColors.success : AppColors.warning);
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -26,168 +37,107 @@ class TrackingStatusCard extends StatelessWidget {
             blurRadius: 24.r,
             offset: const Offset(0, 12),
           ),
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.02),
-            blurRadius: 8.r,
-            offset: const Offset(0, 4),
-          ),
         ],
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── Elegant Header ──
           Padding(
-            padding: EdgeInsets.fromLTRB(24.w, 24.h, 24.w, 20.h),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            padding: EdgeInsets.fromLTRB(24.w, 24.h, 24.w, 16.h),
+            child: Row(
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    if (isConnected) ...[
-                      // Pulsing Dot
-                      Container(
-                        width: 8.w,
-                        height: 8.w,
-                        decoration: BoxDecoration(
-                          color: AppColors.success,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.success.withValues(alpha: 0.4),
-                              blurRadius: 4.r,
-                              spreadRadius: 2.r,
-                            ),
-                          ],
+                Container(
+                  width: 8.w,
+                  height: 8.w,
+                  decoration: BoxDecoration(
+                    color: accent,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: accent.withValues(alpha: 0.4),
+                        blurRadius: 4.r,
+                        spreadRadius: 2.r,
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(width: 8.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isPaused ? 'Tracking paused' : 'Tracking active',
+                        style: TextStyle(
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
                         ),
                       ),
-                      SizedBox(width: 8.w),
-                    ],
-                    Text(
-                      'Tracking Active',
-                      style: TextStyle(
-                        fontSize: 16.sp,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
+                      SizedBox(height: 2.h),
+                      Text(
+                        isConnected
+                            ? 'Streaming your location in real time'
+                            : 'Offline — buffering until reconnected',
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 4.h),
-                Text(
-                  'Recording your location in real time',
-                  style: TextStyle(
-                    fontSize: 12.sp,
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w500,
+                    ],
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                ),
+                Icon(
+                  isConnected
+                      ? Icons.satellite_alt_rounded
+                      : Icons.sync_problem_rounded,
+                  color: accent,
+                  size: 20.sp,
                 ),
               ],
             ),
           ),
-
-          // ── Body Section ──
           Container(
-            color: isConnected 
-                ? AppColors.success.withValues(alpha: 0.2) 
-                : AppColors.warning.withValues(alpha: 0.2),
-            padding: EdgeInsets.fromLTRB(24.w, 24.h, 24.w, 24.h),
+            color: accent.withValues(alpha: 0.12),
+            padding: EdgeInsets.fromLTRB(24.w, 20.h, 24.w, 20.h),
             child: Column(
               children: [
-                // ── Dashboard Metrics Card ──
                 Container(
-                  padding: EdgeInsets.symmetric(vertical: 20.h),
+                  padding: EdgeInsets.symmetric(vertical: 18.h),
                   decoration: BoxDecoration(
                     color: AppColors.surface,
                     borderRadius: BorderRadius.circular(16.r),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 10.r,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
                   ),
                   child: Row(
                     children: [
-                      // Duration
                       Expanded(
-                        child: _buildMetricColumn(
-                          label: 'Duration',
-                          value: duration,
-                          icon: Icons.timer_outlined,
-                          iconColor: AppColors.primary,
+                        child: _metric(
+                          'Duration',
+                          duration,
+                          Icons.timer_outlined,
+                          AppColors.primary,
                         ),
                       ),
-                      
-                      // Separator
-                      Container(
-                        width: 1,
-                        height: 48.h,
-                        color: AppColors.border.withValues(alpha: 0.5),
-                      ),
-                      
-                      // Queued Data
+                      _divider(),
                       Expanded(
-                        child: _buildMetricColumn(
-                          label: 'Queued Data',
-                          value: '$queuedCount',
-                          icon: Icons.cloud_upload_outlined,
-                          iconColor: queuedCount > 0 ? AppColors.warning : AppColors.success,
+                        child: _metric(
+                          'Distance',
+                          '${distanceKm.toStringAsFixed(2)} km',
+                          Icons.route_outlined,
+                          AppColors.secondary,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-
-                SizedBox(height: 16.h),
-
-                // ── Sleek Status Banner ──
-                Container(
-                  padding: EdgeInsets.symmetric(vertical: 14.h, horizontal: 16.w),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(12.r),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 10.r,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(6.r),
-                        decoration: BoxDecoration(
-                          color: isConnected 
-                              ? AppColors.success.withValues(alpha: 0.15)
-                              : AppColors.warning.withValues(alpha: 0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          isConnected ? Icons.satellite_alt_rounded : Icons.sync_problem_rounded, 
-                          color: isConnected ? AppColors.success : AppColors.warning, 
-                          size: 16.sp,
-                        ),
-                      ),
-                      SizedBox(width: 12.w),
+                      _divider(),
                       Expanded(
-                        child: Text(
-                          isConnected 
-                              ? 'Live streaming location updates to server.'
-                              : 'Connecting to server... location data is in queue.',
-                          style: TextStyle(
-                            fontSize: 12.sp,
-                            color: AppColors.textPrimary,
-                            fontWeight: FontWeight.normal,
-                          ),
+                        child: _metric(
+                          'Queued',
+                          '$queuedCount',
+                          Icons.cloud_upload_outlined,
+                          queuedCount > 0 ? AppColors.warning : AppColors.success,
                         ),
                       ),
                     ],
@@ -201,25 +151,30 @@ class TrackingStatusCard extends StatelessWidget {
     );
   }
 
-  Widget _buildMetricColumn({
-    required String label,
-    required String value,
-    required IconData icon,
-    required Color iconColor,
-  }) {
+  Widget _divider() => Container(
+        width: 1,
+        height: 40.h,
+        color: AppColors.border.withValues(alpha: 0.5),
+      );
+
+  Widget _metric(String label, String value, IconData icon, Color color) {
     return Column(
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 14.sp, color: iconColor),
+            Icon(icon, size: 14.sp, color: color),
             SizedBox(width: 6.w),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12.sp,
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w500,
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11.sp,
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -228,11 +183,13 @@ class TrackingStatusCard extends StatelessWidget {
         Text(
           value,
           style: TextStyle(
-            fontSize: 18.sp,
+            fontSize: 16.sp,
             fontWeight: FontWeight.w800,
             color: AppColors.textPrimary,
             letterSpacing: -0.5,
           ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     );
