@@ -8,10 +8,13 @@ import '../../../../shared/utils/snackbar_utils.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../shared/widgets/status_badge.dart';
 import '../../../../shared/widgets/status_bar_style.dart';
-import '../controllers/beat_plan_controller.dart';
-import '../widgets/beat_entity_card.dart';
-import '../widgets/live_tracking_card.dart';
-import '../../domain/entities/beat_plan.dart';
+import '../../../../shared/widgets/custom_button.dart';
+import '../providers/beat_plan_providers.dart';
+import '../widgets/route_stop_card.dart';
+import '../widgets/tracking_status_card.dart';
+import '../widgets/route_progress_card.dart';
+import '../widgets/end_visit_sheet.dart';
+import '../../domain/beat_plan.dart';
 
 class BeatPlanDetailPage extends ConsumerStatefulWidget {
   final String id;
@@ -23,6 +26,20 @@ class BeatPlanDetailPage extends ConsumerStatefulWidget {
 
 class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
   String _selectedTab = 'All';
+
+  late List<Map<String, dynamic>> _entities;
+
+  @override
+  void initState() {
+    super.initState();
+    _entities = [
+      {'name': 'TechMart Solutions', 'ownerName': 'John Doe', 'type': 'Party', 'address': '104, Cyber Park, Electronic City', 'status': 'Visited', 'distance': '0.2 km', 'isActive': false, 'lat': 12.8452, 'lng': 77.6602, 'startTime': '10:30 AM', 'endTime': '11:15 AM', 'timeSpent': '45 mins'},
+      {'name': 'Innovatech Systems', 'ownerName': 'Jane Smith', 'type': 'Site', 'address': 'Building 4, Cyber Space', 'status': 'Visited', 'distance': '0.8 km', 'isActive': false, 'lat': 12.8462, 'lng': 77.6612, 'startTime': '12:15 PM', 'endTime': '01:25 PM', 'timeSpent': '1 hr 10 mins'},
+      {'name': 'Alpha Distribution', 'ownerName': 'Michael Lee', 'type': 'Prospect', 'address': 'Warehouse Zone, East End', 'status': 'Visited', 'distance': '1.2 km', 'isActive': false, 'lat': 12.8472, 'lng': 77.6622, 'startTime': '02:45 PM', 'endTime': '03:15 PM', 'timeSpent': '30 mins'},
+      {'name': 'Global Retailers Ltd', 'ownerName': 'Sarah Connor', 'type': 'Party', 'address': 'Block A, Grand Mall, Central Ave', 'status': 'Pending', 'distance': '1.5 km', 'isActive': true, 'lat': 12.8482, 'lng': 77.6632},
+      {'name': 'Smart Solutions Inc', 'ownerName': 'David Kim', 'type': 'Site', 'address': 'Floor 3, Tech Hub, Ring Road', 'status': 'Skipped', 'distance': '4.2 km', 'isActive': false, 'lat': 12.8492, 'lng': 77.6642, 'startTime': '04:00 PM', 'endTime': '04:00 PM', 'timeSpent': '0 mins'},
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,17 +91,16 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
                   Expanded(
                     child: beatPlansAsync.when(
                       data: (plans) {
-                        final mockEntities = [
-                          {'name': 'TechMart Solutions', 'ownerName': 'John Doe', 'type': 'Party', 'address': '104, Cyber Park, Electronic City', 'status': 'Visited', 'distance': '0.2 km', 'isActive': false, 'lat': 12.8452, 'lng': 77.6602, 'startTime': '10:30 AM', 'endTime': '11:15 AM', 'timeSpent': '45 mins'},
-                          {'name': 'Innovatech Systems', 'ownerName': 'Jane Smith', 'type': 'Site', 'address': 'Building 4, Cyber Space', 'status': 'Visited', 'distance': '0.8 km', 'isActive': false, 'lat': 12.8462, 'lng': 77.6612, 'startTime': '12:15 PM', 'endTime': '01:25 PM', 'timeSpent': '1 hr 10 mins'},
-                          {'name': 'Alpha Distribution', 'ownerName': 'Michael Lee', 'type': 'Prospect', 'address': 'Warehouse Zone, East End', 'status': 'Visited', 'distance': '1.2 km', 'isActive': false, 'lat': 12.8472, 'lng': 77.6622, 'startTime': '02:45 PM', 'endTime': '03:15 PM', 'timeSpent': '30 mins'},
-                          {'name': 'Global Retailers Ltd', 'ownerName': 'Sarah Connor', 'type': 'Party', 'address': 'Block A, Grand Mall, Central Ave', 'status': 'Pending', 'distance': '1.5 km', 'isActive': true, 'lat': 12.8482, 'lng': 77.6632},
-                          {'name': 'Smart Solutions Inc', 'ownerName': 'David Kim', 'type': 'Site', 'address': 'Floor 3, Tech Hub, Ring Road', 'status': 'Skipped', 'distance': '4.2 km', 'isActive': false, 'lat': 12.8492, 'lng': 77.6642, 'startTime': '04:00 PM', 'endTime': '04:00 PM', 'timeSpent': '0 mins'},
-                        ];
-
                         final filteredEntities = _selectedTab == 'All' 
-                            ? mockEntities 
-                            : mockEntities.where((e) => e['status'] == _selectedTab).toList();
+                            ? List<Map<String, dynamic>>.from(_entities)
+                            : _entities.where((e) => e['status'] == _selectedTab).toList();
+
+                        filteredEntities.sort((a, b) {
+                          final aWeight = a['status'] == 'Pending' ? 0 : (a['status'] == 'Visited' ? 1 : 2);
+                          final bWeight = b['status'] == 'Pending' ? 0 : (b['status'] == 'Visited' ? 1 : 2);
+                          if (aWeight != bWeight) return aWeight.compareTo(bWeight);
+                          return (a['name'] as String).compareTo(b['name'] as String);
+                        });
 
                         final plan = plans.firstWhere(
                           (p) => p.id == widget.id,
@@ -137,148 +153,12 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
                 ),
                 const SizedBox(height: 24),
 
-                // Progress Card
-                Container(
-                  padding: EdgeInsets.all(20.w),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(20.r),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.05),
-                        blurRadius: 24.r,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Route Progress Header
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: EdgeInsets.all(8.r),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(alpha: 0.1),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(Icons.route_outlined, color: AppColors.primary, size: 20.sp),
-                              ),
-                              SizedBox(width: 12.w),
-                              Text(
-                                'Route Progress',
-                                style: TextStyle(
-                                  fontSize: 16.sp,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.textPrimary,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Container(
-                            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-                            decoration: BoxDecoration(
-                              color: AppColors.success.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(20.r),
-                            ),
-                            child: Text(
-                              '${(plan.progress * 100).toInt()}%',
-                              style: TextStyle(
-                                fontSize: 14.sp,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.success,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 20.h),
-                      
-                      // Progress Bar
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          return Container(
-                            height: 8.h,
-                            width: constraints.maxWidth,
-                            decoration: BoxDecoration(
-                              color: AppColors.border,
-                              borderRadius: BorderRadius.circular(10.r),
-                            ),
-                            child: Stack(
-                              children: [
-                                AnimatedContainer(
-                                  duration: const Duration(milliseconds: 500),
-                                  curve: Curves.easeOutCubic,
-                                  height: 8.h,
-                                  width: plan.progress == 0 ? 8.w : constraints.maxWidth * plan.progress,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.success,
-                                    borderRadius: BorderRadius.circular(10.r),
-                                    boxShadow: [
-                                      if (plan.progress > 0)
-                                        BoxShadow(
-                                          color: AppColors.success.withValues(alpha: 0.3),
-                                          blurRadius: 6.r,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                      SizedBox(height: 24.h),
-                      
-                      // Stats Row
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _buildStatItem('Total', plan.total.toString(), AppColors.textPrimary),
-                          _buildStatItem('Visited', plan.visited.toString(), AppColors.success),
-                          _buildStatItem('Pending', plan.pending.toString(), AppColors.warning),
-                          _buildStatItem('Skipped', plan.skipped.toString(), AppColors.error),
-                        ],
-                      ),
-                      SizedBox(height: 24.h),
-
-                      // Information Note (Inside Card)
-                      Container(
-                        padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(12.r),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Icon(Icons.info_outline_rounded, color: AppColors.primary, size: 20.sp),
-                            SizedBox(width: 12.w),
-                            Expanded(
-                              child: Text(
-                                'Tracking will automatically stop when all entities are visited.',
-                                style: TextStyle(
-                                  fontSize: 12.sp,
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                // Route Progress Card
+                RouteProgressCard(plan: plan),
                 SizedBox(height: 24.h),
 
                 // Live Tracking Status Card
-                const LiveTrackingCard(
+                const TrackingStatusCard(
                   duration: '2h 45m',
                   queuedCount: 0,
                   isConnected: true,
@@ -323,7 +203,7 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
                               ),
                             ),
                             child: Text(
-                              tab == 'All' ? 'All (${mockEntities.length})' : tab,
+                              tab == 'All' ? 'All (${_entities.length})' : tab,
                               style: TextStyle(
                                 fontSize: 12.sp,
                                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
@@ -343,19 +223,56 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
                 // Filtered List
                 if (filteredEntities.isEmpty)
                   Padding(
-                    padding: EdgeInsets.symmetric(vertical: 32.h),
+                    padding: EdgeInsets.symmetric(vertical: 48.h),
                     child: Center(
-                      child: Text(
-                        'No stops found for this status.',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 14.sp,
-                        ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(16.r),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.05),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              _selectedTab == 'Pending' ? Icons.schedule_rounded
+                                : _selectedTab == 'Visited' ? Icons.task_alt_rounded
+                                : _selectedTab == 'Skipped' ? Icons.block_rounded
+                                : Icons.route_rounded,
+                              size: 48.sp,
+                              color: AppColors.primary.withValues(alpha: 0.5),
+                            ),
+                          ),
+                          SizedBox(height: 16.h),
+                          Text(
+                            _selectedTab == 'Pending' ? 'All Caught Up!'
+                                : _selectedTab == 'Visited' ? 'No Stops Visited Yet'
+                                : _selectedTab == 'Skipped' ? 'No Skipped Stops'
+                                : 'No Route Stops',
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 16.sp,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 8.h),
+                          Text(
+                            _selectedTab == 'Pending' ? 'You have no pending stops right now.'
+                                : _selectedTab == 'Visited' ? 'Start your route and log your visits here.'
+                                : _selectedTab == 'Skipped' ? 'You haven\'t skipped any stops.'
+                                : 'There are no stops assigned to this route.',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 14.sp,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
                       ),
                     ),
                   )
                 else
-                  ...filteredEntities.map((e) => BeatEntityCard(
+                  ...filteredEntities.map((e) => RouteStopCard(
                     name: e['name'] as String,
                     ownerName: e['ownerName'] as String,
                     type: e['type'] as String,
@@ -380,10 +297,72 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
                       }
                     },
                     onStart: () {
-                      // Implement start functionality
+                      setState(() {
+                        e['isStarted'] = true;
+                      });
                     },
+                    onStop: () {
+                      _showEndVisitBottomSheet(e);
+                    },
+                    isStarted: e['isStarted'] == true,
                     onSkip: () {
-                      // Implement skip functionality
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+                          contentPadding: EdgeInsets.all(24.w),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Skip Stop?',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18.sp,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                              SizedBox(height: 12.h),
+                              RichText(
+                                textAlign: TextAlign.center,
+                                text: TextSpan(
+                                  style: TextStyle(fontSize: 14.sp, color: AppColors.textSecondary, height: 1.4),
+                                  children: [
+                                    const TextSpan(text: 'Are you sure you want to skip '),
+                                    TextSpan(
+                                      text: '${e['name']}',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                    ),
+                                    const TextSpan(text: '? This action cannot be undone.'),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(height: 24.h),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedCustomButton(
+                                      label: 'Cancel',
+                                      onPressed: () => Navigator.of(ctx).pop(),
+                                    ),
+                                  ),
+                                  SizedBox(width: 12.w),
+                                  Expanded(
+                                    child: CustomButton(
+                                      label: 'Yes, Skip',
+                                      backgroundColor: AppColors.error,
+                                      onPressed: () {
+                                        Navigator.of(ctx).pop();
+                                        // TODO: Implement actual skip logic via controller
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
                     },
                   )),
               ],
@@ -401,30 +380,7 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
       );
   }
 
-  Widget _buildStatItem(String label, String value, Color valueColor) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 20.sp,
-            fontWeight: FontWeight.w800,
-            color: valueColor,
-          ),
-        ),
-        SizedBox(height: 4.h),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12.sp,
-            color: AppColors.textSecondary,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.3,
-          ),
-        ),
-      ],
-    );
-  }
+
 
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
@@ -437,5 +393,25 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
       default:
         return Colors.grey;
     }
+  }
+
+  void _showEndVisitBottomSheet(Map<String, dynamic> e) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => EndVisitSheet(
+        entity: e,
+        onEndVisit: () {
+          setState(() {
+            e['status'] = 'Visited';
+            e['startTime'] = '09:00 AM'; // Dummy data for demonstration
+            e['endTime'] = '09:45 AM';
+            e['timeSpent'] = '45 mins';
+            e.remove('isStarted');
+          });
+        },
+      ),
+    );
   }
 }

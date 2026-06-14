@@ -21,5 +21,6 @@ class BeatPlan {
     required this.visited,
     required this.pending,
     required this.skipped,
-  });
+  })  : assert(progress >= 0.0 && progress <= 1.0, 'Progress must be between 0.0 and 1.0'),
+        assert(visited + pending + skipped == total, 'Stop counts must equal total');
 }

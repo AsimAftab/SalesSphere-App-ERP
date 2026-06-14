@@ -1,29 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/router/routes.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../shared/widgets/status_badge.dart';
 import '../../../../shared/widgets/custom_button.dart';
-import '../controllers/beat_plan_controller.dart';
-import '../../domain/entities/beat_plan.dart';
+import '../providers/beat_plan_providers.dart';
+import '../../domain/beat_plan.dart';
 
-class BeatPlanCard extends ConsumerWidget {
+class BeatPlanSummaryCard extends ConsumerWidget {
   final BeatPlan plan;
 
-  const BeatPlanCard({super.key, required this.plan});
+  const BeatPlanSummaryCard({super.key, required this.plan});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(20.r),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 24,
+            blurRadius: 24.r,
             spreadRadius: 0,
             offset: const Offset(0, 8),
           ),
@@ -31,14 +32,14 @@ class BeatPlanCard extends ConsumerWidget {
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(20.r),
         child: InkWell(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(20.r),
           onTap: () {
-            // Future: Navigate to detail page
+            context.push(Routes.beatPlanDetailPath(plan.id));
           },
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: EdgeInsets.all(16.w),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -49,8 +50,8 @@ class BeatPlanCard extends ConsumerWidget {
                     Expanded(
                       child: Text(
                         plan.title,
-                        style: const TextStyle(
-                          fontSize: 18,
+                        style: TextStyle(
+                          fontSize: 18.sp,
                           fontWeight: FontWeight.bold,
                           color: AppColors.textPrimary,
                         ),
@@ -58,50 +59,83 @@ class BeatPlanCard extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12.w),
                     StatusBadge(
                       label: plan.status,
                       color: _getStatusColor(plan.status),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12.h),
 
-                // Date Row 1
+                // Date Info
                 Row(
                   children: [
-                    Icon(Icons.calendar_today_outlined, size: 16, color: Colors.grey.shade400),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Assigned: ${DateFormat('MMM dd, yyyy').format(plan.assignedDate)}',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-                if (plan.status.toLowerCase() != 'pending') ...[
-                  const SizedBox(height: 4),
-                  // Date Row 2
-                  Row(
-                    children: [
-                      Icon(Icons.access_time_outlined, size: 16, color: Colors.grey.shade400),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Started: ${DateFormat('MMM dd, yyyy').format(plan.startedDate)}',
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
+                    // Assigned Date
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.calendar_today_outlined, size: 14.sp, color: Colors.grey.shade400),
+                            SizedBox(width: 6.w),
+                            Text(
+                              'Assigned',
+                              style: TextStyle(
+                                color: Colors.grey.shade500,
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
+                        SizedBox(height: 4.h),
+                        Text(
+                          DateFormat('dd MMM yyyy').format(plan.assignedDate),
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (plan.status.toLowerCase() != 'pending') ...[
+                      SizedBox(width: 48.w),
+                      // Started Date
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.access_time_outlined, size: 14.sp, color: Colors.grey.shade400),
+                              SizedBox(width: 6.w),
+                              Text(
+                                'Started',
+                                style: TextStyle(
+                                  color: Colors.grey.shade500,
+                                  fontSize: 12.sp,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 4.h),
+                          Text(
+                            DateFormat('dd MMM yyyy').format(plan.startedDate),
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.normal,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
-                  ),
-                ],
-                const SizedBox(height: 16),
+                  ],
+                ),
+                SizedBox(height: 16.h),
 
                 // Progress Section
                 Opacity(
@@ -116,30 +150,30 @@ class BeatPlanCard extends ConsumerWidget {
                             'Progress',
                             style: TextStyle(
                               color: Colors.grey.shade600,
-                              fontSize: 14,
+                              fontSize: 14.sp,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                           Text(
                             '${(plan.progress * 100).toInt()}%',
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.primary,
-                              fontSize: 16,
+                              fontSize: 16.sp,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8.h),
 
                       // Animated Progress Bar
                       Stack(
                         children: [
                           Container(
-                            height: 8,
+                            height: 8.h,
                             decoration: BoxDecoration(
                               color: Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(10.r),
                             ),
                           ),
                           LayoutBuilder(
@@ -147,17 +181,16 @@ class BeatPlanCard extends ConsumerWidget {
                               return AnimatedContainer(
                                 duration: const Duration(milliseconds: 1000),
                                 curve: Curves.easeOutQuart,
-                                height: 8,
-                                // If progress is 0, give it a tiny width so the rounded corner is visible
-                                width: plan.progress == 0 ? 8 : constraints.maxWidth * plan.progress,
+                                height: 8.h,
+                                width: plan.progress == 0 ? 8.w : constraints.maxWidth * plan.progress,
                                 decoration: BoxDecoration(
                                   color: AppColors.success,
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(10.r),
                                   boxShadow: [
                                     if (plan.progress > 0)
                                       BoxShadow(
                                         color: AppColors.success.withValues(alpha: 0.3),
-                                        blurRadius: 6,
+                                        blurRadius: 6.r,
                                         offset: const Offset(0, 2),
                                       ),
                                   ],
@@ -170,11 +203,11 @@ class BeatPlanCard extends ConsumerWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16.h),
 
                 // Subtle Divider
                 Divider(color: Colors.grey.shade200, height: 1, thickness: 1),
-                const SizedBox(height: 12),
+                SizedBox(height: 12.h),
 
                 // Stats Row
                 Row(
@@ -187,7 +220,7 @@ class BeatPlanCard extends ConsumerWidget {
                   ],
                 ),
 
-                const SizedBox(height: 16),
+                SizedBox(height: 16.h),
                 if (plan.status.toLowerCase() == 'pending')
                   PrimaryButton(
                     label: 'Start Beat',
@@ -219,15 +252,15 @@ class BeatPlanCard extends ConsumerWidget {
           style: TextStyle(
             color: countColor,
             fontWeight: FontWeight.w800,
-            fontSize: 20,
+            fontSize: 20.sp,
           ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: 4.h),
         Text(
           label,
           style: TextStyle(
             color: Colors.grey.shade500,
-            fontSize: 12,
+            fontSize: 12.sp,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.3,
           ),

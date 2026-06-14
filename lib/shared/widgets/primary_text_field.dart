@@ -109,6 +109,9 @@ class _PrimaryTextFieldState extends State<PrimaryTextField> {
           enabled: isEnabled,
           readOnly: widget.readOnly,
           onTap: isEnabled ? widget.onTap : null,
+          onTapOutside: (event) {
+            FocusManager.instance.primaryFocus?.unfocus();
+          },
           textInputAction: widget.textInputAction,
           minLines: widget.minLines,
           maxLines: (widget.obscureText ?? false) ? 1 : (widget.maxLines ?? 1),

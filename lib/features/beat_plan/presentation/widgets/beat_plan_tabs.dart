@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../controllers/beat_plan_controller.dart';
+import '../providers/beat_plan_providers.dart';
 
 class BeatPlanTabs extends ConsumerWidget {
   const BeatPlanTabs({super.key});
@@ -20,7 +20,7 @@ class BeatPlanTabs extends ConsumerWidget {
         children: [
           Expanded(
             child: GestureDetector(
-              onTap: () => ref.read(beatPlanTabIndexProvider.notifier).state = 0,
+              onTap: () => ref.read(beatPlanTabIndexProvider.notifier).setTab(0),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(vertical: 12),
@@ -43,7 +43,7 @@ class BeatPlanTabs extends ConsumerWidget {
           const SizedBox(width: 4),
           Expanded(
             child: GestureDetector(
-              onTap: () => ref.read(beatPlanTabIndexProvider.notifier).state = 1,
+              onTap: () => ref.read(beatPlanTabIndexProvider.notifier).setTab(1),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(vertical: 12),

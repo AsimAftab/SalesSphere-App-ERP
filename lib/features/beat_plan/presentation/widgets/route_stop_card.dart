@@ -3,7 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../shared/widgets/custom_button.dart';
 
-class BeatEntityCard extends StatelessWidget {
+class RouteStopCard extends StatelessWidget {
   final String name;
   final String ownerName;
   final String type;
@@ -18,9 +18,11 @@ class BeatEntityCard extends StatelessWidget {
   final VoidCallback onOpenMap;
   final VoidCallback onOpenDirections;
   final VoidCallback onStart;
+  final VoidCallback onStop;
   final VoidCallback onSkip;
+  final bool isStarted;
 
-  const BeatEntityCard({
+  const RouteStopCard({
     super.key,
     required this.name,
     required this.ownerName,
@@ -36,7 +38,9 @@ class BeatEntityCard extends StatelessWidget {
     required this.onOpenMap,
     required this.onOpenDirections,
     required this.onStart,
+    required this.onStop,
     required this.onSkip,
+    this.isStarted = false,
   });
 
   @override
@@ -161,7 +165,7 @@ class BeatEntityCard extends StatelessWidget {
                                     Text(
                                       ownerName,
                                       style: TextStyle(
-                                        fontSize: 13.sp,
+                                        fontSize: 14.sp,
                                         color: AppColors.textSecondary,
                                         fontWeight: FontWeight.w500,
                                       ),
@@ -249,7 +253,7 @@ class BeatEntityCard extends StatelessWidget {
                                   'View Map',
                                   style: TextStyle(
                                     color: AppColors.primary,
-                                    fontSize: 13.sp,
+                                    fontSize: 14.sp,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -283,7 +287,7 @@ class BeatEntityCard extends StatelessWidget {
                                   'Directions',
                                   style: TextStyle(
                                     color: AppColors.success,
-                                    fontSize: 13.sp,
+                                    fontSize: 14.sp,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -298,13 +302,21 @@ class BeatEntityCard extends StatelessWidget {
                 
                 if (isPending) ...[
                   SizedBox(height: 16.h),
-                  CustomButton(
-                    label: 'Start',
-                    onPressed: onStart,
-                    type: ButtonType.primary,
-                  ),
+                  if (isStarted)
+                    CustomButton(
+                      label: 'Stop',
+                      onPressed: onStop,
+                      backgroundColor: AppColors.error,
+                    )
+                  else
+                    CustomButton(
+                      label: 'Start',
+                      onPressed: onStart,
+                      type: ButtonType.primary,
+                    ),
                   SizedBox(height: 12.h),
-                  Material(
+                  if (!isStarted)
+                    Material(
                     color: AppColors.error.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12.r),
                     child: InkWell(
@@ -328,73 +340,53 @@ class BeatEntityCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                ] else if (status.toLowerCase() == 'skipped' && startTime != null) ...[
+                  SizedBox(height: 16.h),
+                  Container(
+                    padding: EdgeInsets.symmetric(vertical: 12.h),
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(12.r),
+                      border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                    ),
+                    child: Container(
+                      height: 38.h, // Matches the approximate height of the 2-line columns
+                      alignment: Alignment.center,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.block_rounded, size: 16.sp, color: AppColors.error),
+                          SizedBox(width: 8.w),
+                          Text(
+                            'Skipped at $startTime',
+                            style: TextStyle(
+                              color: AppColors.error,
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ] else if (startTime != null && endTime != null) ...[
                   SizedBox(height: 16.h),
                   Container(
-                    padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                    padding: EdgeInsets.symmetric(vertical: 12.h),
                     decoration: BoxDecoration(
                       color: Colors.grey.shade50,
                       borderRadius: BorderRadius.circular(12.r),
                       border: Border.all(color: AppColors.border.withValues(alpha: 0.5)),
                     ),
-                    child: Column(
+                    child: Row(
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(Icons.play_circle_outline_rounded, size: 18.sp, color: AppColors.textSecondary),
-                                SizedBox(width: 8.w),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('Started', style: TextStyle(color: AppColors.textSecondary, fontSize: 11.sp, fontWeight: FontWeight.w500)),
-                                    SizedBox(height: 2.h),
-                                    Text(startTime!, style: TextStyle(color: AppColors.textPrimary, fontSize: 13.sp, fontWeight: FontWeight.w700)),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            Container(width: 1.w, height: 28.h, color: AppColors.border),
-                            Row(
-                              children: [
-                                Icon(Icons.stop_circle_outlined, size: 18.sp, color: AppColors.textSecondary),
-                                SizedBox(width: 8.w),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('Ended', style: TextStyle(color: AppColors.textSecondary, fontSize: 11.sp, fontWeight: FontWeight.w500)),
-                                    SizedBox(height: 2.h),
-                                    Text(endTime!, style: TextStyle(color: AppColors.textPrimary, fontSize: 13.sp, fontWeight: FontWeight.w700)),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
+                        _buildStatColumn('Started', startTime!, Icons.play_circle_outline_rounded, AppColors.textSecondary),
+                        Container(width: 1.w, height: 32.h, color: AppColors.border),
+                        _buildStatColumn('Ended', endTime!, Icons.stop_circle_outlined, AppColors.textSecondary),
                         if (timeSpent != null) ...[
-                          SizedBox(height: 12.h),
-                          Container(
-                            width: double.infinity,
-                            padding: EdgeInsets.symmetric(vertical: 8.h),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.05),
-                              borderRadius: BorderRadius.circular(8.r),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.timer_outlined, size: 16.sp, color: AppColors.primary),
-                                SizedBox(width: 6.w),
-                                Text(
-                                  'Time Spent: $timeSpent',
-                                  style: TextStyle(color: AppColors.primary, fontSize: 12.sp, fontWeight: FontWeight.w600),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                          Container(width: 1.w, height: 32.h, color: AppColors.border),
+                          _buildStatColumn('Time Spent', timeSpent!, Icons.timer_outlined, AppColors.primary, valueColor: AppColors.primary),
+                        ]
                       ],
                     ),
                   ),
@@ -403,6 +395,25 @@ class BeatEntityCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildStatColumn(String label, String value, IconData icon, Color iconColor, {Color? valueColor}) {
+    return Expanded(
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 14.sp, color: iconColor),
+              SizedBox(width: 4.w),
+              Text(label, style: TextStyle(color: AppColors.textSecondary, fontSize: 12.sp, fontWeight: FontWeight.w500)),
+            ],
+          ),
+          SizedBox(height: 4.h),
+          Text(value, style: TextStyle(color: valueColor ?? AppColors.textPrimary, fontSize: 14.sp, fontWeight: FontWeight.w700)),
+        ],
       ),
     );
   }

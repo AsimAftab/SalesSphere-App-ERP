@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../core/constants/app_colors.dart';
 
-class LiveTrackingCard extends StatelessWidget {
+class TrackingStatusCard extends StatelessWidget {
   final String duration;
   final int queuedCount;
   final bool isConnected;
 
-  const LiveTrackingCard({
+  const TrackingStatusCard({
     super.key,
     required this.duration,
     required this.queuedCount,
@@ -79,7 +79,7 @@ class LiveTrackingCard extends StatelessWidget {
                 Text(
                   'Recording your location in real time',
                   style: TextStyle(
-                    fontSize: 13.sp,
+                    fontSize: 12.sp,
                     color: AppColors.textSecondary,
                     fontWeight: FontWeight.w500,
                   ),
@@ -186,7 +186,7 @@ class LiveTrackingCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 12.sp,
                             color: AppColors.textPrimary,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.normal,
                           ),
                         ),
                       ),
