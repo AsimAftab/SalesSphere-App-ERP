@@ -1,16 +1,20 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../domain/entities/beat_plan.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+import '../../domain/beat_plan.dart';
 
-class BeatPlanTabIndex extends Notifier<int> {
+part 'beat_plan_providers.g.dart';
+
+@Riverpod(keepAlive: true)
+class BeatPlanTabIndex extends _$BeatPlanTabIndex {
   @override
   int build() => 0;
+
+  void setTab(int index) {
+    state = index;
+  }
 }
 
-final beatPlanTabIndexProvider = NotifierProvider<BeatPlanTabIndex, int>(
-  BeatPlanTabIndex.new,
-);
-
-class BeatPlanController extends AsyncNotifier<List<BeatPlan>> {
+@Riverpod(keepAlive: true)
+class BeatPlanController extends _$BeatPlanController {
   @override
   Future<List<BeatPlan>> build() async {
     return _fetchMockData();
@@ -77,7 +81,3 @@ class BeatPlanController extends AsyncNotifier<List<BeatPlan>> {
     state = AsyncValue.data(updatedPlans);
   }
 }
-
-final beatPlanControllerProvider = AsyncNotifierProvider<BeatPlanController, List<BeatPlan>>(
-  BeatPlanController.new,
-);

@@ -261,9 +261,15 @@ class _StopTripSheetState extends ConsumerState<StopTripSheet> {
                 height: 140.h,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: AppColors.blue500.withValues(alpha: 0.05),
+                  color: _imageError 
+                      ? AppColors.red500.withValues(alpha: 0.05)
+                      : AppColors.blue500.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(12.r),
-                  border: Border.all(color: AppColors.blue500.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: _imageError 
+                        ? AppColors.red500.withValues(alpha: 0.3)
+                        : AppColors.blue500.withValues(alpha: 0.3),
+                  ),
                   image: _photoPath != null
                       ? DecorationImage(
                           image: FileImage(File(_photoPath!)),
@@ -278,16 +284,22 @@ class _StopTripSheetState extends ConsumerState<StopTripSheet> {
                           Container(
                             padding: EdgeInsets.all(8.r),
                             decoration: BoxDecoration(
-                              color: AppColors.blue500.withValues(alpha: 0.1),
+                              color: _imageError 
+                                  ? AppColors.red500.withValues(alpha: 0.1)
+                                  : AppColors.blue500.withValues(alpha: 0.1),
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(Icons.camera_alt_rounded, color: AppColors.blue500, size: 20.sp),
+                            child: Icon(
+                              Icons.camera_alt_rounded, 
+                              color: _imageError ? AppColors.red500 : AppColors.blue500, 
+                              size: 24.sp,
+                            ),
                           ),
                           SizedBox(height: 8.h),
                           Text(
-                            'Tap to capture photo',
+                            _imageError ? 'Photo proof is required' : 'Tap to capture photo',
                             style: TextStyle(
-                              color: AppColors.blue500,
+                              color: _imageError ? AppColors.red500 : AppColors.blue500,
                               fontSize: 14.sp,
                               fontWeight: FontWeight.w500,
                             ),
@@ -297,18 +309,6 @@ class _StopTripSheetState extends ConsumerState<StopTripSheet> {
                     : null,
               ),
             ),
-            if (_imageError)
-              Padding(
-                padding: EdgeInsets.only(top: 8.h, left: 16.w),
-                child: Text(
-                  'Photo proof is required',
-                  style: TextStyle(
-                    color: AppColors.red500,
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
             SizedBox(height: 24.h),
             Text(
               'Description (Optional)',

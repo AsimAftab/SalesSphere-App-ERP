@@ -4,10 +4,10 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/router/routes.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
-import '../../../beat_plan/presentation/controllers/beat_plan_controller.dart';
-import '../../../beat_plan/presentation/widgets/beat_plan_card.dart';
+import '../../../beat_plan/presentation/providers/beat_plan_providers.dart';
+import '../../../beat_plan/presentation/widgets/beat_plan_summary_card.dart';
 import '../../../beat_plan/presentation/widgets/beat_plan_tabs.dart';
-import '../../../beat_plan/domain/entities/beat_plan.dart';
+import '../../../beat_plan/domain/beat_plan.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -46,6 +46,11 @@ class _HomePageState extends ConsumerState<HomePage> {
     final beatPlansAsync = ref.watch(beatPlanControllerProvider);
     final selectedTabIndex = ref.watch(beatPlanTabIndexProvider);
 
+    if (!_pageController.hasClients && _pageController.initialPage != selectedTabIndex) {
+      _pageController.dispose();
+      _pageController = PageController(initialPage: selectedTabIndex);
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7FB),
       body: SafeArea(
@@ -80,7 +85,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                             controller: _pageController,
                             onPageChanged: (index) {
                               if (ref.read(beatPlanTabIndexProvider) != index) {
-                                ref.read(beatPlanTabIndexProvider.notifier).state = index;
+                                ref.read(beatPlanTabIndexProvider.notifier).setTab(index);
                               }
                             },
                             children: [
@@ -115,9 +120,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                       const SizedBox(height: 40),
                       Expanded(
                         child: Center(
-                          child: Text(
-                            'Error: $e',
-                            style: const TextStyle(color: Colors.red),
+                          child: const Text(
+                            'Unable to load beat plans. Please check your connection and try again.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.red),
                           ),
                         ),
                       ),
@@ -313,7 +319,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               itemBuilder: (context, index) {
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 16.0),
-                  child: BeatPlanCard(plan: filteredPlans[index]),
+                  child: BeatPlanSummaryCard(plan: filteredPlans[index]),
                 );
               },
             ),

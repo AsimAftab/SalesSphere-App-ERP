@@ -64,7 +64,7 @@ class Routes {
   static String tourPlanDetailPath(String id) => '/tour-plans/detail/$id';
 
   static const beatPlanDetail = '/beat-plans/detail/:id';
-  static String beatPlanDetailPath(String id) => '/beat-plans/detail/$id';
+  static String beatPlanDetailPath(String id) => '/beat-plans/detail/${Uri.encodeComponent(id)}';
 
   static const splashName = 'splash';
   static const loginName = 'login';
