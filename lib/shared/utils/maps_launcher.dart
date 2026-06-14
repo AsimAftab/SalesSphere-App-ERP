@@ -22,3 +22,14 @@ Future<bool> openInMaps({
   );
   return launchUrl(uri, mode: LaunchMode.externalApplication);
 }
+
+Future<bool> openDirections({
+  required double lat,
+  required double lng,
+}) async {
+  final destination = Uri.encodeComponent('$lat,$lng');
+  final uri = Uri.parse(
+    'https://www.google.com/maps/dir/?api=1&destination=$destination',
+  );
+  return launchUrl(uri, mode: LaunchMode.externalApplication);
+}
