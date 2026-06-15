@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/utils/geo_distance.dart';
 import '../../../../shared/widgets/custom_button.dart';
 
 class RouteStopCard extends StatelessWidget {
@@ -59,12 +60,6 @@ class RouteStopCard extends StatelessWidget {
     this.proximityMeters,
     this.canCheckIn = true,
   });
-
-  /// `28 m` / `1.4 km` for the proximity badge.
-  static String _formatDistance(double meters) {
-    if (meters >= 1000) return '${(meters / 1000).toStringAsFixed(1)} km';
-    return '${meters.round()} m';
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -519,12 +514,12 @@ class RouteStopCard extends StatelessWidget {
       color = AppColors.success;
       icon = Icons.where_to_vote_rounded;
       text = 'Within range — you can check in'
-          '${hasProximity ? ' (${_formatDistance(proximityMeters!)})' : ''}';
+          '${hasProximity ? ' (${formatDistanceMeters(proximityMeters!)})' : ''}';
     } else if (hasProximity) {
       color = AppColors.warning;
       icon = Icons.location_searching_rounded;
       text = 'Move closer to check in — '
-          '${_formatDistance(proximityMeters!)} away';
+          '${formatDistanceMeters(proximityMeters!)} away';
     } else {
       color = AppColors.textSecondary;
       icon = Icons.gps_not_fixed_rounded;

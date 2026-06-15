@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -9,6 +11,7 @@ import 'package:sales_sphere_erp/core/utils/geo_distance.dart';
 import 'package:sales_sphere_erp/features/beat_plan/domain/beat_plan.dart';
 import 'package:sales_sphere_erp/features/beat_plan/domain/beat_plan_stop.dart';
 import 'package:sales_sphere_erp/features/beat_plan/presentation/providers/beat_plan_providers.dart';
+import 'package:sales_sphere_erp/features/beat_plan/presentation/visit_progress_store.dart';
 import 'package:sales_sphere_erp/features/beat_plan/presentation/widgets/end_visit_sheet.dart';
 import 'package:sales_sphere_erp/features/beat_plan/presentation/widgets/route_progress_card.dart';
 import 'package:sales_sphere_erp/features/beat_plan/presentation/widgets/route_stop_card.dart';
@@ -38,9 +41,25 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
   String _selectedTab = 'All';
 
   /// When the rep tapped "Start" on a stop → becomes the visit's
-  /// `visitStartedAt`. In-memory for the session (a process restart clears it,
-  /// so they'd re-start the stop).
+  /// `visitStartedAt`. Persisted via [VisitProgressStore] so an in-progress
+  /// visit survives navigation, a tracking reconnect, or an app restart.
   final Map<String, DateTime> _startedAt = <String, DateTime>{};
+
+  /// Guards the one-shot silent "ensure tracking is live" for an active plan
+  /// (we don't show a manual resume button).
+  bool _ensuredActiveTracking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadStartedAt());
+  }
+
+  Future<void> _loadStartedAt() async {
+    final saved = await VisitProgressStore.load();
+    if (!mounted || saved.isEmpty) return;
+    setState(() => _startedAt.addAll(saved));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -215,17 +234,66 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
       );
     }
     if (plan.isCompleted) return const SizedBox.shrink();
+    if (plan.isActive) {
+      // Tracking is automatic for an active plan — the rep never manually
+      // "resumes". Silently make sure the service is live and show a brief
+      // placeholder until its first state push flips this to the live card.
+      if (!_ensuredActiveTracking) {
+        _ensuredActiveTracking = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          unawaited(ensureTrackingRunning(
+            beatPlanId: plan.id,
+            total: plan.total,
+            visited: plan.visited,
+            skipped: plan.skipped,
+          ));
+        });
+      }
+      return _resumingPlaceholder();
+    }
+    // Pending → the single deliberate "start" action (runs the permission
+    // gauntlet + REST start). There is no user-facing pause/resume/stop.
     return PrimaryButton(
-      label: plan.isActive ? 'Resume Tracking' : 'Start Tracking',
+      label: 'Start Tracking',
       onPressed: () => _startTracking(plan),
+    );
+  }
+
+  Widget _resumingPlaceholder() {
+    return Container(
+      padding: EdgeInsets.all(20.w),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 18.w,
+            height: 18.w,
+            child: const CircularProgressIndicator(strokeWidth: 2),
+          ),
+          SizedBox(width: 14.w),
+          Expanded(
+            child: Text(
+              'Resuming live tracking…',
+              style: TextStyle(
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   // ── Actions ─────────────────────────────────────────────────────────────
   Future<void> _startTracking(BeatPlan plan) async {
     final notifier = ref.read(trackingControllerProvider.notifier);
-    final result =
-        plan.isActive ? await notifier.resumeForPlan(plan) : await notifier.startForPlan(plan);
+    final result = await notifier.startForPlan(plan);
     if (!mounted) return;
     switch (result.outcome) {
       case StartTrackingOutcome.permissionDenied:
@@ -254,6 +322,7 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
   }) async {
     final startedAt = _startedAt[stop.id];
     setState(() => _startedAt.remove(stop.id));
+    unawaited(VisitProgressStore.remove(stop.id));
     try {
       await ref.read(beatPlanControllerProvider.notifier).visitStop(
             beatPlanId: plan.id,
@@ -344,10 +413,35 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
       onTap: () {},
       onOpenMap: () => _openMaps(stop, directions: false),
       onOpenDirections: () => _openMaps(stop, directions: true),
-      onStart: () => setState(() => _startedAt[stop.id] = DateTime.now()),
+      onStart: () => _startStopVisit(plan, stop),
       onStop: () => _showEndVisitSheet(plan, stop),
       onSkip: () => _confirmSkip(plan, stop),
     );
+  }
+
+  /// Begin a stop's visit. Re-verifies the geofence at tap time against the
+  /// freshest live position (the badge/button can lag the live state by up to
+  /// a tick) — a hard gate, so an out-of-range tap is refused with a hint
+  /// rather than starting. Stops without coordinates aren't geofenced.
+  void _startStopVisit(BeatPlan plan, BeatPlanStop stop) {
+    final live = ref.read(trackingControllerProvider);
+    if (live.isFor(plan.id) && stop.hasLocation) {
+      final within = stop.isWithinRange(live.latitude, live.longitude);
+      if (within != true) {
+        final d = stop.distanceMetersFrom(live.latitude, live.longitude);
+        SnackbarUtils.showWarning(
+          context,
+          d == null
+              ? 'Waiting for your location — try again in a moment.'
+              : "You're ${formatDistanceMeters(d)} away. Move within "
+                  '${kGeofenceRadiusMeters.round()} m of the stop to start.',
+        );
+        return;
+      }
+    }
+    final now = DateTime.now();
+    setState(() => _startedAt[stop.id] = now);
+    unawaited(VisitProgressStore.start(stop.id, now));
   }
 
   Future<void> _openMaps(BeatPlanStop stop, {required bool directions}) async {

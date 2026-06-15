@@ -115,3 +115,63 @@ class MonthlyReportDto {
   final List<AttendanceRecordDto> records;
   final Map<String, int> summary;
 }
+
+/// Envelope returned by `GET /attendance/status/today` (after the outer
+/// `{success, data}` wrapper is unwrapped): today's [record] (null when the
+/// user hasn't been marked yet), the org timezone + shift times (HH:MM
+/// strings, possibly short like `"22"` or null), the weekly off-day names,
+/// and the geofence config (enabled flag + office anchor).
+class AttendanceTodayStatusDto {
+  const AttendanceTodayStatusDto({
+    required this.record,
+    required this.timezone,
+    required this.orgCheckInTime,
+    required this.orgCheckOutTime,
+    required this.orgHalfDayCheckOutTime,
+    required this.orgWeeklyOffDays,
+    required this.orgEnableGeoFencingAttendance,
+    required this.orgLatitude,
+    required this.orgLongitude,
+    required this.orgAddress,
+    required this.orgGoogleMapLink,
+  });
+
+  factory AttendanceTodayStatusDto.fromJson(Map<String, dynamic> json) {
+    final rawRecord = json['record'];
+    final record = rawRecord is Map<String, dynamic>
+        ? AttendanceRecordDto.fromJson(rawRecord)
+        : null;
+
+    final rawDays = json['orgWeeklyOffDays'];
+    final weeklyOff = rawDays is List
+        ? rawDays.whereType<String>().toList(growable: false)
+        : const <String>[];
+
+    return AttendanceTodayStatusDto(
+      record: record,
+      timezone: json['timezone'] as String?,
+      orgCheckInTime: json['orgCheckInTime'] as String?,
+      orgCheckOutTime: json['orgCheckOutTime'] as String?,
+      orgHalfDayCheckOutTime: json['orgHalfDayCheckOutTime'] as String?,
+      orgWeeklyOffDays: weeklyOff,
+      orgEnableGeoFencingAttendance:
+          (json['orgEnableGeoFencingAttendance'] as bool?) ?? false,
+      orgLatitude: (json['orgLatitude'] as num?)?.toDouble(),
+      orgLongitude: (json['orgLongitude'] as num?)?.toDouble(),
+      orgAddress: json['orgAddress'] as String?,
+      orgGoogleMapLink: json['orgGoogleMapLink'] as String?,
+    );
+  }
+
+  final AttendanceRecordDto? record;
+  final String? timezone;
+  final String? orgCheckInTime;
+  final String? orgCheckOutTime;
+  final String? orgHalfDayCheckOutTime;
+  final List<String> orgWeeklyOffDays;
+  final bool orgEnableGeoFencingAttendance;
+  final double? orgLatitude;
+  final double? orgLongitude;
+  final String? orgAddress;
+  final String? orgGoogleMapLink;
+}

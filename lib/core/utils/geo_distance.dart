@@ -26,3 +26,9 @@ double haversineMeters(
 }
 
 double _toRadians(double degrees) => degrees * pi / 180.0;
+
+/// Compact, human-readable distance for badges/snackbars: `28 m` / `1.4 km`.
+String formatDistanceMeters(double meters) {
+  if (meters >= 1000) return '${(meters / 1000).toStringAsFixed(1)} km';
+  return '${meters.round()} m';
+}

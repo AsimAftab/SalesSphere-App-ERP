@@ -61,6 +61,8 @@ class StartTrackingUseCase {
       total: plan.total,
       visited: plan.visited,
       skipped: plan.skipped,
+      // Explicit "Start Tracking" → a fresh session (reset duration/distance).
+      resume: false,
     );
 
     return StartTrackingResult(

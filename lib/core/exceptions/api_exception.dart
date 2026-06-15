@@ -1,3 +1,5 @@
+import 'package:sales_sphere_erp/core/utils/geo_distance.dart';
+
 /// Base class for all errors surfaced from the API/network layer.
 sealed class ApiException implements Exception {
   const ApiException(this.message, {this.statusCode, this.cause});
@@ -60,6 +62,32 @@ class ServerException extends ApiException {
 
 class NetworkException extends ApiException {
   const NetworkException(super.message, {super.statusCode, super.cause});
+}
+
+/// Client-side gate: the device couldn't obtain a location fix, so an
+/// action that requires coordinates (attendance check-in/out) can't run.
+/// Not an HTTP error — thrown before any request leaves the app.
+class LocationUnavailableException extends ApiException {
+  const LocationUnavailableException([
+    super.message =
+        'Location is required. Enable location access and try again.',
+  ]);
+}
+
+/// Client-side geofence gate: the user is farther than [radiusMeters] from
+/// the configured office anchor, so attendance check-in/out is refused.
+/// The server doesn't enforce this — the app does.
+class OutsideGeofenceException extends ApiException {
+  OutsideGeofenceException({
+    required this.distanceMeters,
+    required this.radiusMeters,
+  }) : super(
+          "You're ${formatDistanceMeters(distanceMeters)} away. Move within "
+          '${radiusMeters.round()} m of the office and try again.',
+        );
+
+  final double distanceMeters;
+  final double radiusMeters;
 }
 
 /// Extracts the human-readable message the backend tucked into a
