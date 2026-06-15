@@ -18,6 +18,7 @@ class TrackingLiveState {
     this.total = 0,
     this.visited = 0,
     this.skipped = 0,
+    this.batteryLevel,
   });
 
   const TrackingLiveState.idle() : this(isTracking: false);
@@ -41,6 +42,7 @@ class TrackingLiveState {
       total: (map[TrackingIpc.kTotal] as num?)?.toInt() ?? 0,
       visited: (map[TrackingIpc.kVisited] as num?)?.toInt() ?? 0,
       skipped: (map[TrackingIpc.kSkipped] as num?)?.toInt() ?? 0,
+      batteryLevel: (map[TrackingIpc.kBattery] as num?)?.toInt(),
     );
   }
 
@@ -56,6 +58,9 @@ class TrackingLiveState {
   final int total;
   final int visited;
   final int skipped;
+
+  /// Device battery % (0–100), null if not yet read.
+  final int? batteryLevel;
 
   bool get isPaused => status == TrackingStatus.paused;
 

@@ -74,6 +74,7 @@ class LocationFix {
     this.speed,
     this.heading,
     this.address,
+    this.batteryLevel,
   });
 
   final String clientPingId;
@@ -84,6 +85,10 @@ class LocationFix {
   final double? speed;
   final double? heading;
   final String? address;
+
+  /// Device battery percentage (0–100) at capture time, if available. Lets
+  /// watchers see when a rep's phone is about to die mid-route.
+  final int? batteryLevel;
 
   /// `update-location` payload (carries `beatPlanId` at the top level).
   Map<String, dynamic> toLiveJson(String beatPlanId) => <String, dynamic>{
@@ -101,6 +106,7 @@ class LocationFix {
         'recordedAt': recordedAt.toUtc().toIso8601String(),
         'clientPingId': clientPingId,
         if (address != null) 'address': address,
+        if (batteryLevel != null) 'batteryLevel': batteryLevel,
       };
 }
 

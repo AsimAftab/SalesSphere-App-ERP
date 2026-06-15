@@ -38,6 +38,7 @@ class TrackingIpc {
   static const String kDurationSec = 'durationSec';
   static const String kQueued = 'queued';
   static const String kConnected = 'connected';
+  static const String kBattery = 'battery'; // device battery % (0–100), nullable
   static const String kReason = 'reason';
   static const String kReasonLabel = 'reasonLabel';
   static const String kActionId = 'id';

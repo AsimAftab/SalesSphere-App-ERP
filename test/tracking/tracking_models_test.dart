@@ -29,6 +29,20 @@ void main() {
       expect(json.containsKey('beatPlanId'), false);
       expect(json['clientPingId'], 'p1');
     });
+
+    test('batteryLevel is included when set and omitted when null', () {
+      final withBattery = LocationFix(
+        clientPingId: 'p2',
+        latitude: 27.7,
+        longitude: 85.3,
+        recordedAt: DateTime.utc(2026, 6, 14, 10),
+        batteryLevel: 85,
+      );
+      expect(withBattery.toPingJson()['batteryLevel'], 85);
+      expect(withBattery.toLiveJson('bp1')['batteryLevel'], 85);
+      // The base fix has no battery → key omitted.
+      expect(fix.toPingJson().containsKey('batteryLevel'), false);
+    });
   });
 
   group('wire enum mapping', () {
