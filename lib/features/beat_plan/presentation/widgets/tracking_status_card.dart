@@ -13,6 +13,7 @@ class TrackingStatusCard extends StatelessWidget {
     required this.queuedCount,
     required this.isConnected,
     required this.isPaused,
+    this.batteryLevel,
     super.key,
   });
 
@@ -21,6 +22,9 @@ class TrackingStatusCard extends StatelessWidget {
   final int queuedCount;
   final bool isConnected;
   final bool isPaused;
+
+  /// Device battery % (0–100). Null hides the battery metric.
+  final int? batteryLevel;
 
   @override
   Widget build(BuildContext context) {
@@ -140,6 +144,17 @@ class TrackingStatusCard extends StatelessWidget {
                           queuedCount > 0 ? AppColors.warning : AppColors.success,
                         ),
                       ),
+                      if (batteryLevel != null) ...[
+                        _divider(),
+                        Expanded(
+                          child: _metric(
+                            'Battery',
+                            '$batteryLevel%',
+                            _batteryIcon(batteryLevel!),
+                            _batteryColor(batteryLevel!),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -156,6 +171,18 @@ class TrackingStatusCard extends StatelessWidget {
         height: 40.h,
         color: AppColors.border.withValues(alpha: 0.5),
       );
+
+  Color _batteryColor(int level) {
+    if (level <= 20) return AppColors.error;
+    if (level <= 50) return AppColors.warning;
+    return AppColors.success;
+  }
+
+  IconData _batteryIcon(int level) {
+    if (level <= 20) return Icons.battery_alert_rounded;
+    if (level <= 60) return Icons.battery_5_bar_rounded;
+    return Icons.battery_full_rounded;
+  }
 
   Widget _metric(String label, String value, IconData icon, Color color) {
     return Column(

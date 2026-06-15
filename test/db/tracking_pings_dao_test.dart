@@ -14,6 +14,7 @@ void main() {
       String id, {
       required String plan,
       required DateTime at,
+      int? battery,
     }) =>
         TrackingPingsCompanion.insert(
           clientPingId: id,
@@ -21,6 +22,7 @@ void main() {
           latitude: 27.7,
           longitude: 85.3,
           recordedAt: at,
+          batteryLevel: Value<int?>(battery),
         );
 
     test('enqueue buffers pings and counts them', () async {
@@ -29,6 +31,18 @@ void main() {
       await db.trackingPingsDao
           .enqueue(ping('b', plan: 'bp1', at: DateTime.utc(2026, 6, 14, 10, 1)));
       expect(await db.trackingPingsDao.countPending(), 2);
+    });
+
+    test('enqueue round-trips the battery level for batch replay', () async {
+      await db.trackingPingsDao.enqueue(
+        ping('a', plan: 'bp1', at: DateTime.utc(2026, 6, 14, 10), battery: 73),
+      );
+      await db.trackingPingsDao
+          .enqueue(ping('b', plan: 'bp1', at: DateTime.utc(2026, 6, 14, 10, 1)));
+      final rows = await db.trackingPingsDao.pending();
+      expect(rows.firstWhere((r) => r.clientPingId == 'a').batteryLevel, 73);
+      // A ping captured with no battery reading stays null.
+      expect(rows.firstWhere((r) => r.clientPingId == 'b').batteryLevel, isNull);
     });
 
     test('enqueue dedupes on clientPingId (idempotent replay)', () async {

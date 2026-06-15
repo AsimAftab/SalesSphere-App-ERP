@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/core/utils/geo_distance.dart';
 import 'package:sales_sphere_erp/features/beat_plan/domain/beat_plan.dart';
 import 'package:sales_sphere_erp/features/beat_plan/domain/beat_plan_stop.dart';
 import 'package:sales_sphere_erp/features/beat_plan/presentation/providers/beat_plan_providers.dart';
@@ -185,7 +186,8 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
               _emptyStops()
             else
               ...filtered.map(
-                (stop) => _stopCard(context, plan, stop, stop.id == activeStopId),
+                (stop) =>
+                    _stopCard(context, plan, stop, stop.id == activeStopId, live),
               ),
           ],
         ),
@@ -209,6 +211,7 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
         queuedCount: live.queued,
         isConnected: live.connected,
         isPaused: live.isPaused,
+        batteryLevel: live.batteryLevel,
       );
     }
     if (plan.isCompleted) return const SizedBox.shrink();
@@ -298,7 +301,18 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
     BeatPlan plan,
     BeatPlanStop stop,
     bool isActive,
+    TrackingLiveState live,
   ) {
+    // Geofence (hard gate): a rep can only start a stop's visit while tracking
+    // is live for this plan AND they're within `kGeofenceRadiusMeters` of it.
+    // A stop with no saved location can't be geofenced, so it stays checkable.
+    final geofenceActive = live.isFor(plan.id);
+    final proximityMeters =
+        geofenceActive ? stop.distanceMetersFrom(live.latitude, live.longitude) : null;
+    final canCheckIn = !geofenceActive ||
+        !stop.hasLocation ||
+        (proximityMeters != null && proximityMeters <= kGeofenceRadiusMeters);
+
     final startedLabel = stop.visitStartedAt == null
         ? null
         : DateFormat('hh:mm a').format(stop.visitStartedAt!.toLocal());
@@ -325,6 +339,8 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
       notes: stop.isVisited ? stop.visitNotes : null,
       photoUrl: stop.isVisited ? stop.visitImageUrl : null,
       followUp: stop.isVisited ? followUpLabel : null,
+      proximityMeters: proximityMeters,
+      canCheckIn: canCheckIn,
       onTap: () {},
       onOpenMap: () => _openMaps(stop, directions: false),
       onOpenDirections: () => _openMaps(stop, directions: true),

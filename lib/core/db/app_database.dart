@@ -48,7 +48,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.test(super.connection);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -110,6 +110,11 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(beatPlanStops, beatPlanStops.visitNotes);
             await m.addColumn(beatPlanStops, beatPlanStops.followUpDate);
             await m.addColumn(beatPlanStops, beatPlanStops.visitImageUrl);
+          }
+          if (from < 9) {
+            // v9 adds the device battery level (0–100) to each GPS ping so
+            // watchers can see when a rep's phone is about to die mid-route.
+            await m.addColumn(trackingPings, trackingPings.batteryLevel);
           }
         },
       );

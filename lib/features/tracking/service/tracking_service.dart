@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:battery_plus/battery_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
@@ -171,6 +172,12 @@ class _TrackingRuntime {
   int _visited = 0;
   int _skipped = 0;
 
+  final Battery _battery = Battery();
+
+  /// Cached device battery % (0–100). Refreshed on start + the 15s tick so the
+  /// GPS hot path never makes a platform-channel call. Null until first read.
+  int? _batteryLevel;
+
   Future<void> bootstrap() async {
     // flutter_local_notifications is per-isolate — initialise it here so the
     // service can render/own the ongoing notification from this isolate.
@@ -279,6 +286,7 @@ class _TrackingRuntime {
       ),
     );
 
+    await _readBattery();
     await _updateNotification();
     await _connectSocket();
     await _beginGps();
@@ -341,6 +349,7 @@ class _TrackingRuntime {
       speed: speed,
       heading: pos.heading,
       recordedAt: pos.timestamp,
+      batteryLevel: _batteryLevel,
     );
 
     await _pingsDao.enqueue(
@@ -353,6 +362,7 @@ class _TrackingRuntime {
         accuracy: Value<double?>(fix.accuracy),
         speed: Value<double?>(fix.speed),
         heading: Value<double?>(fix.heading),
+        batteryLevel: Value<int?>(fix.batteryLevel),
       ),
     );
 
@@ -647,9 +657,20 @@ class _TrackingRuntime {
 
   Future<void> _tick() async {
     if (!_started) return;
+    await _readBattery();
     _queued = await _pingsDao.countPending();
     _pushState();
     await _updateNotification();
+  }
+
+  /// Best-effort battery read. A platform-channel failure must never break the
+  /// GPS/socket pipeline — on error we keep the last cached value.
+  Future<void> _readBattery() async {
+    try {
+      _batteryLevel = await _battery.batteryLevel;
+    } on Object {
+      // Keep the previous cached value (or null).
+    }
   }
 
   void _pushState() {
@@ -667,6 +688,7 @@ class _TrackingRuntime {
       TrackingIpc.kTotal: _total,
       TrackingIpc.kVisited: _visited,
       TrackingIpc.kSkipped: _skipped,
+      TrackingIpc.kBattery: _batteryLevel,
     });
   }
 
@@ -676,6 +698,7 @@ class _TrackingRuntime {
         ? 'Tracking paused'
         : 'Tracking your beat plan';
     final body = StringBuffer(connection);
+    if (_batteryLevel != null) body.write(' · 🔋 $_batteryLevel%');
     if (_queued > 0) body.write(' · $_queued queued');
     body.write('\n${_distanceKm.toStringAsFixed(2)} km');
     if (_total > 0) {
@@ -707,6 +730,7 @@ class _TrackingRuntime {
         speed: r.speed,
         heading: r.heading,
         address: r.address,
+        batteryLevel: r.batteryLevel,
       );
 
   String _statusWire(TrackingStatus status) {

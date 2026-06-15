@@ -25,6 +25,15 @@ class RouteStopCard extends StatelessWidget {
   final String? photoUrl;
   final String? followUp;
 
+  /// Geofence: distance in metres from the rep to this stop, or null when it
+  /// can't be measured (no live position / stop has no location).
+  final double? proximityMeters;
+
+  /// Geofence gate: false disables Start (rep is out of range, or we don't
+  /// yet have their position). Default true so non-geofenced contexts are
+  /// unaffected.
+  final bool canCheckIn;
+
   const RouteStopCard({
     super.key,
     required this.name,
@@ -47,7 +56,15 @@ class RouteStopCard extends StatelessWidget {
     this.notes,
     this.photoUrl,
     this.followUp,
+    this.proximityMeters,
+    this.canCheckIn = true,
   });
+
+  /// `28 m` / `1.4 km` for the proximity badge.
+  static String _formatDistance(double meters) {
+    if (meters >= 1000) return '${(meters / 1000).toStringAsFixed(1)} km';
+    return '${meters.round()} m';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -308,6 +325,7 @@ class RouteStopCard extends StatelessWidget {
                 
                 if (isPending) ...[
                   SizedBox(height: 16.h),
+                  if (!isStarted) _buildGeofenceBanner(),
                   if (isStarted)
                     CustomButton(
                       label: 'Stop',
@@ -317,7 +335,8 @@ class RouteStopCard extends StatelessWidget {
                   else
                     CustomButton(
                       label: 'Start',
-                      onPressed: onStart,
+                      onPressed: canCheckIn ? onStart : null,
+                      isDisabled: !canCheckIn,
                       type: ButtonType.primary,
                     ),
                   SizedBox(height: 12.h),
@@ -483,6 +502,63 @@ class RouteStopCard extends StatelessWidget {
       photoUrl != null ||
       (notes != null && notes!.trim().isNotEmpty) ||
       followUp != null;
+
+  /// Geofence status shown above the Start button for a pending stop:
+  /// green "within range" when the rep is close enough to check in, amber
+  /// "move closer" with the distance when out of range, or a neutral
+  /// "waiting for your location" when we don't have a position yet. Renders
+  /// nothing in non-geofenced contexts (no measurement + check-in allowed).
+  Widget _buildGeofenceBanner() {
+    final hasProximity = proximityMeters != null;
+    if (canCheckIn && !hasProximity) return const SizedBox.shrink();
+
+    final Color color;
+    final IconData icon;
+    final String text;
+    if (canCheckIn) {
+      color = AppColors.success;
+      icon = Icons.where_to_vote_rounded;
+      text = 'Within range — you can check in'
+          '${hasProximity ? ' (${_formatDistance(proximityMeters!)})' : ''}';
+    } else if (hasProximity) {
+      color = AppColors.warning;
+      icon = Icons.location_searching_rounded;
+      text = 'Move closer to check in — '
+          '${_formatDistance(proximityMeters!)} away';
+    } else {
+      color = AppColors.textSecondary;
+      icon = Icons.gps_not_fixed_rounded;
+      text = 'Waiting for your location…';
+    }
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: 12.h),
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 12.w),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12.r),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 16.sp, color: color),
+            SizedBox(width: 8.w),
+            Expanded(
+              child: Text(
+                text,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildStatColumn(String label, String value, IconData icon, Color iconColor, {Color? valueColor}) {
     return Expanded(

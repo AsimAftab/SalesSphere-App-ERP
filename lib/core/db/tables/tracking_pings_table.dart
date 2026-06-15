@@ -36,6 +36,10 @@ class TrackingPings extends Table {
   DateTimeColumn get recordedAt => dateTime()();
   TextColumn get address => text().nullable()();
 
+  /// Device battery percentage (0–100) at capture time. Stored on the row so a
+  /// batch-flushed buffered ping replays its real reading, not the latest.
+  IntColumn get batteryLevel => integer().nullable()();
+
   DateTimeColumn get createdAt =>
       dateTime().withDefault(currentDateAndTime)();
 }

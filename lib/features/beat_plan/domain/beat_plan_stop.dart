@@ -1,3 +1,5 @@
+import 'package:sales_sphere_erp/core/utils/geo_distance.dart';
+
 /// UI-facing stop on a beat plan's route. `kind` and `status` stay as the raw
 /// backend enums (`CUSTOMER`/`SITE`/`PROSPECT`, `PENDING`/`VISITED`/`SKIPPED`)
 /// so logic can switch on them; [typeLabel] / [statusLabel] give the
@@ -76,6 +78,25 @@ class BeatPlanStop {
   bool get isSkipped => status.toUpperCase() == 'SKIPPED';
 
   bool get hasLocation => latitude != null && longitude != null;
+
+  /// Distance in metres from [fromLat]/[fromLng] (the rep's current position)
+  /// to this stop, or null when either side lacks a location. Backs the
+  /// per-stop geofence check.
+  double? distanceMetersFrom(double? fromLat, double? fromLng) {
+    if (!hasLocation || fromLat == null || fromLng == null) return null;
+    return haversineMeters(fromLat, fromLng, latitude!, longitude!);
+  }
+
+  /// Whether [fromLat]/[fromLng] is within [radius] metres of this stop. Null
+  /// when the distance can't be measured (stop or rep position missing).
+  bool? isWithinRange(
+    double? fromLat,
+    double? fromLng, {
+    double radius = kGeofenceRadiusMeters,
+  }) {
+    final d = distanceMetersFrom(fromLat, fromLng);
+    return d == null ? null : d <= radius;
+  }
 
   /// Card badge label: `CUSTOMER` → `Party` (mobile speaks "party"), the
   /// others title-cased.
