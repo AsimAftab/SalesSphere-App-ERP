@@ -21,6 +21,9 @@ class RouteStopCard extends StatelessWidget {
   final VoidCallback onStop;
   final VoidCallback onSkip;
   final bool isStarted;
+  final String? notes;
+  final String? photoUrl;
+  final String? followUp;
 
   const RouteStopCard({
     super.key,
@@ -41,6 +44,9 @@ class RouteStopCard extends StatelessWidget {
     required this.onStop,
     required this.onSkip,
     this.isStarted = false,
+    this.notes,
+    this.photoUrl,
+    this.followUp,
   });
 
   @override
@@ -391,6 +397,80 @@ class RouteStopCard extends StatelessWidget {
                     ),
                   ),
                 ],
+                if (isVisited && _hasVisitExtras) ...[
+                  if (photoUrl != null) ...[
+                    SizedBox(height: 12.h),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12.r),
+                      child: Image.network(
+                        photoUrl!,
+                        height: 160.h,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, progress) =>
+                            progress == null
+                                ? child
+                                : Container(
+                                    height: 160.h,
+                                    alignment: Alignment.center,
+                                    color: AppColors.surface,
+                                    child: const CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                        errorBuilder: (context, _, __) => Container(
+                          height: 160.h,
+                          alignment: Alignment.center,
+                          color: AppColors.surface,
+                          child: Icon(
+                            Icons.broken_image_outlined,
+                            color: AppColors.textSecondary,
+                            size: 28.sp,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (notes != null && notes!.trim().isNotEmpty) ...[
+                    SizedBox(height: 12.h),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.sticky_note_2_outlined,
+                            size: 16.sp, color: AppColors.textSecondary),
+                        SizedBox(width: 8.w),
+                        Expanded(
+                          child: Text(
+                            notes!.trim(),
+                            style: TextStyle(
+                              fontSize: 13.sp,
+                              color: AppColors.textPrimary,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (followUp != null) ...[
+                    SizedBox(height: 10.h),
+                    Row(
+                      children: [
+                        Icon(Icons.event_repeat_rounded,
+                            size: 16.sp, color: AppColors.primary),
+                        SizedBox(width: 8.w),
+                        Text(
+                          'Follow-up: $followUp',
+                          style: TextStyle(
+                            fontSize: 13.sp,
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
               ],
             ),
           ),
@@ -398,6 +478,11 @@ class RouteStopCard extends StatelessWidget {
       ),
     );
   }
+
+  bool get _hasVisitExtras =>
+      photoUrl != null ||
+      (notes != null && notes!.trim().isNotEmpty) ||
+      followUp != null;
 
   Widget _buildStatColumn(String label, String value, IconData icon, Color iconColor, {Color? valueColor}) {
     return Expanded(

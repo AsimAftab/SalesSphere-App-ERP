@@ -1,0 +1,49 @@
+/// Method + key names for the message channel between the UI isolate and the
+/// background tracking-service isolate (`ServiceInstance.invoke` / `.on`).
+/// Shared by both isolates so the two ends can't drift apart.
+class TrackingIpc {
+  TrackingIpc._();
+
+  // ── UI → service commands ──────────────────────────────────────────────
+  static const String cmdStart = 'cmd.start';
+  static const String cmdPause = 'cmd.pause';
+  static const String cmdResume = 'cmd.resume';
+  static const String cmdStop = 'cmd.stop';
+  static const String cmdProgress = 'cmd.progress';
+
+  /// Ask the running service to immediately re-emit its live state (used when
+  /// the UI re-opens the tracking screen instead of waiting for the next tick).
+  static const String cmdSync = 'cmd.sync';
+
+  /// Emitted from the notification-action background isolate (Pause/Resume/Stop
+  /// buttons). Carries [kActionId].
+  static const String cmdAction = 'action';
+
+  // ── service → UI events ────────────────────────────────────────────────
+  static const String evtState = 'evt.state';
+  static const String evtSession = 'evt.session';
+  static const String evtForceStopped = 'evt.forceStopped';
+  static const String evtStopped = 'evt.stopped';
+
+  // ── payload keys ───────────────────────────────────────────────────────
+  static const String kBeatPlanId = 'beatPlanId';
+  static const String kSessionId = 'sessionId';
+  static const String kTotal = 'total';
+  static const String kVisited = 'visited';
+  static const String kSkipped = 'skipped';
+  static const String kStatus = 'status'; // active | paused | completed
+  static const String kLat = 'lat';
+  static const String kLng = 'lng';
+  static const String kDistanceKm = 'distanceKm';
+  static const String kDurationSec = 'durationSec';
+  static const String kQueued = 'queued';
+  static const String kConnected = 'connected';
+  static const String kReason = 'reason';
+  static const String kReasonLabel = 'reasonLabel';
+  static const String kActionId = 'id';
+
+  // ── notification action ids ────────────────────────────────────────────
+  static const String actionPause = 'pause';
+  static const String actionResume = 'resume';
+  static const String actionStop = 'stop';
+}

@@ -44,11 +44,41 @@ class Endpoints {
   static const attendanceCheckIn = '/attendance/check-in';
   static const attendanceCheckOut = '/attendance/check-out';
   static const attendanceList = '/attendance';
+  static const attendanceMyMonthlyReport = '/attendance/my-monthly-report';
 
   // ── Beat plans ────────────────────────────────────────────────────────────
   static const beatPlans = '/beat-plans';
+  static const beatPlanStats = '/beat-plans/stats';
   static String beatPlanById(String id) => '/beat-plans/$id';
-  static String beatPlanVisits(String id) => '/beat-plans/$id/visits';
+  static String beatPlanStart(String id) => '/beat-plans/$id/start';
+  static String beatPlanVisit(String id) => '/beat-plans/$id/visit';
+  static String beatPlanSkip(String id) => '/beat-plans/$id/skip';
+  static String beatPlanForceComplete(String id) =>
+      '/beat-plans/$id/force-complete';
+  static String beatPlanOptimizeRoute(String id) =>
+      '/beat-plans/$id/optimize-route';
+  static String beatPlanStopImages(String beatPlanId, String stopId) =>
+      '/beat-plans/$beatPlanId/stops/$stopId/images';
+  static String beatPlanStopImageSlot(
+    String beatPlanId,
+    String stopId,
+    int slot,
+  ) =>
+      '/beat-plans/$beatPlanId/stops/$stopId/images/$slot';
+
+  // ── Live tracking (REST is read-only; live writes go over the socket) ─────
+  static const trackingActive = '/tracking/active';
+  static const trackingCompleted = '/tracking/completed';
+  static String trackingByBeatPlan(String beatPlanId) =>
+      '/tracking/$beatPlanId';
+  static String trackingCurrentLocation(String beatPlanId) =>
+      '/tracking/$beatPlanId/current-location';
+  static String trackingHistory(String beatPlanId) =>
+      '/tracking/$beatPlanId/history';
+  static String trackingSessionBreadcrumbs(String sessionId) =>
+      '/tracking/sessions/$sessionId/breadcrumbs';
+  static String trackingSessionSummary(String sessionId) =>
+      '/tracking/sessions/$sessionId/summary';
 
   // ── Tour plans ────────────────────────────────────────────────────────────
   static const tourPlans = '/tour-plans';

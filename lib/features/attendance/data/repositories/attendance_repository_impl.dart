@@ -4,6 +4,8 @@ import 'package:sales_sphere_erp/features/attendance/data/attendance_api.dart';
 import 'package:sales_sphere_erp/features/attendance/data/dto/attendance_record_dto.dart';
 import 'package:sales_sphere_erp/features/attendance/domain/attendance_record.dart';
 import 'package:sales_sphere_erp/features/attendance/domain/attendance_status.dart';
+import 'package:sales_sphere_erp/features/attendance/domain/monthly_report.dart';
+import 'package:sales_sphere_erp/features/attendance/domain/monthly_summary.dart';
 import 'package:sales_sphere_erp/features/attendance/domain/repositories/attendance_repository.dart';
 
 /// Anti-corruption layer between the wire DTOs and the rest of the
@@ -15,9 +17,43 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
   final AttendanceApi _api;
 
   @override
-  Future<List<AttendanceRecord>> getMonth(int year, int month) async {
-    final dtos = await _api.listForMonth(year, month);
-    return dtos.map(_toDomain).toList(growable: false);
+  Future<MonthlyReport> getMonthlyReport(int year, int month) async {
+    final dto = await _api.fetchMonthlyReport(year, month);
+    final records = dto.records.map(_toDomain).toList(growable: false)
+      ..sort((a, b) => a.date.compareTo(b.date));
+    return MonthlyReport(
+      records: records,
+      summary: _summaryFromWire(dto.summary),
+    );
+  }
+
+  /// Maps the server's status tally into the UI summary. The `LATE`
+  /// count overlaps `PRESENT`, so it's surfaced separately rather than
+  /// folded into the working-day maths. Attendance % isn't sent by the
+  /// backend, so it's derived here (half-day = 0.5; weekly-offs are
+  /// excluded from the denominator) to match the prior behaviour.
+  MonthlySummary _summaryFromWire(Map<String, int> tally) {
+    final present = tally['PRESENT'] ?? 0;
+    final absent = tally['ABSENT'] ?? 0;
+    final leave = tally['LEAVE'] ?? 0;
+    final halfDay = tally['HALF_DAY'] ?? 0;
+    final weeklyOff = tally['WEEKLY_OFF'] ?? 0;
+    final late = tally['LATE'] ?? 0;
+
+    final workingDays = present + absent + leave + halfDay;
+    final attendancePct = workingDays == 0
+        ? 0.0
+        : ((present + halfDay * 0.5) / workingDays) * 100;
+
+    return MonthlySummary(
+      present: present,
+      absent: absent,
+      leave: leave,
+      halfDay: halfDay,
+      weeklyOff: weeklyOff,
+      late: late,
+      attendancePct: attendancePct,
+    );
   }
 
   @override
@@ -73,19 +109,20 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
         markedByUserId: dto.markedByUserId,
         markedByName: dto.markedByName,
         markedByRole: dto.markedByRole,
+        isLate: dto.isLate,
       );
 
   AttendanceStatus _statusFromWire(String wire) {
     switch (wire) {
-      case 'present':
+      case 'PRESENT':
         return AttendanceStatus.present;
-      case 'absent':
+      case 'ABSENT':
         return AttendanceStatus.absent;
-      case 'leave':
+      case 'LEAVE':
         return AttendanceStatus.leave;
-      case 'halfDay':
+      case 'HALF_DAY':
         return AttendanceStatus.halfDay;
-      case 'weeklyOff':
+      case 'WEEKLY_OFF':
         return AttendanceStatus.weeklyOff;
       default:
         // Surface unknown statuses loudly: silently coercing to

@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:sales_sphere_erp/core/router/app_router.dart';
+import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/core/sync/sync_scheduler.dart';
 import 'package:sales_sphere_erp/core/theme/app_theme.dart';
+import 'package:sales_sphere_erp/features/tracking/presentation/controllers/tracking_controller.dart';
+import 'package:sales_sphere_erp/features/tracking/service/tracking_service.dart';
 import 'package:sales_sphere_erp/l10n/generated/app_localizations.dart';
 
 class SalesSphereApp extends ConsumerWidget {
@@ -18,6 +21,15 @@ class SalesSphereApp extends ConsumerWidget {
     // this watch keeps it alive for the app's lifetime. Disposal hooks
     // are wired in the scheduler itself.
     ref.watch(syncSchedulerProvider);
+
+    // Keep the tracking controller alive for the whole app so it always
+    // catches the service's lifecycle events (force-stop, summary) even
+    // between screens.
+    ref.watch(trackingControllerProvider);
+
+    // Route a tap on the persistent tracking notification to the plan detail.
+    trackingNotificationTapHandler =
+        (beatPlanId) => router.push(Routes.beatPlanDetailPath(beatPlanId));
 
     return ScreenUtilInit(
       designSize: const Size(360, 800),

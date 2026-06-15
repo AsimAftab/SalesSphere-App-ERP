@@ -1,15 +1,20 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:sales_sphere_erp/core/api/dio_client.dart';
 import 'package:sales_sphere_erp/features/attendance/data/dto/attendance_record_dto.dart';
 
-/// Raw data source for the attendance endpoints. Currently backed by
-/// a mutable in-memory map keyed by `YYYY-MM-DD` — swap for Dio calls
-/// once the attendance endpoint lands in the backend OpenAPI spec.
-/// Repository callers stay unchanged.
+/// Raw data source for the attendance endpoints. The monthly report
+/// (which drives the calendar + summary) hits the live backend over
+/// [_dio]; check-in / check-out are still backed by a mutable in-memory
+/// map keyed by `YYYY-MM-DD` until those endpoints are wired. Repository
+/// callers stay unchanged.
 class AttendanceApi {
-  AttendanceApi() {
+  AttendanceApi(this._dio) {
     _seedCurrentMonth();
   }
+
+  final Dio _dio;
 
   /// `'YYYY-MM-DD' → DTO`. Day key, not timestamp, because each calendar
   /// day has at most one row and dispatches on date-only equality.
@@ -30,7 +35,7 @@ class AttendanceApi {
       final status = _seededStatus(date);
       // Only present/half-day rows seed timestamps + location; leave
       // and absent are paperwork-only so the row carries no times.
-      final hasTimes = status == 'present' || status == 'halfDay';
+      final hasTimes = status == 'PRESENT' || status == 'HALF_DAY';
       _store[_dayKey(date)] = AttendanceRecordDto(
         id: 'seed-${date.toIso8601String()}',
         date: date,
@@ -43,7 +48,7 @@ class AttendanceApi {
                 date.year,
                 date.month,
                 date.day,
-                status == 'halfDay' ? 13 : 18,
+                status == 'HALF_DAY' ? 13 : 18,
                 15 + (day % 30),
               )
             : null,
@@ -65,21 +70,41 @@ class AttendanceApi {
   }
 
   String _seededStatus(DateTime date) {
-    if (date.weekday == DateTime.sunday) return 'weeklyOff';
+    if (date.weekday == DateTime.sunday) return 'WEEKLY_OFF';
     final d = date.day;
-    if (d % 7 == 3) return 'absent';
-    if (d % 11 == 0) return 'leave';
-    if (d % 5 == 0) return 'halfDay';
-    return 'present';
+    if (d % 7 == 3) return 'ABSENT';
+    if (d % 11 == 0) return 'LEAVE';
+    if (d % 5 == 0) return 'HALF_DAY';
+    return 'PRESENT';
   }
 
-  Future<List<AttendanceRecordDto>> listForMonth(int year, int month) async {
-    await Future<void>.delayed(const Duration(milliseconds: 250));
-    final out = _store.values
-        .where((dto) => dto.date.year == year && dto.date.month == month)
-        .toList()
-      ..sort((a, b) => a.date.compareTo(b.date));
-    return List<AttendanceRecordDto>.unmodifiable(out.map(_cloneDto));
+  /// `GET /attendance/my-monthly-report?year=&month=` — the signed-in
+  /// rep's attendance for the month: per-day rows plus a server-computed
+  /// status tally. Powers the calendar and the monthly summary card.
+  Future<MonthlyReportDto> fetchMonthlyReport(int year, int month) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      Endpoints.attendanceMyMonthlyReport,
+      queryParameters: <String, dynamic>{'year': year, 'month': month},
+    );
+    return MonthlyReportDto.fromJson(_unwrap(response.data));
+  }
+
+  /// Peels the outer `{success, data}` transport envelope and returns
+  /// the inner report object (`{success, summary, data}`).
+  Map<String, dynamic> _unwrap(Map<String, dynamic>? body) {
+    if (body == null) {
+      throw const FormatException('Empty attendance response body');
+    }
+    if (body['success'] == false) {
+      throw const FormatException('Attendance API returned success=false');
+    }
+    final inner = body['data'];
+    if (inner is! Map<String, dynamic>) {
+      throw const FormatException(
+        'Malformed attendance envelope: missing or invalid `data` object',
+      );
+    }
+    return inner;
   }
 
   Future<AttendanceRecordDto?> getForDate(DateTime date) async {
@@ -102,7 +127,7 @@ class AttendanceApi {
     final created = AttendanceRecordDto(
       id: 'live-${at.microsecondsSinceEpoch}',
       date: day,
-      status: 'present',
+      status: 'PRESENT',
       checkInAt: at,
       checkInLat: lat,
       checkInLng: lng,
@@ -176,4 +201,6 @@ class AttendanceApi {
       );
 }
 
-final attendanceApiProvider = Provider<AttendanceApi>((_) => AttendanceApi());
+final attendanceApiProvider = Provider<AttendanceApi>(
+  (ref) => AttendanceApi(ref.watch(dioProvider)),
+);

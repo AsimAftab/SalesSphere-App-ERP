@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +10,7 @@ import '../../../beat_plan/presentation/providers/beat_plan_providers.dart';
 import '../../../beat_plan/presentation/widgets/beat_plan_summary_card.dart';
 import '../../../beat_plan/presentation/widgets/beat_plan_tabs.dart';
 import '../../../beat_plan/domain/beat_plan.dart';
+import '../../../tracking/domain/usecases/reconcile_tracking_usecase.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -23,6 +26,9 @@ class _HomePageState extends ConsumerState<HomePage> {
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: ref.read(beatPlanTabIndexProvider));
+    // Recover a tracking session that survived a reboot / OEM kill: now that
+    // we're authenticated and on home, reconcile local intent with the server.
+    unawaited(ref.read(reconcileTrackingUseCaseProvider).call());
   }
 
   @override

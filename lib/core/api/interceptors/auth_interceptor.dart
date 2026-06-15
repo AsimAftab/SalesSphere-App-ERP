@@ -70,32 +70,56 @@ class AuthInterceptor extends Interceptor {
       return handler.next(err);
     }
 
+    // The token that just 401'd. Used to detect whether another refresher (a
+    // concurrent request, or the background tracking isolate) has already
+    // rotated it — which matters because the tracking service refreshes
+    // independently while a session is live.
+    final staleAuth = err.requestOptions.headers['Authorization'];
+
     // Coalesce concurrent refreshes — only the first hits the server.
     final pending = _refreshCompleter;
     if (pending != null) {
       await pending.future.catchError((_) {});
     } else {
-      final completer = Completer<void>();
-      _refreshCompleter = completer;
-      try {
-        final refreshToken = await _tokens.readRefreshToken();
-        if (refreshToken == null || refreshToken.isEmpty) {
-          throw StateError('No refresh token');
+      final current = await _tokens.readAccessToken();
+      final currentAuth =
+          (current != null && current.isNotEmpty) ? 'Bearer $current' : null;
+      // Only refresh if the stored token is still the one that failed. If it
+      // already changed, another isolate rotated it — fall straight through to
+      // retry with the fresh token instead of refreshing (and rotating) again.
+      if (currentAuth == null || currentAuth == staleAuth) {
+        final completer = Completer<void>();
+        _refreshCompleter = completer;
+        try {
+          final refreshToken = await _tokens.readRefreshToken();
+          if (refreshToken == null || refreshToken.isEmpty) {
+            throw StateError('No refresh token');
+          }
+          final pair = await _refreshHandler(refreshToken);
+          if (pair == null) throw StateError('Refresh handler returned null');
+          await _tokens.save(
+            accessToken: pair.accessToken,
+            refreshToken: pair.refreshToken,
+            expiresAt: pair.expiresAt,
+          );
+          completer.complete();
+        } catch (e) {
+          completer.completeError(e);
+          // Re-read before clearing: the tracking isolate may have rotated the
+          // token with a fresher refresh-token while ours was already stale.
+          // Only force logout if nothing newer landed — otherwise a refresh
+          // race would log the user out mid-session.
+          final latest = await _tokens.readAccessToken();
+          final latestAuth = (latest != null && latest.isNotEmpty)
+              ? 'Bearer $latest'
+              : null;
+          if (latestAuth == null || latestAuth == staleAuth) {
+            await _tokens.clear();
+            _onRefreshFailed();
+          }
+        } finally {
+          _refreshCompleter = null;
         }
-        final pair = await _refreshHandler(refreshToken);
-        if (pair == null) throw StateError('Refresh handler returned null');
-        await _tokens.save(
-          accessToken: pair.accessToken,
-          refreshToken: pair.refreshToken,
-          expiresAt: pair.expiresAt,
-        );
-        completer.complete();
-      } catch (e) {
-        completer.completeError(e);
-        await _tokens.clear();
-        _onRefreshFailed();
-      } finally {
-        _refreshCompleter = null;
       }
     }
 
