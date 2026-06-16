@@ -47,6 +47,11 @@ class Endpoints {
   static const attendanceMyMonthlyReport = '/attendance/my-monthly-report';
   static const attendanceStatusToday = '/attendance/status/today';
 
+  // ── Leaves ────────────────────────────────────────────────────────────────
+  static const leaves = '/leaves';
+  static const leavesMyRequests = '/leaves/my-requests';
+  static String leaveById(String id) => '/leaves/$id';
+
   // ── Beat plans ────────────────────────────────────────────────────────────
   static const beatPlans = '/beat-plans';
   static const beatPlanStats = '/beat-plans/stats';

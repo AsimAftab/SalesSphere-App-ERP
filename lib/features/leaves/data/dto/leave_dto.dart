@@ -1,58 +1,63 @@
-/// Wire DTO for a leave request. Hand-written placeholder until the
-/// backend publishes the leaves endpoint and `tool/gen_dto.sh` can
-/// generate this.
+/// Wire DTO for a leave request — the read model returned by the leaves
+/// endpoints. Hand-written (mirrors the attendance DTO) until the leaves
+/// schema is wired into `tool/gen_dto.sh`.
+///
+/// The backend always sends an explicit `endDate` (equal to `startDate`
+/// for a single-day leave); the repository collapses that back to a null
+/// `endDate` on the domain model so the UI keeps rendering single-day
+/// leaves as one date. Request bodies are built in the repository, so this
+/// DTO only needs `fromJson`.
 class LeaveDto {
   const LeaveDto({
     required this.id,
     required this.category,
     required this.startDate,
+    required this.endDate,
     required this.reason,
     required this.status,
     required this.createdAt,
-    this.endDate,
   });
 
   factory LeaveDto.fromJson(Map<String, dynamic> json) => LeaveDto(
     id: json['id'] as String,
     category: json['category'] as String,
-    startDate: DateTime.parse(json['startDate'] as String),
-    endDate: json['endDate'] == null
-        ? null
-        : DateTime.parse(json['endDate'] as String),
+    startDate: _parseDate(json['startDate'] as String),
+    endDate: _parseDate(json['endDate'] as String),
     reason: json['reason'] as String,
     status: json['status'] as String,
-    createdAt: DateTime.parse(json['createdAt'] as String),
+    createdAt: DateTime.parse(json['createdAt'] as String).toLocal(),
   );
 
   final String id;
 
-  /// `'sick' | 'casual' | 'annual' | 'maternity' | 'paternity' |
-  /// 'bereavement' | 'unpaid'` on the wire — kept as a String to match
-  /// what the backend will send. The repo translates to the
-  /// `LeaveCategory` enum at the domain boundary.
+  /// One of the backend `LeaveCategory` enum values — `SICK_LEAVE`,
+  /// `MATERNITY_LEAVE`, `PATERNITY_LEAVE`, `COMPASSIONATE_LEAVE`,
+  /// `RELIGIOUS_HOLIDAYS`, `FAMILY_RESPONSIBILITY`, `MISCELLANEOUS`. The
+  /// repository maps this to the `LeaveCategory` enum at the domain
+  /// boundary.
   final String category;
 
+  /// Org-local calendar day, rebuilt at local midnight so date formatting
+  /// never shifts it across a timezone boundary. The backend stores the
+  /// date as UTC-midnight of the org-TZ day, so the UTC Y/M/D components
+  /// already are the intended calendar date.
   final DateTime startDate;
 
-  /// Null when the request is for a single day (start == end implied).
-  /// Omitted from `toJson` rather than serialised as null so the
-  /// backend receives an absent key instead of a literal `null`.
-  final DateTime? endDate;
+  /// Always present on the wire — equals [startDate] for a single-day
+  /// leave. The repository collapses that case to a null domain `endDate`.
+  final DateTime endDate;
 
   final String reason;
 
-  /// `'pending' | 'approved' | 'rejected' | 'completed'` on the wire.
+  /// `PENDING | APPROVED | REJECTED` on the wire.
   final String status;
 
   final DateTime createdAt;
 
-  Map<String, dynamic> toJson() => <String, dynamic>{
-    'id': id,
-    'category': category,
-    'startDate': startDate.toIso8601String(),
-    if (endDate != null) 'endDate': endDate!.toIso8601String(),
-    'reason': reason,
-    'status': status,
-    'createdAt': createdAt.toIso8601String(),
-  };
+  /// Parse an ISO date into a local-midnight [DateTime] whose Y/M/D match
+  /// the backend's stored calendar day, regardless of device timezone.
+  static DateTime _parseDate(String iso) {
+    final d = DateTime.parse(iso);
+    return DateTime(d.year, d.month, d.day);
+  }
 }

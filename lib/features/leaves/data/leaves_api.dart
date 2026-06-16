@@ -1,92 +1,78 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:sales_sphere_erp/core/api/dio_client.dart';
 import 'package:sales_sphere_erp/features/leaves/data/dto/leave_dto.dart';
 
-/// Raw data source for the leaves endpoints. Currently backed by a
-/// mutable in-memory list — swap for Dio calls once the leaves
-/// endpoint lands in the backend OpenAPI spec. Repository callers stay
-/// unchanged.
+/// HTTP layer for leaves. Every call hits the live backend; the
+/// `{success, data}` transport envelope is peeled by [_unwrap]. The list
+/// endpoint nests its rows one level deeper under `data.items` (the
+/// cursor-pagination envelope).
 class LeavesApi {
-  LeavesApi() {
-    _store
-      ..clear()
-      ..addAll(_seed.map(LeaveDto.fromJson));
-  }
+  LeavesApi(this._dio);
 
-  static final List<Map<String, dynamic>> _seed = <Map<String, dynamic>>[
-    <String, dynamic>{
-      'id': '1',
-      'category': 'sick',
-      'startDate': '2026-04-12T00:00:00.000',
-      'reason': 'Down with viral fever, doctor advised one day rest.',
-      'status': 'approved',
-      'createdAt': '2026-04-11T18:30:00.000',
-    },
-    <String, dynamic>{
-      'id': '2',
-      'category': 'religious',
-      'startDate': '2026-05-04T00:00:00.000',
-      'endDate': '2026-05-08T00:00:00.000',
-      'reason': 'Tihar festival — observing rituals at home.',
-      'status': 'approved',
-      'createdAt': '2026-04-20T09:15:00.000',
-    },
-    <String, dynamic>{
-      'id': '3',
-      'category': 'familyResponsibility',
-      'startDate': '2026-05-22T00:00:00.000',
-      'reason': 'Accompanying parent to a hospital appointment.',
-      'status': 'pending',
-      'createdAt': '2026-05-15T11:00:00.000',
-    },
-    <String, dynamic>{
-      'id': '4',
-      'category': 'compassionate',
-      'startDate': '2026-03-02T00:00:00.000',
-      'endDate': '2026-03-04T00:00:00.000',
-      'reason': 'Funeral rites for a close relative.',
-      'status': 'rejected',
-      'createdAt': '2026-03-01T20:45:00.000',
-    },
-  ];
+  final Dio _dio;
 
-  final List<LeaveDto> _store = <LeaveDto>[];
-
-  Future<List<LeaveDto>> list() async {
-    // Simulated round-trip so callers exercise the loading state path.
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    final sorted = _store.toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return List<LeaveDto>.unmodifiable(sorted);
-  }
-
-  Future<LeaveDto> create(LeaveDto draft) async {
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    // New requests always start as pending — the API mock owns status
-    // assignment so callers can't accidentally submit pre-approved
-    // rows. Real backend will enforce the same.
-    final created = LeaveDto(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
-      category: draft.category,
-      startDate: draft.startDate,
-      endDate: draft.endDate,
-      reason: draft.reason,
-      status: 'pending',
-      createdAt: DateTime.now(),
+  /// `GET /leaves/my-requests` — the signed-in user's own leave requests.
+  /// We pull a single large page (no pagination UI yet); 200 is the
+  /// backend's max page size and far exceeds a field rep's realistic
+  /// request count.
+  Future<List<LeaveDto>> listMine() async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      Endpoints.leavesMyRequests,
+      queryParameters: <String, dynamic>{'limit': 200},
     );
-    _store.add(created);
-    return created;
+    final data = _unwrap(response.data);
+    final items = data['items'];
+    if (items is! List) {
+      throw const FormatException(
+        'Malformed leaves envelope: missing or invalid `items` array',
+      );
+    }
+    return items
+        .map((e) => LeaveDto.fromJson(e as Map<String, dynamic>))
+        .toList(growable: false);
   }
 
-  Future<LeaveDto> update(LeaveDto leave) async {
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    final index = _store.indexWhere((l) => l.id == leave.id);
-    if (index == -1) {
-      throw StateError('Leave ${leave.id} not found');
+  /// `POST /leaves` — body `{category, reason, startDate, endDate?}`. The
+  /// server resolves the employee from the session and forces the status to
+  /// PENDING. Returns the created row (201).
+  Future<LeaveDto> create(Map<String, dynamic> body) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      Endpoints.leaves,
+      data: body,
+    );
+    return LeaveDto.fromJson(_unwrap(response.data));
+  }
+
+  /// `PATCH /leaves/:id` — partial update; only allowed while PENDING.
+  Future<LeaveDto> update(String id, Map<String, dynamic> body) async {
+    final response = await _dio.patch<Map<String, dynamic>>(
+      Endpoints.leaveById(id),
+      data: body,
+    );
+    return LeaveDto.fromJson(_unwrap(response.data));
+  }
+
+  /// Peels the outer `{success, data}` transport envelope and returns the
+  /// inner object.
+  Map<String, dynamic> _unwrap(Map<String, dynamic>? body) {
+    if (body == null) {
+      throw const FormatException('Empty leaves response body');
     }
-    _store[index] = leave;
-    return leave;
+    if (body['success'] == false) {
+      throw const FormatException('Leaves API returned success=false');
+    }
+    final inner = body['data'];
+    if (inner is! Map<String, dynamic>) {
+      throw const FormatException(
+        'Malformed leaves envelope: missing or invalid `data` object',
+      );
+    }
+    return inner;
   }
 }
 
-final leavesApiProvider = Provider<LeavesApi>((_) => LeavesApi());
+final leavesApiProvider = Provider<LeavesApi>(
+  (ref) => LeavesApi(ref.watch(dioProvider)),
+);

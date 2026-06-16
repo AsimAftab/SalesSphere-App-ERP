@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
 import 'package:sales_sphere_erp/features/leaves/domain/leave.dart';
 import 'package:sales_sphere_erp/features/leaves/presentation/controllers/leaves_controller.dart';
 import 'package:sales_sphere_erp/features/leaves/presentation/providers/leaves_providers.dart';
@@ -179,6 +180,10 @@ class _EditLeaveDetailPageState extends ConsumerState<EditLeaveDetailPage> {
         _editing = false;
       });
       SnackbarUtils.showSuccess(context, 'Leave request updated.');
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      SnackbarUtils.showError(context, e.message);
     } on Exception catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
