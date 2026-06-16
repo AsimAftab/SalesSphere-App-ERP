@@ -92,7 +92,11 @@ class Endpoints {
   static String tourPlanStatus(String id) => '/tour-plans/$id/status';
 
   // ── Odometer ──────────────────────────────────────────────────────────────
-  static const odometerLogs = '/odometer/logs';
+  static const odometerStart = '/odometer/start';
+  static const odometerStop = '/odometer/stop';
+  static const odometerStatusToday = '/odometer/status/today';
+  static const odometerMyMonthlyReport = '/odometer/my-monthly-report';
+  static String odometerById(String id) => '/odometer/$id';
 
   // ── Collections ───────────────────────────────────────────────────────────
   static const collections = '/collections';
