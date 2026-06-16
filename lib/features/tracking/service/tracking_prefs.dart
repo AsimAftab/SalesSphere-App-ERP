@@ -12,6 +12,7 @@ class TrackingIntent {
     required this.total,
     required this.visited,
     required this.skipped,
+    required this.resume,
   });
 
   final bool active;
@@ -19,6 +20,11 @@ class TrackingIntent {
   final int total;
   final int visited;
   final int skipped;
+
+  /// Whether a (re)start should resume the existing session rather than reset
+  /// it. Set true once a session exists so a watchdog / cold-start restart
+  /// preserves the running duration + distance instead of zeroing them.
+  final bool resume;
 }
 
 class TrackingPrefs {
@@ -29,12 +35,14 @@ class TrackingPrefs {
   static const String _total = 'tracking.total';
   static const String _visited = 'tracking.visited';
   static const String _skipped = 'tracking.skipped';
+  static const String _resume = 'tracking.resume';
 
   static Future<void> saveStart({
     required String beatPlanId,
     required int total,
     required int visited,
     required int skipped,
+    bool resume = false,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_active, true);
@@ -42,6 +50,15 @@ class TrackingPrefs {
     await prefs.setInt(_total, total);
     await prefs.setInt(_visited, visited);
     await prefs.setInt(_skipped, skipped);
+    await prefs.setBool(_resume, resume);
+  }
+
+  /// Flag the active intent as resumable — called by the service once a session
+  /// exists, so any later process restart resumes it instead of resetting.
+  static Future<void> markResumable() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!(prefs.getBool(_active) ?? false)) return;
+    await prefs.setBool(_resume, true);
   }
 
   static Future<void> updateProgress({
@@ -66,6 +83,7 @@ class TrackingPrefs {
       total: prefs.getInt(_total) ?? 0,
       visited: prefs.getInt(_visited) ?? 0,
       skipped: prefs.getInt(_skipped) ?? 0,
+      resume: prefs.getBool(_resume) ?? false,
     );
   }
 
@@ -76,5 +94,6 @@ class TrackingPrefs {
     await prefs.remove(_total);
     await prefs.remove(_visited);
     await prefs.remove(_skipped);
+    await prefs.remove(_resume);
   }
 }

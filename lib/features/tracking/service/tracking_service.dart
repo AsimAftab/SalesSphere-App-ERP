@@ -7,6 +7,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 
 import 'package:sales_sphere_erp/core/api/endpoints.dart';
@@ -67,17 +68,24 @@ Future<bool> isTrackingServiceRunning() =>
     FlutterBackgroundService().isRunning();
 
 /// Start (or hand the latest progress to) the tracking service for [beatPlanId].
+///
+/// [resume] = false is an explicit fresh start (the rep tapped "Start
+/// Tracking") — it resets the session's start time + distance. [resume] = true
+/// (cold-start reconcile / "Resume Tracking") reuses the existing open session,
+/// so its running duration + distance are preserved across a process restart.
 Future<void> startTrackingService({
   required String beatPlanId,
   required int total,
   required int visited,
   required int skipped,
+  bool resume = false,
 }) async {
   await TrackingPrefs.saveStart(
     beatPlanId: beatPlanId,
     total: total,
     visited: visited,
     skipped: skipped,
+    resume: resume,
   );
   final service = FlutterBackgroundService();
   if (!await service.isRunning()) {
@@ -90,18 +98,8 @@ Future<void> startTrackingService({
     TrackingIpc.kTotal: total,
     TrackingIpc.kVisited: visited,
     TrackingIpc.kSkipped: skipped,
+    TrackingIpc.kResume: resume,
   });
-}
-
-void pauseTrackingService() =>
-    FlutterBackgroundService().invoke(TrackingIpc.cmdPause);
-
-void resumeTrackingService() =>
-    FlutterBackgroundService().invoke(TrackingIpc.cmdResume);
-
-Future<void> stopTrackingService() async {
-  FlutterBackgroundService().invoke(TrackingIpc.cmdStop);
-  await TrackingPrefs.clear();
 }
 
 void updateTrackingProgress({
@@ -114,6 +112,31 @@ void updateTrackingProgress({
     TrackingIpc.kVisited: visited,
     TrackingIpc.kSkipped: skipped,
   });
+}
+
+/// Ensure tracking is live for an **already-active** plan — without any user
+/// action or permission prompt. Tracking is system-controlled, so the rep never
+/// taps "resume": if the service is running we just nudge it to re-emit its
+/// state; if it was killed we silently relaunch it (resume preserves the
+/// running session). Permissions were granted when the plan was first started.
+Future<void> ensureTrackingRunning({
+  required String beatPlanId,
+  required int total,
+  required int visited,
+  required int skipped,
+}) async {
+  final service = FlutterBackgroundService();
+  if (await service.isRunning()) {
+    service.invoke(TrackingIpc.cmdSync);
+  } else {
+    await startTrackingService(
+      beatPlanId: beatPlanId,
+      total: total,
+      visited: visited,
+      skipped: skipped,
+      resume: true,
+    );
+  }
 }
 
 // ── Background-isolate entrypoint ───────────────────────────────────────────
@@ -178,6 +201,13 @@ class _TrackingRuntime {
   /// GPS hot path never makes a platform-channel call. Null until first read.
   int? _batteryLevel;
 
+  /// Reverse-geocoding is throttled: the first fix of a session is geocoded
+  /// (start address) and then at most once per [_geocodeInterval]. This keeps
+  /// the session's current/end address fresh without a network geocode on every
+  /// ping. Null → the next fix is geocoded.
+  DateTime? _lastGeocodeAt;
+  static const Duration _geocodeInterval = Duration(seconds: 60);
+
   Future<void> bootstrap() async {
     // flutter_local_notifications is per-isolate — initialise it here so the
     // service can render/own the ongoing notification from this isolate.
@@ -211,11 +241,9 @@ class _TrackingRuntime {
         total: (args[TrackingIpc.kTotal] as num?)?.toInt() ?? 0,
         visited: (args[TrackingIpc.kVisited] as num?)?.toInt() ?? 0,
         skipped: (args[TrackingIpc.kSkipped] as num?)?.toInt() ?? 0,
+        resume: args[TrackingIpc.kResume] as bool? ?? false,
       ));
     });
-    _service.on(TrackingIpc.cmdPause).listen((_) => unawaited(pause()));
-    _service.on(TrackingIpc.cmdResume).listen((_) => unawaited(resume()));
-    _service.on(TrackingIpc.cmdStop).listen((_) => unawaited(stop()));
     _service.on(TrackingIpc.cmdSync).listen((_) {
       _pushState();
       unawaited(_updateNotification());
@@ -228,18 +256,10 @@ class _TrackingRuntime {
         skipped: (args[TrackingIpc.kSkipped] as num?)?.toInt() ?? _skipped,
       );
     });
-    _service.on(TrackingIpc.cmdAction).listen((args) {
-      switch (args?[TrackingIpc.kActionId]) {
-        case TrackingIpc.actionPause:
-          unawaited(pause());
-        case TrackingIpc.actionResume:
-          unawaited(resume());
-        case TrackingIpc.actionStop:
-          unawaited(stop());
-      }
-    });
 
     // Primary start/resume path: the UI wrote the intent before starting us.
+    // A restart of this isolate is always a resume — we never want to zero a
+    // running session's duration just because the OS respawned the service.
     final intent = await TrackingPrefs.read();
     if (intent != null && intent.active) {
       await start(
@@ -247,6 +267,7 @@ class _TrackingRuntime {
         total: intent.total,
         visited: intent.visited,
         skipped: intent.skipped,
+        resume: intent.resume,
       );
     }
   }
@@ -256,6 +277,7 @@ class _TrackingRuntime {
     required int total,
     required int visited,
     required int skipped,
+    bool resume = false,
   }) async {
     if (_started && _beatPlanId == beatPlanId) {
       updateProgress(total: total, visited: visited, skipped: skipped);
@@ -270,21 +292,46 @@ class _TrackingRuntime {
     _visited = visited;
     _skipped = skipped;
     _status = TrackingStatus.active;
-    _startedAt = DateTime.now();
-    _distanceKm = 0;
-    _lastLat = null;
-    _lastLng = null;
     _lastProcessedAt = null;
-    _sessionId = 'local_${generateUuidV4()}';
+    _lastGeocodeAt = null; // geocode the first fix of this (re)start → start address
 
-    await _trackingDao.upsertSession(
-      TrackingSessionsCompanion.insert(
-        id: _sessionId!,
-        beatPlanId: beatPlanId,
-        status: const Value<String>('ACTIVE'),
-        startedAt: Value<DateTime>(_startedAt!),
-      ),
-    );
+    // Reuse the existing open session on a resume so its start time, distance,
+    // and last position survive a service/process restart (the duration timer
+    // no longer resets). A fresh start closes any stale local session first so
+    // an old run's start time can't leak in.
+    final existing =
+        resume ? await _trackingDao.activeForBeatPlan(beatPlanId) : null;
+    if (existing != null) {
+      _sessionId = existing.id;
+      _startedAt = existing.startedAt;
+      _distanceKm = existing.totalDistanceKm;
+      _lastLat = existing.currentLatitude;
+      _lastLng = existing.currentLongitude;
+      await _trackingDao.setStatus(existing.id, 'ACTIVE');
+    } else {
+      if (!resume) {
+        for (final s in await _trackingDao.openSessions()) {
+          if (s.beatPlanId == beatPlanId) {
+            await _trackingDao.markCompleted(s.id, DateTime.now());
+          }
+        }
+      }
+      _sessionId = 'local_${generateUuidV4()}';
+      _startedAt = DateTime.now();
+      _distanceKm = 0;
+      _lastLat = null;
+      _lastLng = null;
+      await _trackingDao.upsertSession(
+        TrackingSessionsCompanion.insert(
+          id: _sessionId!,
+          beatPlanId: beatPlanId,
+          status: const Value<String>('ACTIVE'),
+          startedAt: Value<DateTime>(_startedAt!),
+        ),
+      );
+    }
+    // A session now exists → any later restart should resume it, not reset.
+    await TrackingPrefs.markResumable();
 
     await _readBattery();
     await _updateNotification();
@@ -341,6 +388,16 @@ class _TrackingRuntime {
     }
     _lastProcessedAt = now;
 
+    // Reverse-geocode only the first fix + every [_geocodeInterval] (best-effort)
+    // so the server's formattedAddress / current address stays populated without
+    // a network geocode on every ping. Most pings carry a null address.
+    String? address;
+    if (_lastGeocodeAt == null ||
+        now.difference(_lastGeocodeAt!) >= _geocodeInterval) {
+      _lastGeocodeAt = now;
+      address = await _reverseGeocode(pos.latitude, pos.longitude);
+    }
+
     final fix = LocationFix(
       clientPingId: generateUuidV4(),
       latitude: pos.latitude,
@@ -350,6 +407,7 @@ class _TrackingRuntime {
       heading: pos.heading,
       recordedAt: pos.timestamp,
       batteryLevel: _batteryLevel,
+      address: address,
     );
 
     await _pingsDao.enqueue(
@@ -363,6 +421,7 @@ class _TrackingRuntime {
         speed: Value<double?>(fix.speed),
         heading: Value<double?>(fix.heading),
         batteryLevel: Value<int?>(fix.batteryLevel),
+        address: Value<String?>(fix.address),
       ),
     );
 
@@ -501,51 +560,6 @@ class _TrackingRuntime {
     await _flushPending();
   }
 
-  Future<void> pause() async {
-    if (!_started) return;
-    _status = TrackingStatus.paused;
-    if (_sessionId != null) {
-      await _trackingDao.setStatus(_sessionId!, 'PAUSED');
-    }
-    if (_connected && _beatPlanId != null) {
-      await _socket?.pause(_beatPlanId!);
-    }
-    _pushState();
-    await _updateNotification();
-  }
-
-  Future<void> resume() async {
-    if (!_started) return;
-    _status = TrackingStatus.active;
-    if (_sessionId != null) {
-      await _trackingDao.setStatus(_sessionId!, 'ACTIVE');
-    }
-    if (_connected && _beatPlanId != null) {
-      await _socket?.resume(_beatPlanId!);
-    }
-    _pushState();
-    await _updateNotification();
-  }
-
-  Future<void> stop() async {
-    if (!_started) {
-      await _shutdown();
-      return;
-    }
-    TrackingSummary? summary;
-    if (_connected && _socket != null && _beatPlanId != null) {
-      await _flushPending();
-      final ack = await _socket!.stop(_beatPlanId!);
-      summary = ack.summary;
-    }
-    await _finish(
-      reason: null,
-      reasonLabel: null,
-      summary: summary,
-      event: TrackingIpc.evtStopped,
-    );
-  }
-
   void updateProgress({
     required int total,
     required int visited,
@@ -670,6 +684,30 @@ class _TrackingRuntime {
       _batteryLevel = await _battery.batteryLevel;
     } on Object {
       // Keep the previous cached value (or null).
+    }
+  }
+
+  /// Best-effort reverse-geocode to a short, human address. Bounded by a short
+  /// timeout and never throws — on failure/offline the ping just carries a null
+  /// address (the server stores null; the map marker still works on lat/lng).
+  Future<String?> _reverseGeocode(double latitude, double longitude) async {
+    try {
+      final marks = await placemarkFromCoordinates(latitude, longitude)
+          .timeout(const Duration(seconds: 5));
+      if (marks.isEmpty) return null;
+      final p = marks.first;
+      final parts = <String?>[
+        p.name,
+        p.subLocality,
+        p.locality,
+        p.administrativeArea,
+      ].where((s) => s != null && s.trim().isNotEmpty).cast<String>();
+      // De-dupe consecutive repeats (e.g. name == subLocality) while keeping order.
+      final seen = <String>{};
+      final address = parts.where(seen.add).join(', ');
+      return address.isEmpty ? null : address;
+    } on Object {
+      return null;
     }
   }
 

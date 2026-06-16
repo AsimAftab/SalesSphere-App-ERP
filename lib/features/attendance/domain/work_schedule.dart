@@ -40,7 +40,16 @@ class WorkSchedule {
     required this.scheduledCheckOut,
     required this.scheduledHalfDayCheckOut,
     required this.weeklyOffDays,
+    this.enforceWindows = true,
   });
+
+  /// When false, the check-in/out time windows are not gated client-side —
+  /// [checkInStatus] is always `allowed` and [checkOutStatus] always
+  /// `fullDayAllowed`. Set when the org hasn't configured its shift times
+  /// (or they're unparseable), so the server stays the authority and its
+  /// rejection messages surface instead of the app guessing. [weeklyOffDays]
+  /// still applies regardless.
+  final bool enforceWindows;
 
   /// Scheduled start of the work day (e.g. 09:30).
   final TimeOfDay scheduledCheckIn;
@@ -89,6 +98,7 @@ class WorkSchedule {
   /// Does NOT account for weekly-off — callers handle that separately so
   /// the dialog can show the right copy.
   CheckInWindowStatus checkInStatus(DateTime now) {
+    if (!enforceWindows) return CheckInWindowStatus.allowed;
     final date = DateTime(now.year, now.month, now.day);
     if (now.isBefore(checkInAllowedFrom(date))) return CheckInWindowStatus.tooEarly;
     if (now.isAfter(checkInAllowedUntil(date))) return CheckInWindowStatus.tooLate;
@@ -98,6 +108,7 @@ class WorkSchedule {
   /// Evaluates checkout permission at [now].
   /// Full-day takes precedence: once that window opens, half-day is moot.
   CheckOutWindowStatus checkOutStatus(DateTime now) {
+    if (!enforceWindows) return CheckOutWindowStatus.fullDayAllowed;
     final date = DateTime(now.year, now.month, now.day);
     if (!now.isBefore(fullDayCheckOutAllowedFrom(date))) {
       return CheckOutWindowStatus.fullDayAllowed;

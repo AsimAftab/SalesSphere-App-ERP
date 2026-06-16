@@ -35,7 +35,10 @@ Future<String?> reverseGeocodeAddress(double lat, double lng) async {
     }
     if (deduped.isEmpty) return null;
     return deduped.join(', ');
-  } on Exception catch (_) {
+  } on Object catch (_) {
+    // Best-effort by contract: swallow *anything* (PlatformException, or an
+    // Error like UnimplementedError when no geocoding platform is wired up)
+    // and fall back to null. Reverse-geocoding must never break the caller.
     return null;
   }
 }

@@ -45,6 +45,7 @@ class Endpoints {
   static const attendanceCheckOut = '/attendance/check-out';
   static const attendanceList = '/attendance';
   static const attendanceMyMonthlyReport = '/attendance/my-monthly-report';
+  static const attendanceStatusToday = '/attendance/status/today';
 
   // ── Beat plans ────────────────────────────────────────────────────────────
   static const beatPlans = '/beat-plans';

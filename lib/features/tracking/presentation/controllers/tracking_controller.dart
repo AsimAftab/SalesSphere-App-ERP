@@ -10,7 +10,6 @@ import 'package:sales_sphere_erp/features/beat_plan/domain/beat_plan.dart';
 import 'package:sales_sphere_erp/features/tracking/domain/tracking_live_state.dart';
 import 'package:sales_sphere_erp/features/tracking/domain/usecases/start_tracking_usecase.dart';
 import 'package:sales_sphere_erp/features/tracking/service/tracking_ipc.dart';
-import 'package:sales_sphere_erp/features/tracking/service/tracking_permissions.dart';
 import 'package:sales_sphere_erp/features/tracking/service/tracking_service.dart';
 
 part 'tracking_controller.g.dart';
@@ -117,38 +116,10 @@ class TrackingController extends _$TrackingController {
     state = const TrackingLiveState.idle();
   }
 
-  /// Permission gauntlet → REST start → launch the foreground service.
+  /// Permission gauntlet → REST start → launch the foreground service. This is
+  /// the single deliberate "start" action; an active plan auto-resumes silently
+  /// (see `ensureTrackingRunning`), so there's no user-facing resume.
   Future<StartTrackingResult> startForPlan(BeatPlan plan) {
     return ref.read(startTrackingUseCaseProvider).call(plan);
   }
-
-  /// Re-launch tracking for a plan that's already ACTIVE (e.g. the rep reopened
-  /// the app). Skips the REST `start` — only the permission check + service
-  /// launch are needed; the socket's `start-tracking` is idempotent.
-  Future<StartTrackingResult> resumeForPlan(BeatPlan plan) async {
-    final permission =
-        await ref.read(trackingPermissionsProvider).ensureForTracking();
-    if (!permission.granted) {
-      return StartTrackingResult(
-        StartTrackingOutcome.permissionDenied,
-        message: permission.message,
-      );
-    }
-    await startTrackingService(
-      beatPlanId: plan.id,
-      total: plan.total,
-      visited: plan.visited,
-      skipped: plan.skipped,
-    );
-    return StartTrackingResult(
-      StartTrackingOutcome.started,
-      warning: permission.backgroundGranted ? null : permission.message,
-    );
-  }
-
-  void pause() => pauseTrackingService();
-
-  void resume() => resumeTrackingService();
-
-  Future<void> stop() => stopTrackingService();
 }

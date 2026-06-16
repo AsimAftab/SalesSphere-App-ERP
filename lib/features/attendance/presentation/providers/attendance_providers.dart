@@ -1,11 +1,8 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-
-import 'package:sales_sphere_erp/features/attendance/domain/work_schedule.dart';
 
 import 'package:sales_sphere_erp/features/attendance/data/repositories/attendance_repository_impl.dart';
 import 'package:sales_sphere_erp/features/attendance/domain/attendance_record.dart';
+import 'package:sales_sphere_erp/features/attendance/domain/attendance_today_status.dart';
 import 'package:sales_sphere_erp/features/attendance/domain/monthly_report.dart';
 import 'package:sales_sphere_erp/features/attendance/domain/monthly_summary.dart';
 
@@ -73,25 +70,19 @@ MonthlySummary attendanceMonthlySummary(Ref ref, int year, int month) {
       MonthlySummary.empty;
 }
 
-/// Today's record (or `null` if the user hasn't checked in yet).
-/// Powers the home page's "Today's Status" pill and the Check In /
-/// Check Out button label.
+/// Today's status from `/attendance/status/today`: today's record, the org
+/// work schedule (drives the check-in/out time-window gating), and the
+/// geofence config. Single source of truth for the today card + button.
 @riverpod
-Future<AttendanceRecord?> todayAttendance(Ref ref) async {
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
-  return ref.watch(attendanceByDateProvider(today).future);
+Future<AttendanceTodayStatus> attendanceTodayStatus(Ref ref) async {
+  return ref.watch(attendanceRepositoryProvider).getTodayStatus();
 }
 
-/// Organisation shift configuration.
-/// TODO: replace with a real `/org/schedule` API call once that endpoint lands.
-/// All consumers depend on the abstract [WorkSchedule] type so the swap is
-/// confined to this provider.
-final workScheduleProvider = Provider<WorkSchedule>(
-  (_) => const WorkSchedule(
-    scheduledCheckIn: TimeOfDay(hour: 10, minute: 30),
-    scheduledCheckOut: TimeOfDay(hour: 11, minute: 0),
-    scheduledHalfDayCheckOut: TimeOfDay(hour: 13, minute: 0),
-    weeklyOffDays: <int>{DateTime.saturday},
-  ),
-);
+/// Today's record (or `null` if the user hasn't been marked yet). Projected
+/// off [attendanceTodayStatus] so the "Today's Status" pill stays in lockstep
+/// with the schedule/geofence the Check In / Check Out button reads.
+@riverpod
+Future<AttendanceRecord?> todayAttendance(Ref ref) async {
+  final status = await ref.watch(attendanceTodayStatusProvider.future);
+  return status.record;
+}

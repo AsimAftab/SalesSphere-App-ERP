@@ -30,6 +30,14 @@ class ErrorInterceptor extends Interceptor {
     final responseMessage = _extractMessage(err.response?.data);
 
     switch (status) {
+      case 400:
+        // Surface the backend's human message (e.g. attendance window /
+        // weekly-off rejections) instead of letting a 400 fall through to a
+        // generic NetworkException copy. Treated like a validation failure.
+        return ValidationException(
+          responseMessage ?? 'Invalid request.',
+          fieldErrors: _extractFieldErrors(err.response?.data),
+        );
       case 401:
         return UnauthorizedException(
           responseMessage ?? 'Session expired. Please log in again.',

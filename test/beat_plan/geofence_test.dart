@@ -21,6 +21,15 @@ void main() {
     });
   });
 
+  group('formatDistanceMeters', () {
+    test('uses metres under 1 km and km above', () {
+      expect(formatDistanceMeters(28.4), '28 m');
+      expect(formatDistanceMeters(999), '999 m');
+      expect(formatDistanceMeters(1000), '1.0 km');
+      expect(formatDistanceMeters(1420), '1.4 km');
+    });
+  });
+
   group('BeatPlanStop geofence', () {
     BeatPlanStop stopAt(double? lat, double? lng) => BeatPlanStop(
           id: 's1',

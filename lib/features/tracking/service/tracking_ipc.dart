@@ -5,19 +5,15 @@ class TrackingIpc {
   TrackingIpc._();
 
   // ── UI → service commands ──────────────────────────────────────────────
+  // Tracking is system-controlled: there is NO user pause / resume / stop.
+  // A session ends only server-side (plan completed/force-completed, attendance
+  // checkout, or the stale sweeper), handled via the `tracking-*` socket events.
   static const String cmdStart = 'cmd.start';
-  static const String cmdPause = 'cmd.pause';
-  static const String cmdResume = 'cmd.resume';
-  static const String cmdStop = 'cmd.stop';
   static const String cmdProgress = 'cmd.progress';
 
   /// Ask the running service to immediately re-emit its live state (used when
   /// the UI re-opens the tracking screen instead of waiting for the next tick).
   static const String cmdSync = 'cmd.sync';
-
-  /// Emitted from the notification-action background isolate (Pause/Resume/Stop
-  /// buttons). Carries [kActionId].
-  static const String cmdAction = 'action';
 
   // ── service → UI events ────────────────────────────────────────────────
   static const String evtState = 'evt.state';
@@ -31,6 +27,10 @@ class TrackingIpc {
   static const String kTotal = 'total';
   static const String kVisited = 'visited';
   static const String kSkipped = 'skipped';
+
+  /// true → resume an existing session (preserve its start time/distance);
+  /// false → a fresh start that resets the session.
+  static const String kResume = 'resume';
   static const String kStatus = 'status'; // active | paused | completed
   static const String kLat = 'lat';
   static const String kLng = 'lng';
@@ -41,10 +41,4 @@ class TrackingIpc {
   static const String kBattery = 'battery'; // device battery % (0–100), nullable
   static const String kReason = 'reason';
   static const String kReasonLabel = 'reasonLabel';
-  static const String kActionId = 'id';
-
-  // ── notification action ids ────────────────────────────────────────────
-  static const String actionPause = 'pause';
-  static const String actionResume = 'resume';
-  static const String actionStop = 'stop';
 }

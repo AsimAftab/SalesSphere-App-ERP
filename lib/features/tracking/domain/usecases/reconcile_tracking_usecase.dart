@@ -43,6 +43,8 @@ class ReconcileTrackingUseCase {
         total: intent.total,
         visited: intent.visited,
         skipped: intent.skipped,
+        // Recovery of an already-running plan → resume, don't reset.
+        resume: true,
       );
 }
 
