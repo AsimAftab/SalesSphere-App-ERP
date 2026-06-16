@@ -35,9 +35,20 @@ abstract class ProfileMembershipDto with _$ProfileMembershipDto {
   const factory ProfileMembershipDto({
     required String id,
     required String status,
-    @Default(false) bool mobileLoginAllowed,
     required ProfileRoleDto role,
     required ProfileOrganizationDto organization,
+    @Default(false) bool mobileLoginAllowed,
+    // Personal details live on the membership (an employee profile is scoped
+    // to an org), not on the shared `user`. The backend sends these inside
+    // `activeMembership`; they were previously undeclared and silently dropped.
+    String? address,
+    String? phone,
+    DateTime? dateOfBirth,
+    String? gender,
+    String? citizenshipNumber,
+    String? panNumber,
+    DateTime? dateJoined,
+    String? avatarUrl,
   }) = _ProfileMembershipDto;
 
   factory ProfileMembershipDto.fromJson(Map<String, dynamic> json) =>

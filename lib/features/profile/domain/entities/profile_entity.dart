@@ -31,6 +31,14 @@ abstract class ProfileMembershipEntity with _$ProfileMembershipEntity {
     required bool mobileLoginAllowed,
     required ProfileRoleEntity role,
     required ProfileOrganizationEntity organization,
+    String? address,
+    String? phone,
+    DateTime? dateOfBirth,
+    String? gender,
+    String? citizenshipNumber,
+    String? panNumber,
+    DateTime? dateJoined,
+    String? avatarUrl,
   }) = _ProfileMembershipEntity;
 }
 

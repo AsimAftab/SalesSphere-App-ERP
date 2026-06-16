@@ -72,7 +72,15 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<bool> validateSession() async {
     try {
       final dto = await _api.session();
-      return dto.valid && dto.mobileLoginAllowed;
+      // A 200 from `/auth/session` means the session is valid (`valid` is a
+      // server-side literal `true`). Don't additionally gate on
+      // `mobileLoginAllowed`: the backend already returns 403
+      // (MOBILE_LOGIN_DISABLED) when the policy is revoked — which surfaces
+      // here as a thrown DioException and the catch below. The field also
+      // comes back null (→ `false` after defaulting) for platform admins and
+      // some memberships, which would wrongly invalidate a good session and
+      // force a needless re-login.
+      return dto.valid;
     } catch (_) {
       // Auth-interceptor's refresh path also failed, or network is dead.
       // Treat as invalid — the controller will redirect to /login.
