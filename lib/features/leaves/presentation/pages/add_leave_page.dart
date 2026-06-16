@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
 import 'package:sales_sphere_erp/features/leaves/domain/leave.dart';
 import 'package:sales_sphere_erp/features/leaves/presentation/controllers/leaves_controller.dart';
 import 'package:sales_sphere_erp/features/leaves/presentation/widgets/leave_category_field.dart';
@@ -91,6 +92,9 @@ class _AddLeavePageState extends ConsumerState<AddLeavePage> {
       if (!mounted) return;
       SnackbarUtils.showSuccess(context, 'Leave request submitted.');
       context.pop();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      SnackbarUtils.showError(context, e.message);
     } on Exception catch (_) {
       if (!mounted) return;
       SnackbarUtils.showError(context, 'Could not save. Please try again.');

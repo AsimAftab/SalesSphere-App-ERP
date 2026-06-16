@@ -16,7 +16,6 @@ import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/refreshable_list.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_badge.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
-import 'package:skeletonizer/skeletonizer.dart';
 
 /// Per-status colour palette for the badge on each list-row card.
 /// Lives next to the page so the badge reads at a glance — pending is

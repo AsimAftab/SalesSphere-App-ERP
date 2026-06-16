@@ -33,7 +33,20 @@ class AuthApi {
 
   Future<AuthUserDto> me() async {
     final response = await _dio.get<Map<String, dynamic>>(Endpoints.me);
-    return AuthUserDto.fromJson(_unwrap(response.data));
+    // `/auth/me` wraps the user under `data.user` (alongside
+    // `activeMembership` + `memberships`) — unlike `/auth/login`, the user
+    // is NOT at the envelope's top level. Reach into `user` explicitly;
+    // parsing the whole `data` object as an [AuthUserDto] throws on the
+    // missing top-level `id`, which silently breaks cold-start session
+    // restore and forces a re-login on every launch.
+    final data = _unwrap(response.data);
+    final user = data['user'];
+    if (user is! Map<String, dynamic>) {
+      throw const FormatException(
+        'Malformed /auth/me response: missing or invalid `user` object',
+      );
+    }
+    return AuthUserDto.fromJson(user);
   }
 
   /// Lightweight access-token validity check. The auth interceptor handles
