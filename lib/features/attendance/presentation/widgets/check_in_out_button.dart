@@ -1,13 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:intl/intl.dart';
 
-import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
 import 'package:sales_sphere_erp/core/services/location_service.dart';
+import 'package:sales_sphere_erp/features/attendance/domain/attendance_exceptions.dart';
 import 'package:sales_sphere_erp/features/attendance/domain/attendance_today_status.dart';
-import 'package:sales_sphere_erp/features/attendance/domain/work_schedule.dart';
 import 'package:sales_sphere_erp/features/attendance/presentation/controllers/attendance_controller.dart';
 import 'package:sales_sphere_erp/features/attendance/presentation/providers/attendance_providers.dart';
 import 'package:sales_sphere_erp/features/attendance/presentation/widgets/check_in_not_allowed_dialog.dart';
@@ -18,24 +17,19 @@ import 'package:sales_sphere_erp/shared/utils/error_messages.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 
-/// Check-In / Check-Out button driven by `attendanceTodayStatusProvider`
-/// (today's record + org schedule + geofence config).
+/// Check-In / Check-Out button, driven by `attendanceTodayStatusProvider`.
 ///
-/// Check-in state machine (not yet checked in):
-///   - Weekly off            → button enabled; tap shows [CheckInNotAllowedDialog]
-///   - Before allowed window → button **disabled** + hint text below
-///   - After allowed window  → button enabled; tap shows [CheckInNotAllowedDialog]
-///   - Inside window         → button enabled; tap performs check-in
+/// The flow is **server-driven** (mirrors v1): the button just attempts the
+/// action and reacts to the backend's structured restriction errors. There's
+/// no client-side time-window math — the only client gate is the geofence /
+/// location check in [AttendanceController].
 ///
-/// Check-out (checked in, not yet checked out) — reactive, mirrors v1:
-///   - Before any window     → tap shows [CheckoutNotAllowedDialog]
-///   - Half-day window only  → tap shows [HalfDayCheckoutDialog] fallback
-///   - Full-day window open  → tap checks out full-day directly (no prompt)
-///
-/// Both actions capture location + enforce the geofence in the controller;
-/// the button surfaces [OutsideGeofenceException] / [LocationUnavailableException]
-/// and any server gating message. Once fully checked out the button is hidden
-/// (space preserved via [Visibility.maintainSize]).
+///   - Not checked in  → "Check In"  → on [CheckInRestrictionException] show
+///                        the reason dialog.
+///   - Checked in       → "Check Out" → full-day attempt; on a
+///                        [CheckOutRestrictionException] with
+///                        `canUseHalfDayFallback` offer a half-day checkout.
+///   - Checked out      → hidden (slot preserved).
 class CheckInOutButton extends ConsumerStatefulWidget {
   const CheckInOutButton({super.key});
 
@@ -48,12 +42,29 @@ class _CheckInOutButtonState extends ConsumerState<CheckInOutButton> {
 
   // ── actions ──────────────────────────────────────────────────────────────
 
-  Future<void> _onCheckIn(AttendanceTodayStatus status) async {
+  Future<void> _checkIn(AttendanceTodayStatus status) async {
     setState(() => _busy = true);
     try {
       await ref.read(attendanceControllerProvider.notifier).checkIn();
       if (!mounted) return;
       SnackbarUtils.showSuccess(context, 'Checked in successfully.');
+    } on CheckInRestrictionException catch (e) {
+      if (!mounted) return;
+      unawaited(
+        CheckInNotAllowedDialog.show(
+          context,
+          title: _checkInTitle(e.reason),
+          message: _checkInMessage(e),
+        ),
+      );
+    } on CheckOutRestrictionException catch (e) {
+      // Defensive: shouldn't happen on a check-in, but surface its message.
+      if (!mounted) return;
+      SnackbarUtils.showError(context, e.message ?? 'Check-in is not allowed.');
+    } on AttendanceConflictException catch (e) {
+      if (!mounted) return;
+      ref.invalidate(attendanceTodayStatusProvider);
+      SnackbarUtils.showInfo(context, e.message);
     } on OutsideGeofenceException catch (e) {
       if (!mounted) return;
       _showGeofenceBlocked(e, status.geofence.address);
@@ -68,7 +79,7 @@ class _CheckInOutButtonState extends ConsumerState<CheckInOutButton> {
     }
   }
 
-  Future<void> _onCheckOut({
+  Future<void> _checkOut({
     required bool isHalfDay,
     required AttendanceTodayStatus status,
   }) async {
@@ -79,6 +90,13 @@ class _CheckInOutButtonState extends ConsumerState<CheckInOutButton> {
           .checkOut(isHalfDay: isHalfDay);
       if (!mounted) return;
       SnackbarUtils.showSuccess(context, 'Checked out successfully.');
+    } on CheckOutRestrictionException catch (e) {
+      if (!mounted) return;
+      await _handleCheckoutRestriction(e, status, attemptedHalfDay: isHalfDay);
+    } on AttendanceConflictException catch (e) {
+      if (!mounted) return;
+      ref.invalidate(attendanceTodayStatusProvider);
+      SnackbarUtils.showInfo(context, e.message);
     } on OutsideGeofenceException catch (e) {
       if (!mounted) return;
       _showGeofenceBlocked(e, status.geofence.address);
@@ -93,56 +111,43 @@ class _CheckInOutButtonState extends ConsumerState<CheckInOutButton> {
     }
   }
 
-  /// Half-day fallback (mirrors v1): only reached when the full-day window
-  /// isn't open yet but the half-day window is. Confirms before submitting.
-  Future<void> _promptHalfDayCheckout(
-    AttendanceTodayStatus status,
-    WorkSchedule schedule,
-    DateTime now,
-  ) async {
-    final date = DateTime(now.year, now.month, now.day);
-    final confirmed = await HalfDayCheckoutDialog.show(
-      context,
-      fullDayAvailableFrom:
-          schedule.formatDt(schedule.fullDayCheckOutAllowedFrom(date)),
-    );
-    if (confirmed != true || !mounted) return;
-    await _onCheckOut(isHalfDay: true, status: status);
-  }
-
-  void _showCheckInNotAllowed(
-    WorkSchedule schedule,
-    CheckInDeniedReason reason,
-    DateTime now,
-  ) {
-    final date = DateTime(now.year, now.month, now.day);
-    CheckInNotAllowedDialog.show(
-      context,
-      reason: reason,
-      weekdayName: WorkSchedule.weekdayName(now.weekday),
-      allowedFrom: schedule.formatDt(schedule.checkInAllowedFrom(date)),
-      allowedUntil: schedule.formatDt(schedule.checkInAllowedUntil(date)),
-    );
-  }
-
-  void _showCheckoutNotAllowed(WorkSchedule schedule, DateTime now) {
-    final date = DateTime(now.year, now.month, now.day);
-    CheckoutNotAllowedDialog.show(
-      context,
-      scheduledCheckOut: schedule.formatTod(schedule.scheduledCheckOut),
-      fullDayAllowedFrom:
-          schedule.formatDt(schedule.fullDayCheckOutAllowedFrom(date)),
-      halfDayAvailableAt:
-          schedule.formatDt(schedule.halfDayCheckOutAllowedFrom(date)),
+  /// Half-day fallback (mirrors v1): when a full-day checkout is refused but
+  /// the server says half-day is available, offer it and re-submit. If there's
+  /// no fallback (or a half-day attempt itself was refused), show the timing
+  /// dialog.
+  Future<void> _handleCheckoutRestriction(
+    CheckOutRestrictionException e,
+    AttendanceTodayStatus status, {
+    required bool attemptedHalfDay,
+  }) async {
+    if (!attemptedHalfDay && e.canUseHalfDayFallback) {
+      final confirmed = await HalfDayCheckoutDialog.show(
+        context,
+        fullDayAvailableFrom: e.fullDayAllowedFrom ?? '--:--',
+      );
+      if ((confirmed ?? false) && mounted) {
+        await _checkOut(isHalfDay: true, status: status);
+      }
+      return;
+    }
+    unawaited(
+      CheckoutNotAllowedDialog.show(
+        context,
+        scheduledCheckOut: e.scheduledCheckOut ?? '--:--',
+        fullDayAllowedFrom: e.fullDayAllowedFrom ?? '--:--',
+        halfDayAvailableAt: e.halfDayAllowedFrom ?? '--:--',
+      ),
     );
   }
 
   void _showGeofenceBlocked(OutsideGeofenceException e, String? officeAddress) {
-    OutsideGeofenceDialog.show(
-      context,
-      distanceMeters: e.distanceMeters,
-      radiusMeters: e.radiusMeters,
-      officeAddress: officeAddress,
+    unawaited(
+      OutsideGeofenceDialog.show(
+        context,
+        distanceMeters: e.distanceMeters,
+        radiusMeters: e.radiusMeters,
+        officeAddress: officeAddress,
+      ),
     );
   }
 
@@ -154,6 +159,43 @@ class _CheckInOutButtonState extends ConsumerState<CheckInOutButton> {
       onAction: () => ref.read(locationServiceProvider).openAppSettings(),
     );
   }
+
+  // ── copy builders ──────────────────────────────────────────────────────
+
+  String _checkInTitle(CheckInDeniedReason reason) {
+    switch (reason) {
+      case CheckInDeniedReason.weeklyOff:
+        return 'Weekly Off';
+      case CheckInDeniedReason.onLeave:
+        return 'On Leave';
+      case CheckInDeniedReason.tooEarly:
+      case CheckInDeniedReason.windowClosed:
+      case CheckInDeniedReason.unknown:
+        return 'Check-In Not Allowed';
+    }
+  }
+
+  String _checkInMessage(CheckInRestrictionException e) {
+    switch (e.reason) {
+      case CheckInDeniedReason.tooEarly:
+        return 'Check-in opens at ${e.allowedFrom ?? '--:--'}. Please try again then.';
+      case CheckInDeniedReason.windowClosed:
+        return 'The check-in window has closed. It was open from '
+            '${e.allowedFrom ?? '--:--'} to ${e.allowedUntil ?? '--:--'}.';
+      case CheckInDeniedReason.weeklyOff:
+        final day = (e.weeklyOffDay != null && e.weeklyOffDay!.isNotEmpty)
+            ? _titleCase(e.weeklyOffDay!)
+            : 'Today';
+        return "$day is the organisation's weekly off — you can't check in today.";
+      case CheckInDeniedReason.onLeave:
+        return "You're marked on leave today, so check-in isn't available.";
+      case CheckInDeniedReason.unknown:
+        return e.message ?? 'Check-in is not allowed right now.';
+    }
+  }
+
+  String _titleCase(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1).toLowerCase();
 
   // ── build ─────────────────────────────────────────────────────────────────
 
@@ -167,15 +209,13 @@ class _CheckInOutButtonState extends ConsumerState<CheckInOutButton> {
   }
 
   Widget _buildForStatus(AttendanceTodayStatus status) {
-    final schedule = status.schedule;
     final record = status.record;
     final hasCheckIn = record?.hasCheckIn ?? false;
     final hasCheckOut = record?.hasCheckOut ?? false;
-    final now = DateTime.now();
 
-    // ── hidden after full checkout ──────────────────────────────────────────
-    // Keep the slot occupied so the calendar doesn't jump up.
     if (hasCheckOut) {
+      // Hidden once fully checked out; keep the slot so the calendar doesn't
+      // jump up.
       return const Visibility(
         visible: false,
         maintainSize: true,
@@ -190,91 +230,13 @@ class _CheckInOutButtonState extends ConsumerState<CheckInOutButton> {
     }
 
     if (!hasCheckIn) {
-      return _buildCheckIn(status, schedule, now);
-    }
-    return _buildCheckOut(status, schedule, now);
-  }
-
-  Widget _buildCheckIn(
-    AttendanceTodayStatus status,
-    WorkSchedule schedule,
-    DateTime now,
-  ) {
-    // Weekly-off: button tappable but shows info dialog.
-    if (schedule.isWeeklyOff(now)) {
       return PrimaryButton(
         label: 'Check In',
         leadingIcon: Icons.login_rounded,
         isLoading: _busy,
         size: ButtonSize.large,
-        onPressed: () =>
-            _showCheckInNotAllowed(schedule, CheckInDeniedReason.weeklyOff, now),
+        onPressed: () => _checkIn(status),
       );
-    }
-
-    switch (schedule.checkInStatus(now)) {
-      case CheckInWindowStatus.tooEarly:
-        final date = DateTime(now.year, now.month, now.day);
-        final openAt = schedule.checkInAllowedFrom(date);
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            const PrimaryButton(
-              label: 'Check In',
-              leadingIcon: Icons.login_rounded,
-              size: ButtonSize.large,
-              isDisabled: true,
-            ),
-            SizedBox(height: 8.h),
-            Text(
-              'Check-in becomes available at '
-              '${DateFormat('h:mm a').format(openAt)}',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 12.sp,
-                height: 1.4,
-              ),
-            ),
-          ],
-        );
-
-      case CheckInWindowStatus.tooLate:
-        return PrimaryButton(
-          label: 'Check In',
-          leadingIcon: Icons.login_rounded,
-          isLoading: _busy,
-          size: ButtonSize.large,
-          onPressed: () =>
-              _showCheckInNotAllowed(schedule, CheckInDeniedReason.tooLate, now),
-        );
-
-      case CheckInWindowStatus.allowed:
-        return PrimaryButton(
-          label: 'Check In',
-          leadingIcon: Icons.login_rounded,
-          isLoading: _busy,
-          size: ButtonSize.large,
-          onPressed: () => _onCheckIn(status),
-        );
-    }
-  }
-
-  Widget _buildCheckOut(
-    AttendanceTodayStatus status,
-    WorkSchedule schedule,
-    DateTime now,
-  ) {
-    // Reactive checkout (mirrors v1): full-day goes through directly; half-day
-    // is only offered as a fallback when full-day isn't open yet.
-    final VoidCallback onPressed;
-    switch (schedule.checkOutStatus(now)) {
-      case CheckOutWindowStatus.tooEarly:
-        onPressed = () => _showCheckoutNotAllowed(schedule, now);
-      case CheckOutWindowStatus.halfDayAllowed:
-        onPressed = () => _promptHalfDayCheckout(status, schedule, now);
-      case CheckOutWindowStatus.fullDayAllowed:
-        onPressed = () => _onCheckOut(isHalfDay: false, status: status);
     }
 
     return PrimaryButton(
@@ -282,7 +244,7 @@ class _CheckInOutButtonState extends ConsumerState<CheckInOutButton> {
       leadingIcon: Icons.logout_rounded,
       isLoading: _busy,
       size: ButtonSize.large,
-      onPressed: onPressed,
+      onPressed: () => _checkOut(isHalfDay: false, status: status),
     );
   }
 

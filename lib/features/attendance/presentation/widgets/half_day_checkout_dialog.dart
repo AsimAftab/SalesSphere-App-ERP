@@ -46,96 +46,92 @@ class HalfDayCheckoutDialog extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
       clipBehavior: Clip.antiAlias,
       backgroundColor: AppColors.surface,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          // ── Orange header ────────────────────────────────────────────────
-          Container(
-            width: double.infinity,
-            color: AppColors.warning.withValues(alpha: 0.10),
-            padding: EdgeInsets.symmetric(vertical: 28.h, horizontal: 24.w),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Container(
-                  width: 64.r,
-                  height: 64.r,
-                  decoration: BoxDecoration(
-                    color: AppColors.warning.withValues(alpha: 0.18),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.warning.withValues(alpha: 0.15),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(
-                    Icons.timelapse_rounded,
-                    color: AppColors.warning,
-                    size: 32.sp,
-                  ),
-                ),
-                SizedBox(height: 14.h),
-                Text(
-                  'Full-Day Checkout Not Available',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // ── Body ─────────────────────────────────────────────────────────
-          Padding(
-            padding: EdgeInsets.fromLTRB(24.w, 20.h, 24.w, 24.h),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Text.rich(
-                  TextSpan(
-                    style: base,
-                    children: <InlineSpan>[
-                      const TextSpan(text: 'Full-day checkout opens at '),
-                      TextSpan(text: fullDayAvailableFrom, style: bold),
-                      const TextSpan(text: '. You can check out as '),
-                      TextSpan(text: 'half-day', style: bold),
-                      const TextSpan(text: ' now instead.'),
-                    ],
-                  ),
-                  textAlign: TextAlign.left,
-                ),
-                SizedBox(height: 24.h),
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: OutlinedCustomButton(
-                        label: 'Cancel',
-                        size: ButtonSize.medium,
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
+      // Scrollable so the actions are always reachable, even on short screens
+      // / large text scales.
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            // ── Orange header ──────────────────────────────────────────────
+            Container(
+              width: double.infinity,
+              color: AppColors.warning.withValues(alpha: 0.10),
+              padding: EdgeInsets.symmetric(vertical: 24.h, horizontal: 24.w),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Container(
+                    width: 56.r,
+                    height: 56.r,
+                    decoration: BoxDecoration(
+                      color: AppColors.warning.withValues(alpha: 0.18),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.warning.withValues(alpha: 0.15),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    SizedBox(width: 12.w),
-                    Expanded(
-                      flex: 2,
-                      child: PrimaryButton(
-                        label: 'Checkout Half-Day',
-                        size: ButtonSize.medium,
-                        onPressed: () => Navigator.of(context).pop(true),
-                      ),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      Icons.timelapse_rounded,
+                      color: AppColors.warning,
+                      size: 30.sp,
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                  SizedBox(height: 12.h),
+                  Text(
+                    'Full-Day Checkout Not Available',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            // ── Body ───────────────────────────────────────────────────────
+            Padding(
+              padding: EdgeInsets.fromLTRB(24.w, 20.h, 24.w, 20.h),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Text.rich(
+                    TextSpan(
+                      style: base,
+                      children: <InlineSpan>[
+                        const TextSpan(text: 'Full-day checkout opens at '),
+                        TextSpan(text: fullDayAvailableFrom, style: bold),
+                        const TextSpan(text: '. You can check out as '),
+                        TextSpan(text: 'half-day', style: bold),
+                        const TextSpan(text: ' now instead.'),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 22.h),
+                  // Full-width stacked actions — primary on top, cancel below.
+                  PrimaryButton(
+                    label: 'Checkout as Half-Day',
+                    size: ButtonSize.medium,
+                    onPressed: () => Navigator.of(context).pop(true),
+                  ),
+                  SizedBox(height: 10.h),
+                  OutlinedCustomButton(
+                    label: 'Cancel',
+                    size: ButtonSize.medium,
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

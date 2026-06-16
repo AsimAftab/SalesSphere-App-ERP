@@ -31,10 +31,17 @@ class ReconcileTrackingUseCase {
         // were away). Drop the stale intent so we don't resume it.
         await TrackingPrefs.clear();
       }
-    } on DioException {
-      // Offline — can't verify. Resume locally so GPS keeps buffering; the
-      // server reconciles (and force-stops if needed) once we reconnect.
-      await _relaunch(intent);
+    } on DioException catch (e) {
+      final code = e.response?.statusCode;
+      if (code != null && code >= 400 && code < 500) {
+        // 4xx (e.g. 404 plan-not-found, 403) → the plan/session is gone or no
+        // longer ours. Drop the stale intent; do NOT relaunch tracking.
+        await TrackingPrefs.clear();
+      } else {
+        // Genuine connectivity/timeout — resume locally so GPS keeps buffering;
+        // the server reconciles (and force-stops if needed) once we reconnect.
+        await _relaunch(intent);
+      }
     }
   }
 

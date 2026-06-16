@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
@@ -11,7 +10,6 @@ import 'package:sales_sphere_erp/features/attendance/domain/geofence_config.dart
 import 'package:sales_sphere_erp/features/attendance/domain/monthly_report.dart';
 import 'package:sales_sphere_erp/features/attendance/domain/monthly_summary.dart';
 import 'package:sales_sphere_erp/features/attendance/domain/repositories/attendance_repository.dart';
-import 'package:sales_sphere_erp/features/attendance/domain/work_schedule.dart';
 import 'package:sales_sphere_erp/features/attendance/presentation/controllers/attendance_controller.dart';
 import 'package:sales_sphere_erp/features/attendance/presentation/providers/attendance_providers.dart';
 
@@ -23,15 +21,6 @@ class _FakeRepo implements AttendanceRepository {
   _FakeRepo({required bool geofenceEnabled})
       : _status = AttendanceTodayStatus(
           record: null,
-          // enforceWindows: false so the controller path under test isn't
-          // gated by time windows — we're exercising the geofence gate.
-          schedule: const WorkSchedule(
-            scheduledCheckIn: TimeOfDay(hour: 10, minute: 0),
-            scheduledCheckOut: TimeOfDay(hour: 18, minute: 0),
-            scheduledHalfDayCheckOut: TimeOfDay(hour: 13, minute: 0),
-            weeklyOffDays: <int>{},
-            enforceWindows: false,
-          ),
           geofence: GeofenceConfig(
             enabled: geofenceEnabled,
             latitude: _orgLat,

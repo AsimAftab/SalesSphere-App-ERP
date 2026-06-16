@@ -4,117 +4,42 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 
-/// Why check-in was denied — drives the copy inside the dialog.
-enum CheckInDeniedReason {
-  /// The day is a weekly off.
-  weeklyOff,
-
-  /// The check-in window has already closed.
-  tooLate,
-}
-
-/// Modal dialog shown when a user taps Check-In outside the allowed window
-/// or on a weekly-off day.
-///
-/// Usage:
-/// ```dart
-/// CheckInNotAllowedDialog.show(
-///   context,
-///   reason: CheckInDeniedReason.weeklyOff,
-///   weekdayName: 'Saturday',
-/// );
-/// ```
+/// Info dialog shown when the server refuses a check-in (too early, window
+/// closed, weekly-off, on-leave). The caller composes [title] + [message]
+/// from the server's structured restriction details so this widget stays a
+/// dumb presenter.
 class CheckInNotAllowedDialog extends StatelessWidget {
   const CheckInNotAllowedDialog({
+    required this.message,
     super.key,
-    required this.reason,
-    this.weekdayName,
-    this.allowedFrom,
-    this.allowedUntil,
+    this.title = 'Check-In Not Allowed',
   });
 
-  final CheckInDeniedReason reason;
-
-  /// Day name — only used when [reason] is [CheckInDeniedReason.weeklyOff].
-  final String? weekdayName;
-
-  /// Window open time string (HH:MM) — used when [reason] is [CheckInDeniedReason.tooLate].
-  final String? allowedFrom;
-
-  /// Window close time string (HH:MM) — used when [reason] is [CheckInDeniedReason.tooLate].
-  final String? allowedUntil;
+  final String title;
+  final String message;
 
   static Future<void> show(
     BuildContext context, {
-    required CheckInDeniedReason reason,
-    String? weekdayName,
-    String? allowedFrom,
-    String? allowedUntil,
+    required String message,
+    String title = 'Check-In Not Allowed',
   }) {
     return showDialog<void>(
       context: context,
       barrierDismissible: true,
-      builder: (_) => CheckInNotAllowedDialog(
-        reason: reason,
-        weekdayName: weekdayName,
-        allowedFrom: allowedFrom,
-        allowedUntil: allowedUntil,
-      ),
+      builder: (_) => CheckInNotAllowedDialog(message: message, title: title),
     );
-  }
-
-  /// Returns a [Widget] with the description text. Times in the `tooLate`
-  /// variant are bolded so the user can immediately see the window they missed.
-  Widget _bodyWidget(BuildContext context) {
-    final base = TextStyle(
-      color: AppColors.textPrimary,
-      fontSize: 13.sp,
-      height: 1.5,
-    );
-    final bold = base.copyWith(fontWeight: FontWeight.w700);
-
-    switch (reason) {
-      case CheckInDeniedReason.weeklyOff:
-        final day = weekdayName ?? 'today';
-        return Text(
-          "Today is $day, the organisation's weekly off day. "
-          'You cannot check in on this day.',
-          textAlign: TextAlign.left,
-          style: base,
-        );
-      case CheckInDeniedReason.tooLate:
-        final from = allowedFrom ?? '--:--';
-        final until = allowedUntil ?? '--:--';
-        return Text.rich(
-          TextSpan(
-            style: base,
-            children: <InlineSpan>[
-              const TextSpan(text: 'The check-in window has closed. '
-                  'Check-in was allowed between '),
-              TextSpan(text: from, style: bold),
-              const TextSpan(text: ' and '),
-              TextSpan(text: until, style: bold),
-              const TextSpan(text: '.'),
-            ],
-          ),
-          textAlign: TextAlign.left,
-        );
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20.r),
-      ),
-      // clipBehavior ensures the red header respects the dialog's rounded corners.
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
       clipBehavior: Clip.antiAlias,
       backgroundColor: AppColors.surface,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          // ── Red header — full width ──────────────────────────────────────
+          // ── Red header ───────────────────────────────────────────────────
           Container(
             width: double.infinity,
             color: AppColors.red500.withValues(alpha: 0.10),
@@ -145,7 +70,7 @@ class CheckInNotAllowedDialog extends StatelessWidget {
                 ),
                 SizedBox(height: 14.h),
                 Text(
-                  'Check-In Not Allowed',
+                  title,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.primary,
@@ -157,13 +82,21 @@ class CheckInNotAllowedDialog extends StatelessWidget {
               ],
             ),
           ),
-          // ── White body — description + OK ────────────────────────────────
+          // ── Body ─────────────────────────────────────────────────────────
           Padding(
             padding: EdgeInsets.fromLTRB(24.w, 20.h, 24.w, 24.h),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                _bodyWidget(context),
+                Text(
+                  message,
+                  textAlign: TextAlign.left,
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 13.sp,
+                    height: 1.5,
+                  ),
+                ),
                 SizedBox(height: 24.h),
                 PrimaryButton(
                   label: 'OK',
