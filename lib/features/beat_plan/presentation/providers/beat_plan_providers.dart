@@ -33,6 +33,7 @@ class BeatPlanController extends _$BeatPlanController {
     final repo = ref.watch(beatPlanRepositoryProvider);
     final stream = repo.watchBeatPlans();
 
+    await _sub?.cancel();
     _sub = stream.listen((plans) => state = AsyncData<List<BeatPlan>>(plans));
     ref.onDispose(() => _sub?.cancel());
 

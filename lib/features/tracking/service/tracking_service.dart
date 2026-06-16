@@ -4,7 +4,6 @@ import 'dart:ui';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -17,6 +16,7 @@ import 'package:sales_sphere_erp/core/config/env.dart';
 import 'package:sales_sphere_erp/core/db/app_database.dart';
 import 'package:sales_sphere_erp/core/db/daos/tracking_dao.dart';
 import 'package:sales_sphere_erp/core/db/daos/tracking_pings_dao.dart';
+import 'package:sales_sphere_erp/core/utils/app_logger.dart';
 import 'package:sales_sphere_erp/core/utils/uuid.dart';
 import 'package:sales_sphere_erp/features/tracking/data/tracking_socket_client.dart';
 import 'package:sales_sphere_erp/features/tracking/domain/tracking_models.dart';
@@ -61,6 +61,8 @@ Future<void> configureTrackingService() async {
       initialNotificationTitle: 'SalesSphere',
       initialNotificationContent: 'Starting live tracking…',
     ),
+    // `configure()` requires an iosConfiguration; this is the inert default and
+    // adds no iOS behaviour. The app remains Android-only — iOS comes later.
     iosConfiguration: IosConfiguration(autoStart: false),
   );
 }
@@ -173,6 +175,10 @@ class _TrackingRuntime {
   late final Dio _refreshDio;
   final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
+
+  /// Local logger — this runs in the background service isolate where the
+  /// Riverpod `appLoggerProvider` isn't reachable, so we hold our own instance.
+  final AppLogger _log = AppLogger();
 
   TrackingSocketClient? _socket;
   StreamSubscription<TrackingServerEvent>? _socketSub;
@@ -289,6 +295,7 @@ class _TrackingRuntime {
       return;
     }
     if (_started && _beatPlanId != beatPlanId) {
+      await _finalizePriorSession();
       await _teardownTrackingOnly();
     }
     _started = true;
@@ -362,9 +369,12 @@ class _TrackingRuntime {
       origin: Env.current.wsBaseUrl,
       token: token,
       log: (message, {error}) {
-        if (kDebugMode) {
-          debugPrint('[tracking-socket] $message'
-              '${error != null ? ' · err=$error' : ''}');
+        // AppLogger gates by level (debug suppressed in release), so no
+        // kDebugMode guard needed — socket errors still surface as warnings.
+        if (error != null) {
+          _log.warn('[tracking-socket] $message', error: error);
+        } else {
+          _log.debug('[tracking-socket] $message');
         }
       },
     );
@@ -633,6 +643,25 @@ class _TrackingRuntime {
     await _pingsDao.clearForBeatPlan(_beatPlanId ?? '');
     await cancelTrackingNotification(_notifications);
     await _shutdown();
+  }
+
+  /// Finalize the outgoing plan's session before switching to a new one.
+  /// Runs while the socket is still up so buffered pings get one last flush,
+  /// then marks the local session COMPLETED (so it can't resurface as a ghost
+  /// ACTIVE row via `activeForBeatPlan` on the next launch) and discards any
+  /// pings that couldn't flush — mirrors `_finish`'s finalization minus the
+  /// service shutdown. Uses the still-current `_beatPlanId` / `_sessionId`,
+  /// which `start()` reassigns only after this returns.
+  Future<void> _finalizePriorSession() async {
+    final priorBeatPlanId = _beatPlanId;
+    await _flushPending();
+    if (_sessionId != null) {
+      await _trackingDao.markCompleted(_sessionId!, DateTime.now());
+    }
+    if (priorBeatPlanId != null) {
+      await _pingsDao.clearForBeatPlan(priorBeatPlanId);
+    }
+    _sessionId = null;
   }
 
   /// Tear down the socket/GPS for a plan switch without stopping the service.

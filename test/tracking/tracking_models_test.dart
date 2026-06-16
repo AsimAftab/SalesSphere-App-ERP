@@ -110,5 +110,25 @@ void main() {
       });
       expect(state.isTracking, false);
     });
+
+    test('parses uppercase wire status from the service IPC payload', () {
+      // The background service pushes uppercase status values (ACTIVE,
+      // PAUSED, COMPLETED). Regression for #154: an uppercase COMPLETED must
+      // not fall through to active and keep the UI in a live-tracking state.
+      final completed = TrackingLiveState.fromMap(<String, dynamic>{
+        TrackingIpc.kBeatPlanId: 'bp1',
+        TrackingIpc.kStatus: 'COMPLETED',
+      });
+      expect(completed.status, TrackingStatus.completed);
+      expect(completed.isTracking, false);
+
+      final paused = TrackingLiveState.fromMap(<String, dynamic>{
+        TrackingIpc.kBeatPlanId: 'bp1',
+        TrackingIpc.kStatus: 'PAUSED',
+      });
+      expect(paused.status, TrackingStatus.paused);
+      expect(paused.isPaused, true);
+      expect(paused.isTracking, true);
+    });
   });
 }

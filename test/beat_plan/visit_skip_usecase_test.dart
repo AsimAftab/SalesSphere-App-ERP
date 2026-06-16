@@ -12,6 +12,7 @@ import 'package:sales_sphere_erp/features/beat_plan/domain/usecases/visit_stop_u
 class _FakeRepo implements BeatPlanRepository {
   String? visitedPlan;
   String? visitedStop;
+  String? skippedPlan;
   String? skippedStop;
 
   @override
@@ -37,6 +38,7 @@ class _FakeRepo implements BeatPlanRepository {
     double? latitude,
     double? longitude,
   }) async {
+    skippedPlan = beatPlanId;
     skippedStop = stopId;
   }
 
@@ -80,6 +82,7 @@ void main() {
 
     await useCase.call(beatPlanId: 'bp1', stopId: 's2');
 
+    expect(repo.skippedPlan, 'bp1');
     expect(repo.skippedStop, 's2');
   });
 }

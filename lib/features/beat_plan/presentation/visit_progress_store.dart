@@ -19,7 +19,14 @@ class VisitProgressStore {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_key);
     if (raw == null || raw.isEmpty) return <String, DateTime>{};
-    final decoded = jsonDecode(raw);
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(raw);
+    } on FormatException {
+      // Corrupt / partially-written JSON (e.g. process killed mid-write).
+      // Drop it gracefully rather than crashing the detail page on launch.
+      return <String, DateTime>{};
+    }
     if (decoded is! Map) return <String, DateTime>{};
     final out = <String, DateTime>{};
     decoded.forEach((key, value) {

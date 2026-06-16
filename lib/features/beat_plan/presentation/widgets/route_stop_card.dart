@@ -360,7 +360,7 @@ class RouteStopCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                ] else if (status.toLowerCase() == 'skipped' && startTime != null) ...[
+                ] else if (status.toLowerCase() == 'skipped') ...[
                   SizedBox(height: 16.h),
                   Container(
                     padding: EdgeInsets.symmetric(vertical: 12.h),
@@ -378,7 +378,7 @@ class RouteStopCard extends StatelessWidget {
                           Icon(Icons.block_rounded, size: 16.sp, color: AppColors.error),
                           SizedBox(width: 8.w),
                           Text(
-                            'Skipped at $startTime',
+                            'Skipped${(endTime ?? startTime) != null ? ' at ${endTime ?? startTime}' : ''}',
                             style: TextStyle(
                               color: AppColors.error,
                               fontSize: 14.sp,

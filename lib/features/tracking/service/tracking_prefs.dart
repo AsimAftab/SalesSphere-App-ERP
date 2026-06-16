@@ -45,12 +45,15 @@ class TrackingPrefs {
     bool resume = false,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_active, true);
+    // Write the payload first, then flip `_active` last as the commit marker.
+    // SharedPreferences keeps a per-isolate cache, so a reader in the other
+    // isolate must never see `active == true` before the rest is persisted.
     await prefs.setString(_beatPlanId, beatPlanId);
     await prefs.setInt(_total, total);
     await prefs.setInt(_visited, visited);
     await prefs.setInt(_skipped, skipped);
     await prefs.setBool(_resume, resume);
+    await prefs.setBool(_active, true);
   }
 
   /// Flag the active intent as resumable — called by the service once a session
@@ -75,6 +78,9 @@ class TrackingPrefs {
 
   static Future<TrackingIntent?> read() async {
     final prefs = await SharedPreferences.getInstance();
+    // Drop the isolate-local cache so a cross-isolate read sees the latest
+    // persisted values rather than a stale snapshot from a prior getInstance().
+    await prefs.reload();
     final beatPlanId = prefs.getString(_beatPlanId);
     if (beatPlanId == null || beatPlanId.isEmpty) return null;
     return TrackingIntent(

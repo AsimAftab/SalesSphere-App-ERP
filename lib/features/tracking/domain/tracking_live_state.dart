@@ -24,10 +24,7 @@ class TrackingLiveState {
   const TrackingLiveState.idle() : this(isTracking: false);
 
   factory TrackingLiveState.fromMap(Map<String, dynamic> map) {
-    final status = TrackingStatus.values.firstWhere(
-      (s) => s.name == map[TrackingIpc.kStatus],
-      orElse: () => TrackingStatus.active,
-    );
+    final status = TrackingStatus.fromWire(map[TrackingIpc.kStatus] as String?);
     final beatPlanId = map[TrackingIpc.kBeatPlanId] as String?;
     return TrackingLiveState(
       isTracking: beatPlanId != null && status != TrackingStatus.completed,

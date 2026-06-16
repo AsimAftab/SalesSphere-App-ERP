@@ -48,7 +48,8 @@ class ValidationException extends ApiException {
   const ValidationException(
     super.message, {
     this.fieldErrors = const <String, String>{},
-  }) : super(statusCode: 422);
+    int statusCode = 422,
+  }) : super(statusCode: statusCode);
 
   final Map<String, String> fieldErrors;
 }

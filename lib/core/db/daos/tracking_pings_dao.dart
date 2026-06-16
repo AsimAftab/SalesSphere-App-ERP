@@ -43,17 +43,20 @@ class TrackingPingsDao extends DatabaseAccessor<AppDatabase>
   }
 
   Stream<int> watchPendingCount() {
-    return (selectOnly(trackingPings)
-          ..addColumns(<Expression<Object>>[trackingPings.id.count()]))
-        .map((row) => row.read(trackingPings.id.count()) ?? 0)
+    // Drift's TypedResult.read() keys on the exact Expression instance passed
+    // to addColumns(), so the same `countExpr` must be reused for the read.
+    final countExpr = trackingPings.id.count();
+    return (selectOnly(trackingPings)..addColumns(<Expression<Object>>[countExpr]))
+        .map((row) => row.read(countExpr) ?? 0)
         .watchSingle();
   }
 
   Future<int> countPending() async {
+    final countExpr = trackingPings.id.count();
     final query = selectOnly(trackingPings)
-      ..addColumns(<Expression<Object>>[trackingPings.id.count()]);
+      ..addColumns(<Expression<Object>>[countExpr]);
     final row = await query.getSingle();
-    return row.read(trackingPings.id.count()) ?? 0;
+    return row.read(countExpr) ?? 0;
   }
 
   Future<void> deleteByClientIds(List<String> clientPingIds) async {

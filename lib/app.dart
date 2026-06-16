@@ -28,8 +28,10 @@ class SalesSphereApp extends ConsumerWidget {
     ref.watch(trackingControllerProvider);
 
     // Route a tap on the persistent tracking notification to the plan detail.
+    // `go` (not `push`) so repeated taps don't stack duplicate detail pages —
+    // a deep link should resolve the stack to the target, not pile onto it.
     trackingNotificationTapHandler =
-        (beatPlanId) => router.push(Routes.beatPlanDetailPath(beatPlanId));
+        (beatPlanId) => router.go(Routes.beatPlanDetailPath(beatPlanId));
 
     return ScreenUtilInit(
       designSize: const Size(360, 800),
