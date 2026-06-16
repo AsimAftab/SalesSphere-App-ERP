@@ -37,6 +37,7 @@ class ErrorInterceptor extends Interceptor {
         return ValidationException(
           responseMessage ?? 'Invalid request.',
           fieldErrors: _extractFieldErrors(err.response?.data),
+          statusCode: 400,
         );
       case 401:
         return UnauthorizedException(

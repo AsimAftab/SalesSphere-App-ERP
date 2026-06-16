@@ -102,18 +102,26 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(trackingPings);
             await m.createTable(trackingSummaries);
           }
-          if (from < 8) {
+          if (from == 7) {
             // v8 enriches a stop's visit: start time + server-computed
             // duration, notes, optional follow-up date, and the proof photo.
+            // Guarded to exactly v7→v8: the `from < 7` block above already
+            // creates beatPlanStops with the current (v8) schema, so a direct
+            // v6→v8 hop must NOT re-add these columns (duplicate-column error).
             await m.addColumn(beatPlanStops, beatPlanStops.visitStartedAt);
             await m.addColumn(beatPlanStops, beatPlanStops.visitDurationSec);
             await m.addColumn(beatPlanStops, beatPlanStops.visitNotes);
             await m.addColumn(beatPlanStops, beatPlanStops.followUpDate);
             await m.addColumn(beatPlanStops, beatPlanStops.visitImageUrl);
           }
-          if (from < 9) {
+          if (from >= 7 && from < 9) {
             // v9 adds the device battery level (0–100) to each GPS ping so
             // watchers can see when a rep's phone is about to die mid-route.
+            // Same guard rationale as the v8 block: only run when trackingPings
+            // was created by the pre-v9 `from < 7` block (i.e. upgrading from
+            // exactly v7 or v8). A direct v6→v9 hop creates the table with the
+            // current schema — which already has this column — so re-adding it
+            // would raise a duplicate-column error.
             await m.addColumn(trackingPings, trackingPings.batteryLevel);
           }
         },

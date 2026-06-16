@@ -81,9 +81,11 @@ class TrackingStatusCard extends StatelessWidget {
                       ),
                       SizedBox(height: 2.h),
                       Text(
-                        isConnected
-                            ? 'Streaming your location in real time'
-                            : 'Offline — buffering until reconnected',
+                        isPaused
+                            ? 'Location updates are paused'
+                            : (isConnected
+                                ? 'Streaming your location in real time'
+                                : 'Offline — buffering until reconnected'),
                         style: TextStyle(
                           fontSize: 12.sp,
                           color: AppColors.textSecondary,
@@ -168,7 +170,7 @@ class TrackingStatusCard extends StatelessWidget {
 
   Widget _divider() => Container(
         width: 1,
-        height: 40.h,
+        height: 48.h,
         color: AppColors.border.withValues(alpha: 0.5),
       );
 
@@ -185,40 +187,40 @@ class TrackingStatusCard extends StatelessWidget {
   }
 
   Widget _metric(String label, String value, IconData icon, Color color) {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 14.sp, color: color),
-            SizedBox(width: 6.w),
-            Flexible(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11.sp,
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w500,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 4.w),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18.sp, color: color),
+          SizedBox(height: 8.h),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 15.sp,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+                letterSpacing: -0.3,
               ),
+              maxLines: 1,
             ),
-          ],
-        ),
-        SizedBox(height: 8.h),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 16.sp,
-            fontWeight: FontWeight.w800,
-            color: AppColors.textPrimary,
-            letterSpacing: -0.5,
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
+          SizedBox(height: 3.h),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11.sp,
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
     );
   }
 }

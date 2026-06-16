@@ -151,39 +151,44 @@ class BeatPlanRepositoryImpl implements BeatPlanRepository {
       if (e.error is! OfflineException) rethrow;
       // Offline: optimistic local visit + queue the JSON. The photo is dropped
       // (binary outbox is future work, matching the parties pattern).
-      await _dao.markStopPending(
-        stopId,
-        status: 'VISITED',
-        visitStartedAt: visitStartedAt,
-        visitedAt: endedAt,
-        visitDurationSec: durationSec,
-        notes: notes,
-        followUpDate: followUpDate,
-        visitLatitude: latitude,
-        visitLongitude: longitude,
-      );
-      await _outbox.enqueue(
-        MutationOutboxCompanion.insert(
-          operation: kBeatPlanVisitOperation,
-          method: 'POST',
-          endpoint: Endpoints.beatPlanVisit(beatPlanId),
-          payloadJson: Value<String>(
-            jsonEncode(
-              BeatPlanApi.visitBody(
-                stopId: stopId,
-                latitude: latitude,
-                longitude: longitude,
-                visitStartedAt: visitStartedAt,
-                visitEndedAt: endedAt,
-                notes: notes,
-                followUpDate: followUpDate,
+      // Atomic: the pending flag and the queued mutation must commit together,
+      // else a crash between them orphans the stop as syncPending with no
+      // outbox row to ever reconcile it.
+      await _dao.attachedDatabase.transaction(() async {
+        await _dao.markStopPending(
+          stopId,
+          status: 'VISITED',
+          visitStartedAt: visitStartedAt,
+          visitedAt: endedAt,
+          visitDurationSec: durationSec,
+          notes: notes,
+          followUpDate: followUpDate,
+          visitLatitude: latitude,
+          visitLongitude: longitude,
+        );
+        await _outbox.enqueue(
+          MutationOutboxCompanion.insert(
+            operation: kBeatPlanVisitOperation,
+            method: 'POST',
+            endpoint: Endpoints.beatPlanVisit(beatPlanId),
+            payloadJson: Value<String>(
+              jsonEncode(
+                BeatPlanApi.visitBody(
+                  stopId: stopId,
+                  latitude: latitude,
+                  longitude: longitude,
+                  visitStartedAt: visitStartedAt,
+                  visitEndedAt: endedAt,
+                  notes: notes,
+                  followUpDate: followUpDate,
+                ),
               ),
             ),
+            idempotencyKey: generateUuidV4(),
+            localEntityId: Value<String?>(stopId),
           ),
-          idempotencyKey: generateUuidV4(),
-          localEntityId: Value<String?>(stopId),
-        ),
-      );
+        );
+      });
     }
   }
 
@@ -213,31 +218,35 @@ class BeatPlanRepositoryImpl implements BeatPlanRepository {
       unawaited(refreshBeatPlan(beatPlanId).catchError((Object _) {}));
     } on DioException catch (e) {
       if (e.error is! OfflineException) rethrow;
-      await _dao.markStopPending(
-        stopId,
-        status: 'SKIPPED',
-        visitedAt: at,
-        visitLatitude: latitude,
-        visitLongitude: longitude,
-      );
-      await _outbox.enqueue(
-        MutationOutboxCompanion.insert(
-          operation: kBeatPlanSkipOperation,
-          method: 'POST',
-          endpoint: Endpoints.beatPlanSkip(beatPlanId),
-          payloadJson: Value<String>(
-            jsonEncode(
-              BeatPlanApi.visitBody(
-                stopId: stopId,
-                latitude: latitude,
-                longitude: longitude,
+      // Atomic: optimistic skip flag + queued mutation commit together (see
+      // visitStop) so a crash between them can't orphan the stop.
+      await _dao.attachedDatabase.transaction(() async {
+        await _dao.markStopPending(
+          stopId,
+          status: 'SKIPPED',
+          visitedAt: at,
+          visitLatitude: latitude,
+          visitLongitude: longitude,
+        );
+        await _outbox.enqueue(
+          MutationOutboxCompanion.insert(
+            operation: kBeatPlanSkipOperation,
+            method: 'POST',
+            endpoint: Endpoints.beatPlanSkip(beatPlanId),
+            payloadJson: Value<String>(
+              jsonEncode(
+                BeatPlanApi.visitBody(
+                  stopId: stopId,
+                  latitude: latitude,
+                  longitude: longitude,
+                ),
               ),
             ),
+            idempotencyKey: generateUuidV4(),
+            localEntityId: Value<String?>(stopId),
           ),
-          idempotencyKey: generateUuidV4(),
-          localEntityId: Value<String?>(stopId),
-        ),
-      );
+        );
+      });
     }
   }
 

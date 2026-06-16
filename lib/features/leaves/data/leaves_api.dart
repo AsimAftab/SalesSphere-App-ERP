@@ -60,8 +60,13 @@ class LeavesApi {
     if (body == null) {
       throw const FormatException('Empty leaves response body');
     }
-    if (body['success'] == false) {
-      throw const FormatException('Leaves API returned success=false');
+    // Require `success` to be explicitly `true`. A missing/null/non-bool flag
+    // (`null`, `'true'`, `1`) must NOT slip past — that's a malformed envelope.
+    final success = body['success'];
+    if (success is! bool || !success) {
+      throw const FormatException(
+        'Malformed leaves envelope: invalid `success` flag',
+      );
     }
     final inner = body['data'];
     if (inner is! Map<String, dynamic>) {

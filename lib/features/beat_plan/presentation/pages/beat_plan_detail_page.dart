@@ -241,12 +241,7 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
       if (!_ensuredActiveTracking) {
         _ensuredActiveTracking = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          unawaited(ensureTrackingRunning(
-            beatPlanId: plan.id,
-            total: plan.total,
-            visited: plan.visited,
-            skipped: plan.skipped,
-          ));
+          unawaited(_ensureTrackingWithTimeout(plan));
         });
       }
       return _resumingPlaceholder();
@@ -257,6 +252,26 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
       label: 'Start Tracking',
       onPressed: () => _startTracking(plan),
     );
+  }
+
+  /// Kicks off the background tracking service for an active plan, then guards
+  /// against a silent failure (permissions revoked, OS restrictions): if the
+  /// service hasn't pushed a live state for this plan within ~5s, reset the
+  /// guard flag so a pull-to-refresh can retry instead of leaving the rep
+  /// stuck on the resuming placeholder forever.
+  Future<void> _ensureTrackingWithTimeout(BeatPlan plan) async {
+    await ensureTrackingRunning(
+      beatPlanId: plan.id,
+      total: plan.total,
+      visited: plan.visited,
+      skipped: plan.skipped,
+    );
+    await Future<void>.delayed(const Duration(seconds: 5));
+    if (!mounted) return;
+    final live = ref.read(trackingControllerProvider);
+    if (!live.isFor(plan.id)) {
+      setState(() => _ensuredActiveTracking = false);
+    }
   }
 
   Widget _resumingPlaceholder() {

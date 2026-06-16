@@ -194,8 +194,8 @@ class TrackingSocketClient {
     final ok = map['ok'] == true;
     return TrackingAck(
       ok: ok,
-      code: map['code'] as String?,
-      message: map['message'] as String?,
+      code: _asString(map['code']),
+      message: _asString(map['message']),
       data: Map<String, dynamic>.from(map),
     );
   }
@@ -203,7 +203,7 @@ class TrackingSocketClient {
   LocationBroadcastEvent? _parseLocationUpdate(dynamic data) {
     final map = _asMap(data);
     if (map == null) return null;
-    final beatPlanId = map['beatPlanId'] as String?;
+    final beatPlanId = _asString(map['beatPlanId']);
     final loc = _asMap(map['location']);
     if (beatPlanId == null || loc == null) return null;
     final lat = (loc['latitude'] as num?)?.toDouble();
@@ -214,20 +214,20 @@ class TrackingSocketClient {
       latitude: lat,
       longitude: lng,
       recordedAt: _parseDate(loc['recordedAt']),
-      address: loc['address'] as String?,
+      address: _asString(loc['address']),
     );
   }
 
   StatusUpdateEvent? _parseStatusUpdate(dynamic data) {
     final map = _asMap(data);
     if (map == null) return null;
-    final beatPlanId = map['beatPlanId'] as String?;
+    final beatPlanId = _asString(map['beatPlanId']);
     if (beatPlanId == null) return null;
     final summaryMap = _asMap(map['summary']);
     return StatusUpdateEvent(
       beatPlanId: beatPlanId,
-      status: TrackingStatus.fromWire(map['status'] as String?),
-      reason: map['reason'] as String?,
+      status: TrackingStatus.fromWire(_asString(map['status'])),
+      reason: _asString(map['reason']),
       summary: summaryMap == null ? null : TrackingSummary.fromJson(summaryMap),
     );
   }
@@ -235,13 +235,13 @@ class TrackingSocketClient {
   ForceStoppedEvent? _parseForceStopped(dynamic data) {
     final map = _asMap(data);
     if (map == null) return null;
-    final beatPlanId = map['beatPlanId'] as String?;
+    final beatPlanId = _asString(map['beatPlanId']);
     if (beatPlanId == null) return null;
     final summaryMap = _asMap(map['summary']);
     return ForceStoppedEvent(
       beatPlanId: beatPlanId,
-      reason: ForceStopReason.fromWire(map['reason'] as String?),
-      sessionId: map['sessionId'] as String?,
+      reason: ForceStopReason.fromWire(_asString(map['reason'])),
+      sessionId: _asString(map['sessionId']),
       summary: summaryMap == null ? null : TrackingSummary.fromJson(summaryMap),
     );
   }
@@ -258,11 +258,16 @@ class TrackingSocketClient {
     return null;
   }
 
+  /// Coerce a payload field to `String?` without throwing — the backend may
+  /// send a non-string (int/bool/list) where we expect text, and a hard
+  /// `as String?` cast would raise a runtime `TypeError`.
+  static String? _asString(Object? v) => v is String ? v : null;
+
   static String _errorMessage(dynamic err) {
     if (err is String) return err;
     final map = _asMap(err);
     if (map != null) {
-      return (map['message'] as String?) ?? (map['code'] as String?) ?? '$err';
+      return _asString(map['message']) ?? _asString(map['code']) ?? '$err';
     }
     return '$err';
   }

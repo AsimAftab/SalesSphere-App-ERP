@@ -56,14 +56,25 @@ class StartTrackingUseCase {
       );
     }
 
-    await startTrackingService(
-      beatPlanId: plan.id,
-      total: plan.total,
-      visited: plan.visited,
-      skipped: plan.skipped,
-      // Explicit "Start Tracking" → a fresh session (reset duration/distance).
-      resume: false,
-    );
+    try {
+      await startTrackingService(
+        beatPlanId: plan.id,
+        total: plan.total,
+        visited: plan.visited,
+        skipped: plan.skipped,
+        // Explicit "Start Tracking" → a fresh session (reset duration/distance).
+        resume: false,
+      );
+    } on Object {
+      // The plan is already ACTIVE server-side, but the foreground service
+      // failed to launch. Report success-with-caveat so the UI can surface a
+      // retry path instead of bubbling an unhandled exception.
+      return const StartTrackingResult(
+        StartTrackingOutcome.started,
+        warning:
+            'Beat plan started, but live tracking could not launch. Please retry.',
+      );
+    }
 
     return StartTrackingResult(
       StartTrackingOutcome.started,
