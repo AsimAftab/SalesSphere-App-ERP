@@ -1,10 +1,10 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
 import 'package:sales_sphere_erp/features/attendance/data/attendance_api.dart';
 import 'package:sales_sphere_erp/features/attendance/data/dto/attendance_record_dto.dart';
+import 'package:sales_sphere_erp/features/attendance/domain/attendance_exceptions.dart';
 import 'package:sales_sphere_erp/features/attendance/domain/attendance_record.dart';
 import 'package:sales_sphere_erp/features/attendance/domain/attendance_status.dart';
 import 'package:sales_sphere_erp/features/attendance/domain/attendance_today_status.dart';
@@ -12,11 +12,10 @@ import 'package:sales_sphere_erp/features/attendance/domain/geofence_config.dart
 import 'package:sales_sphere_erp/features/attendance/domain/monthly_report.dart';
 import 'package:sales_sphere_erp/features/attendance/domain/monthly_summary.dart';
 import 'package:sales_sphere_erp/features/attendance/domain/repositories/attendance_repository.dart';
-import 'package:sales_sphere_erp/features/attendance/domain/work_schedule.dart';
 
 /// Anti-corruption layer between the wire DTOs and the rest of the app.
-/// All DTO ↔ domain mapping happens here. Drift persistence + outbox enqueue
-/// will land alongside an offline pass (tracked as follow-up).
+/// All DTO ↔ domain mapping happens here, plus translation of the backend's
+/// structured attendance errors into typed domain exceptions.
 class AttendanceRepositoryImpl implements AttendanceRepository {
   AttendanceRepositoryImpl({required AttendanceApi api}) : _api = api;
 
@@ -38,13 +37,12 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
     final dto = await _api.fetchTodayStatus();
     return AttendanceTodayStatus(
       record: dto.record == null ? null : _toDomain(dto.record!),
-      schedule: _scheduleFromWire(dto),
       geofence: GeofenceConfig(
-        enabled: dto.orgEnableGeoFencingAttendance,
-        latitude: dto.orgLatitude,
-        longitude: dto.orgLongitude,
-        address: dto.orgAddress,
-        googleMapLink: dto.orgGoogleMapLink,
+        enabled: dto.geofenceEnabled,
+        latitude: dto.geofenceLatitude,
+        longitude: dto.geofenceLongitude,
+        address: dto.geofenceAddress,
+        googleMapLink: dto.geofenceGoogleMapLink,
       ),
     );
   }
@@ -63,13 +61,7 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
       );
       return _toDomain(dto);
     } on DioException catch (e) {
-      // The error interceptor stashes a typed [ApiException] in
-      // DioException.error (a 400 becomes a ValidationException carrying the
-      // backend's window/weekly-off message). Unwrap so the UI never sees a
-      // raw dio error and the message surfaces via userMessageFor.
-      final mapped = e.error;
-      if (mapped is ApiException) throw mapped;
-      rethrow;
+      _throwWriteError(e);
     }
   }
 
@@ -89,80 +81,53 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
       );
       return _toDomain(dto);
     } on DioException catch (e) {
-      final mapped = e.error;
-      if (mapped is ApiException) throw mapped;
-      rethrow;
+      _throwWriteError(e);
     }
+  }
+
+  // ── Error translation ───────────────────────────────────────────────────
+
+  /// Turns a check-in/out [DioException] into a typed domain exception using
+  /// the backend's structured `error.code` + `error.details`, so the UI can
+  /// react (half-day fallback, refresh on conflict) without parsing strings.
+  Never _throwWriteError(DioException e) {
+    final body = e.response?.data;
+    if (body is Map<String, dynamic>) {
+      final err = body['error'];
+      if (err is Map<String, dynamic>) {
+        final code = err['code'] as String?;
+        final message = err['message'] as String?;
+        final raw = err['details'];
+        final details = raw is Map<String, dynamic> ? raw : const <String, dynamic>{};
+        switch (code) {
+          case 'ATTENDANCE_CHECKIN_RESTRICTED':
+            throw CheckInRestrictionException.fromDetails(message, details);
+          case 'ATTENDANCE_CHECKOUT_RESTRICTED':
+            throw CheckOutRestrictionException.fromDetails(message, details);
+          case 'ATTENDANCE_ALREADY_CHECKED_IN':
+          case 'ATTENDANCE_ALREADY_CHECKED_OUT':
+          case 'ATTENDANCE_NOT_CHECKED_IN':
+            throw AttendanceConflictException(
+              message ?? 'Your attendance was already updated.',
+              code: code!,
+            );
+        }
+      }
+    }
+    // The error interceptor stashes a typed [ApiException] in DioException.error
+    // (e.g. a generic 422 → ValidationException). Unwrap it so the UI never
+    // sees a raw dio error.
+    final mapped = e.error;
+    if (mapped is ApiException) throw mapped;
+    throw e;
   }
 
   // ── Mappers ───────────────────────────────────────────────────────────────
 
-  /// Builds the [WorkSchedule] from the org's shift times. When any of the
-  /// three times is missing/unparseable, [WorkSchedule.enforceWindows] is set
-  /// false so the app doesn't gate by window (the server stays the authority);
-  /// weekly-off days still apply. The fallback times are placeholders only —
-  /// they aren't consulted while `enforceWindows` is false.
-  WorkSchedule _scheduleFromWire(AttendanceTodayStatusDto dto) {
-    final checkIn = _parseHHmm(dto.orgCheckInTime);
-    final checkOut = _parseHHmm(dto.orgCheckOutTime);
-    final halfDay = _parseHHmm(dto.orgHalfDayCheckOutTime);
-    final enforce = checkIn != null && checkOut != null && halfDay != null;
-    return WorkSchedule(
-      scheduledCheckIn: checkIn ?? const TimeOfDay(hour: 9, minute: 0),
-      scheduledCheckOut: checkOut ?? const TimeOfDay(hour: 18, minute: 0),
-      scheduledHalfDayCheckOut: halfDay ?? const TimeOfDay(hour: 13, minute: 0),
-      weeklyOffDays:
-          dto.orgWeeklyOffDays.map(_weekdayToIso).whereType<int>().toSet(),
-      enforceWindows: enforce,
-    );
-  }
-
-  /// Parses an `HH:MM` (or short `HH`) 24-hour string into a [TimeOfDay].
-  /// Tolerates the malformed shapes the backend can send (e.g. `"22"` →
-  /// 22:00, `"21:00"`, `null`, `""`); returns null when unparseable.
-  TimeOfDay? _parseHHmm(String? raw) {
-    final trimmed = raw?.trim();
-    if (trimmed == null || trimmed.isEmpty) return null;
-    final parts = trimmed.split(':');
-    final hour = int.tryParse(parts[0]);
-    if (hour == null || hour < 0 || hour > 23) return null;
-    var minute = 0;
-    if (parts.length > 1) {
-      final m = int.tryParse(parts[1]);
-      if (m == null || m < 0 || m > 59) return null;
-      minute = m;
-    }
-    return TimeOfDay(hour: hour, minute: minute);
-  }
-
-  /// Maps a backend weekday name (`SUNDAY`…`SATURDAY`) to an ISO weekday int
-  /// (Mon = 1 … Sun = 7), matching [DateTime.weekday] and
-  /// [WorkSchedule.weeklyOffDays].
-  int? _weekdayToIso(String name) {
-    switch (name.toUpperCase()) {
-      case 'MONDAY':
-        return DateTime.monday;
-      case 'TUESDAY':
-        return DateTime.tuesday;
-      case 'WEDNESDAY':
-        return DateTime.wednesday;
-      case 'THURSDAY':
-        return DateTime.thursday;
-      case 'FRIDAY':
-        return DateTime.friday;
-      case 'SATURDAY':
-        return DateTime.saturday;
-      case 'SUNDAY':
-        return DateTime.sunday;
-      default:
-        return null;
-    }
-  }
-
   /// Maps the server's status tally into the UI summary. The `LATE` count
-  /// overlaps `PRESENT`, so it's surfaced separately rather than folded into
-  /// the working-day maths. Attendance % isn't sent by the backend, so it's
-  /// derived here (half-day = 0.5; weekly-offs excluded from the denominator).
+  /// overlaps `PRESENT`/`HALF_DAY`, so it's surfaced separately rather than
+  /// folded into the working-day maths. Attendance % isn't sent by the
+  /// backend, so it's derived here (half-day = 0.5; weekly-offs excluded).
   MonthlySummary _summaryFromWire(Map<String, int> tally) {
     final present = tally['PRESENT'] ?? 0;
     final absent = tally['ABSENT'] ?? 0;

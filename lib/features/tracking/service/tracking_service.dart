@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -208,6 +209,10 @@ class _TrackingRuntime {
   DateTime? _lastGeocodeAt;
   static const Duration _geocodeInterval = Duration(seconds: 60);
 
+  /// Tick counter so the server-state reconcile runs less often than the 15s
+  /// state tick (every 2nd tick ≈ 30s).
+  int _tickCount = 0;
+
   Future<void> bootstrap() async {
     // flutter_local_notifications is per-isolate — initialise it here so the
     // service can render/own the ongoing notification from this isolate.
@@ -356,6 +361,12 @@ class _TrackingRuntime {
     final socket = TrackingSocketClient(
       origin: Env.current.wsBaseUrl,
       token: token,
+      log: (message, {error}) {
+        if (kDebugMode) {
+          debugPrint('[tracking-socket] $message'
+              '${error != null ? ' · err=$error' : ''}');
+        }
+      },
     );
     _socketSub = socket.events.listen(_onServerEvent);
     _socket = socket;
@@ -675,6 +686,54 @@ class _TrackingRuntime {
     _queued = await _pingsDao.countPending();
     _pushState();
     await _updateNotification();
+
+    // Backstop for missed `tracking-force-stopped` events (socket down, or the
+    // server didn't push): poll the plan ~every 30s and close tracking if it's
+    // COMPLETED / gone server-side (e.g. a manager force-completed it).
+    _tickCount++;
+    if (_tickCount.isEven) {
+      await _reconcileServerState();
+    }
+  }
+
+  /// Best-effort server reconcile: if the beat plan is COMPLETED (or 404/gone),
+  /// run the same shutdown path as a server force-stop. Auth header is attached
+  /// manually since the bg Dio is interceptor-free; any other error is ignored
+  /// and retried next cycle.
+  Future<void> _reconcileServerState() async {
+    final beatPlanId = _beatPlanId;
+    if (!_started || beatPlanId == null) return;
+    try {
+      final token = await _tokens.readAccessToken();
+      if (token == null || token.isEmpty) return;
+      final resp = await _refreshDio.get<Map<String, dynamic>>(
+        Endpoints.beatPlanById(beatPlanId),
+        options: Options(
+          headers: <String, String>{'Authorization': 'Bearer $token'},
+        ),
+      );
+      final data = resp.data?['data'];
+      final status = data is Map ? data['status'] as String? : null;
+      if (status == 'COMPLETED') {
+        await _handleForceStopped(
+          ForceStopReason.forceCompleted,
+          null,
+          reasonLabel: ForceStopReason.forceCompleted.displayLabel,
+        );
+      }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        // Plan deleted/gone server-side → close tracking.
+        await _handleForceStopped(
+          ForceStopReason.unknown,
+          null,
+          reasonLabel: 'Tracking ended',
+        );
+      }
+      // Other errors (offline/timeout/401): best-effort, retry next cycle.
+    } on Object {
+      // Never let a reconcile failure break tracking.
+    }
   }
 
   /// Best-effort battery read. A platform-channel failure must never break the
