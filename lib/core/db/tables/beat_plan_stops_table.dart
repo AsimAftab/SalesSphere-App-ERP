@@ -32,6 +32,10 @@ class BeatPlanStops extends Table {
   DateTimeColumn get visitedAt => dateTime().nullable()();
   IntColumn get visitDurationSec => integer().nullable()();
 
+  /// When the rep skipped this stop. Set only for `SKIPPED` stops; the server
+  /// leaves `visitedAt` null for a skip and stamps this instead.
+  DateTimeColumn get skippedAt => dateTime().nullable()();
+
   /// Visit proof + outcome.
   TextColumn get visitNotes => text().nullable()();
   DateTimeColumn get followUpDate => dateTime().nullable()();

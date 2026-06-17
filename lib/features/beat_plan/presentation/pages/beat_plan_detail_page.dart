@@ -403,6 +403,9 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
     final endedLabel = stop.visitedAt == null
         ? null
         : DateFormat('hh:mm a').format(stop.visitedAt!.toLocal());
+    final skippedLabel = stop.skippedAt == null
+        ? null
+        : DateFormat('hh:mm a').format(stop.skippedAt!.toLocal());
     final followUpLabel = stop.followUpDate == null
         ? null
         : DateFormat('dd MMM yyyy').format(stop.followUpDate!.toLocal());
@@ -417,7 +420,7 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
           : '${stop.distanceToNextKm!.toStringAsFixed(1)} km',
       isActive: isActive,
       isStarted: _startedAt.containsKey(stop.id),
-      startTime: stop.isSkipped ? endedLabel : (stop.isVisited ? startedLabel : null),
+      startTime: stop.isSkipped ? skippedLabel : (stop.isVisited ? startedLabel : null),
       endTime: stop.isVisited ? endedLabel : null,
       timeSpent: stop.isVisited ? stop.timeSpentLabel : null,
       notes: stop.isVisited ? stop.visitNotes : null,
