@@ -29,6 +29,8 @@ import 'package:sales_sphere_erp/features/notes/domain/note.dart';
 import 'package:sales_sphere_erp/features/odometer/presentation/pages/odometer_history_page.dart';
 import 'package:sales_sphere_erp/features/odometer/presentation/pages/odometer_home_page.dart';
 import 'package:sales_sphere_erp/features/odometer/presentation/pages/odometer_trip_detail_page.dart';
+import 'package:sales_sphere_erp/features/unplanned_visits/presentation/pages/unplanned_visit_detail_page.dart';
+import 'package:sales_sphere_erp/features/unplanned_visits/presentation/pages/unplanned_visits_home_page.dart';
 import 'package:sales_sphere_erp/features/notes/presentation/pages/add_note_page.dart';
 import 'package:sales_sphere_erp/features/notes/presentation/pages/edit_note_detail_page.dart';
 import 'package:sales_sphere_erp/features/notes/presentation/pages/notes_list_page.dart';
@@ -261,6 +263,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final id = state.pathParameters['id']!;
           return OdometerTripDetailPage(tripId: id);
         },
+      ),
+      GoRoute(
+        path: Routes.unplannedVisits,
+        name: Routes.unplannedVisitsName,
+        builder: (_, __) => const UnplannedVisitsHomePage(),
+      ),
+      GoRoute(
+        path: Routes.unplannedVisitDetail,
+        name: Routes.unplannedVisitDetailName,
+        builder: (context, state) =>
+            UnplannedVisitDetailPage(id: state.pathParameters['id']!),
       ),
       // Literal `/attendance/details` MUST be declared before the
       // `:date` route — go_router resolves on declaration order, and

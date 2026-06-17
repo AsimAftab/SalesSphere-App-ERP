@@ -98,6 +98,12 @@ class Endpoints {
   static const odometerMyMonthlyReport = '/odometer/my-monthly-report';
   static String odometerById(String id) => '/odometer/$id';
 
+  // ── Unplanned visits ──────────────────────────────────────────────────────
+  static const unplannedVisitStart = '/unplanned-visits/start';
+  static const unplannedVisitStop = '/unplanned-visits/stop';
+  static const unplannedVisitsStatusToday = '/unplanned-visits/status/today';
+  static String unplannedVisitById(String id) => '/unplanned-visits/$id';
+
   // ── Collections ───────────────────────────────────────────────────────────
   static const collections = '/collections';
 

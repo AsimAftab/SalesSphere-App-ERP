@@ -11,6 +11,10 @@ abstract final class Permissions {
   static const odometerRecord = 'odometer:record';
   static const odometerView = 'odometer:view';
   static const odometerDelete = 'odometer:delete';
+
+  static const unplannedVisitView = 'unplanned-visits:view';
+  static const unplannedVisitRecord = 'unplanned-visits:record';
+  static const unplannedVisitDelete = 'unplanned-visits:delete';
 }
 
 /// Whether the signed-in user's active-membership role grants [permission].
