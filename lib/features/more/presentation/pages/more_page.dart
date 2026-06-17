@@ -5,8 +5,6 @@ import 'package:go_router/go_router.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
-import 'package:sales_sphere_erp/features/auth/presentation/controllers/auth_controller.dart';
-import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
 /// "More" tab landing screen — surfaces account-adjacent destinations.
@@ -94,7 +92,7 @@ class MorePage extends ConsumerWidget {
           title: 'Expense Claims',
           subtitle: 'Submit and manage expenses',
           iconColor: AppColors.green500,
-          onTap: () => _comingSoon(context, 'Expense Claims'),
+          onTap: () => context.push(Routes.expenseClaims),
         ),
         _TileSpec(
           icon: Icons.navigation_outlined,
@@ -114,13 +112,6 @@ class MorePage extends ConsumerWidget {
           onTap: () => context.push(Routes.settings),
         ),
       ];
-
-  /// Placeholder tap handler for features that have a tile on More but
-  /// no surface wired yet. The snackbar's neutral tone (info, not
-  /// error) reads as a deliberate "not yet" rather than a failure.
-  void _comingSoon(BuildContext context, String feature) {
-    SnackbarUtils.showInfo(context, '$feature — coming soon.');
-  }
 }
 
 /// Static description of one tile. The page builds these per-frame
