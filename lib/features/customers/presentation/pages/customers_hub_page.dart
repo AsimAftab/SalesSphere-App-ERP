@@ -93,6 +93,13 @@ class CustomersHubPage extends StatelessWidget {
       onTap: () => context.push(Routes.notes),
     ),
     _TileSpec(
+      icon: Icons.add_location_alt_outlined,
+      title: 'Unplanned Visits',
+      subtitle: 'Log ad-hoc field visits with geofence',
+      iconColor: AppColors.blue500,
+      onTap: () => context.push(Routes.unplannedVisits),
+    ),
+    _TileSpec(
       icon: Icons.work_outline_rounded,
       title: 'Miscellaneous Work',
       subtitle: 'Log odd tasks',
