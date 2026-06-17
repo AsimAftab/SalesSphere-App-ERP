@@ -270,6 +270,18 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
     }).toList();
 
+    // Completed tab: latest on top — order by when the plan was actually
+    // completed (most recent first), falling back to the scheduled date when
+    // completedAt is missing. The shared cache stream is ordered by
+    // scheduledDate, which doesn't reflect completion recency.
+    if (tabIndex == 1) {
+      filteredPlans.sort((a, b) {
+        final aDate = a.completedAt ?? a.assignedDate;
+        final bDate = b.completedAt ?? b.assignedDate;
+        return bDate.compareTo(aDate);
+      });
+    }
+
     return RefreshIndicator(
       onRefresh: () async {
         await ref.read(beatPlanControllerProvider.notifier).refresh();
