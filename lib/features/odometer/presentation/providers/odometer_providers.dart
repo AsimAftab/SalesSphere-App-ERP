@@ -1,78 +1,54 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+
+import 'package:sales_sphere_erp/features/odometer/data/repositories/odometer_repository_impl.dart';
+import 'package:sales_sphere_erp/features/odometer/domain/odometer_monthly_report.dart';
+import 'package:sales_sphere_erp/features/odometer/domain/odometer_today_status.dart';
 import 'package:sales_sphere_erp/features/odometer/domain/odometer_trip.dart';
 
-/// Manages the local state of odometer trips for this session.
-/// Since there is no backend API yet, this holds the trips in memory.
-class OdometerNotifier extends Notifier<List<OdometerTrip>> {
-  @override
-  List<OdometerTrip> build() {
-    return []; // Start with no trips
-  }
+// Re-export the repository provider so consumers (controller, tests) depend on
+// the contract surface without importing from `data/`.
+export 'package:sales_sphere_erp/features/odometer/data/repositories/odometer_repository_impl.dart'
+    show odometerRepositoryProvider;
 
-  Future<void> startTrip({
-    required int startReading,
-    required DistanceUnit unit,
-    String? photoUrl,
-    String? description,
-  }) async {
-    // Simulate network delay
-    await Future<void>.delayed(const Duration(seconds: 1));
+part 'odometer_providers.g.dart';
 
-    final newTrip = OdometerTrip(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      status: TripStatus.active,
-      startedAt: DateTime.now(),
-      startReading: startReading,
-      distanceUnit: unit,
-      startPhotoUrl: photoUrl,
-      startDescription: description,
-    );
-
-    state = [...state, newTrip];
-  }
-
-  Future<void> stopTrip({
-    required String tripId,
-    required int stopReading,
-    String? photoUrl,
-    String? description,
-  }) async {
-    // Simulate network delay
-    await Future<void>.delayed(const Duration(seconds: 1));
-
-    state = state.map((trip) {
-      if (trip.id == tripId) {
-        return trip.copyWith(
-          status: TripStatus.completed,
-          stoppedAt: DateTime.now(),
-          stopReading: stopReading,
-          stopPhotoUrl: photoUrl,
-          stopDescription: description,
-        );
-      }
-      return trip;
-    }).toList();
-  }
+/// Today's trips + active-trip flag from `GET /odometer/status/today`. Single
+/// source of truth for the home page's status, active-trip card, and carousel.
+@riverpod
+Future<OdometerTodayStatus> odometerTodayStatus(Ref ref) async {
+  return ref.watch(odometerRepositoryProvider).getTodayStatus();
 }
 
-final odometerProvider = NotifierProvider<OdometerNotifier, List<OdometerTrip>>(() {
-  return OdometerNotifier();
-});
+/// The month's trips + server-computed summary from
+/// `GET /odometer/my-monthly-report`. Powers the home summary card and the
+/// history page.
+@riverpod
+Future<OdometerMonthlyReport> odometerMonthlyReport(
+  Ref ref,
+  int year,
+  int month,
+) async {
+  return ref.watch(odometerRepositoryProvider).getMonthlyReport(year, month);
+}
 
-/// Exposes the currently active trip (if any).
-final activeTripProvider = Provider<OdometerTrip?>((ref) {
-  final trips = ref.watch(odometerProvider);
-  return trips.where((t) => t.status == TripStatus.active).firstOrNull;
-});
-
-/// Exposes only the completed trips for today.
-final completedTripsProvider = Provider<List<OdometerTrip>>((ref) {
-  final trips = ref.watch(odometerProvider);
+/// A single trip for the detail page. Prefers a cached copy from today's status
+/// or the current month's report (so navigating from a list doesn't refetch),
+/// falling back to `GET /odometer/:id`.
+@riverpod
+Future<OdometerTrip> odometerTripById(Ref ref, String id) async {
+  final today = ref.read(odometerTodayStatusProvider).value;
+  if (today != null) {
+    for (final t in today.trips) {
+      if (t.id == id) return t;
+    }
+  }
   final now = DateTime.now();
-  return trips.where((t) => 
-    t.status == TripStatus.completed &&
-    t.startedAt.year == now.year &&
-    t.startedAt.month == now.month &&
-    t.startedAt.day == now.day
-  ).toList();
-});
+  final month =
+      ref.read(odometerMonthlyReportProvider(now.year, now.month)).value;
+  if (month != null) {
+    for (final t in month.records) {
+      if (t.id == id) return t;
+    }
+  }
+  return ref.watch(odometerRepositoryProvider).getTripById(id);
+}

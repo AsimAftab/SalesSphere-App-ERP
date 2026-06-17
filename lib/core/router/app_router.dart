@@ -26,7 +26,9 @@ import 'package:sales_sphere_erp/features/miscellaneous_work/presentation/pages/
 import 'package:sales_sphere_erp/features/miscellaneous_work/presentation/pages/miscellaneous_work_list_page.dart';
 import 'package:sales_sphere_erp/features/more/presentation/pages/more_page.dart';
 import 'package:sales_sphere_erp/features/notes/domain/note.dart';
+import 'package:sales_sphere_erp/features/odometer/presentation/pages/odometer_history_page.dart';
 import 'package:sales_sphere_erp/features/odometer/presentation/pages/odometer_home_page.dart';
+import 'package:sales_sphere_erp/features/odometer/presentation/pages/odometer_trip_detail_page.dart';
 import 'package:sales_sphere_erp/features/notes/presentation/pages/add_note_page.dart';
 import 'package:sales_sphere_erp/features/notes/presentation/pages/edit_note_detail_page.dart';
 import 'package:sales_sphere_erp/features/notes/presentation/pages/notes_list_page.dart';
@@ -244,7 +246,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.odometer,
+        name: Routes.odometerName,
         builder: (_, __) => const OdometerHomePage(),
+      ),
+      GoRoute(
+        path: Routes.odometerHistory,
+        name: Routes.odometerHistoryName,
+        builder: (_, __) => const OdometerHistoryPage(),
+      ),
+      GoRoute(
+        path: Routes.odometerTripDetail,
+        name: Routes.odometerTripDetailName,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return OdometerTripDetailPage(tripId: id);
+        },
       ),
       // Literal `/attendance/details` MUST be declared before the
       // `:date` route — go_router resolves on declaration order, and

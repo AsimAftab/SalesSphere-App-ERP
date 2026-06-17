@@ -24,6 +24,10 @@ class Routes {
   static const prospectDetail = '/prospects/detail/:id';
 
   static const odometer = '/odometer';
+  static const odometerHistory = '/odometer/history';
+  static const odometerTripDetail = '/odometer/trips/:id';
+
+  static String odometerTripDetailPath(String id) => '/odometer/trips/$id';
 
   static String prospectDetailPath(String id) => '/prospects/detail/$id';
 
@@ -89,6 +93,9 @@ class Routes {
   static const notesName = 'notes';
   static const addNoteName = 'addNote';
   static const noteDetailName = 'noteDetail';
+  static const odometerName = 'odometer';
+  static const odometerHistoryName = 'odometerHistory';
+  static const odometerTripDetailName = 'odometerTripDetail';
   static const attendanceName = 'attendance';
   static const attendanceDetailsName = 'attendanceDetails';
   static const attendanceDayDetailName = 'attendanceDayDetail';
