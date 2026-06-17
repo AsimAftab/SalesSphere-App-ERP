@@ -82,15 +82,15 @@ class AppDatabase extends _$AppDatabase {
             // v5 re-adds `partyType` as a flat name column on parties
             // (backend now embeds `customerType: { id, name }` in every
             // customer payload, and the form picker reads/writes the name).
-            await m.addColumn(parties, parties.partyType);
+            await _addColumnIfMissing(m, parties, parties.partyType);
           }
           if (from < 6) {
             // v6 wires offline-first writes: every party row can flag
             // itself as "pending sync" (UI shows an orange badge) and
             // carry the last sync failure for dead-letter rows
             // (UI flips to red). Outbox handler reconciles both columns.
-            await m.addColumn(parties, parties.syncPending);
-            await m.addColumn(parties, parties.syncError);
+            await _addColumnIfMissing(m, parties, parties.syncPending);
+            await _addColumnIfMissing(m, parties, parties.syncError);
           }
           if (from < 7) {
             // v7 adds the beat-plan cache (plans + stops) and the live
@@ -108,11 +108,11 @@ class AppDatabase extends _$AppDatabase {
             // Guarded to exactly v7→v8: the `from < 7` block above already
             // creates beatPlanStops with the current (v8) schema, so a direct
             // v6→v8 hop must NOT re-add these columns (duplicate-column error).
-            await m.addColumn(beatPlanStops, beatPlanStops.visitStartedAt);
-            await m.addColumn(beatPlanStops, beatPlanStops.visitDurationSec);
-            await m.addColumn(beatPlanStops, beatPlanStops.visitNotes);
-            await m.addColumn(beatPlanStops, beatPlanStops.followUpDate);
-            await m.addColumn(beatPlanStops, beatPlanStops.visitImageUrl);
+            await _addColumnIfMissing(m, beatPlanStops, beatPlanStops.visitStartedAt);
+            await _addColumnIfMissing(m, beatPlanStops, beatPlanStops.visitDurationSec);
+            await _addColumnIfMissing(m, beatPlanStops, beatPlanStops.visitNotes);
+            await _addColumnIfMissing(m, beatPlanStops, beatPlanStops.followUpDate);
+            await _addColumnIfMissing(m, beatPlanStops, beatPlanStops.visitImageUrl);
           }
           if (from >= 7 && from < 9) {
             // v9 adds the device battery level (0–100) to each GPS ping so
@@ -122,7 +122,7 @@ class AppDatabase extends _$AppDatabase {
             // exactly v7 or v8). A direct v6→v9 hop creates the table with the
             // current schema — which already has this column — so re-adding it
             // would raise a duplicate-column error.
-            await m.addColumn(trackingPings, trackingPings.batteryLevel);
+            await _addColumnIfMissing(m, trackingPings, trackingPings.batteryLevel);
           }
           if (from >= 7 && from < 10) {
             // v10 records when a stop was skipped (`skippedAt`) — the server
@@ -132,10 +132,32 @@ class AppDatabase extends _$AppDatabase {
             // `from < 7` block (upgrading from v7/v8/v9). A direct v6→v10 hop
             // creates the table with the current schema — which already has
             // this column — so re-adding it would raise a duplicate-column error.
-            await m.addColumn(beatPlanStops, beatPlanStops.skippedAt);
+            await _addColumnIfMissing(m, beatPlanStops, beatPlanStops.skippedAt);
           }
         },
       );
+
+  /// Adds [column] to [table] only if it isn't already present.
+  ///
+  /// The UI isolate and the background tracking-service isolate each open their
+  /// own connection to this file, so on the first launch after a schema bump
+  /// BOTH run `onUpgrade`. A plain `addColumn` lets the isolate that loses the
+  /// race fail with "duplicate column", which crashes its DB open — e.g. the
+  /// tracking isolate's `start()` throws before it can report a live session,
+  /// leaving the beat-plan page stuck on "Resuming live tracking…" until the
+  /// app is restarted. Guarding on `PRAGMA table_info` makes each column add
+  /// idempotent so a concurrent (or repeated) run is harmless.
+  Future<void> _addColumnIfMissing(
+    Migrator m,
+    TableInfo<Table, dynamic> table,
+    GeneratedColumn<Object> column,
+  ) async {
+    final info = await m.database
+        .customSelect('PRAGMA table_info(${table.actualTableName})')
+        .get();
+    final present = info.any((row) => row.data['name'] == column.name);
+    if (!present) await m.addColumn(table, column);
+  }
 
   static QueryExecutor _openConnection() {
     return driftDatabase(
