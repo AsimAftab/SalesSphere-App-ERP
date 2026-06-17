@@ -100,6 +100,7 @@ class BeatPlanStopDto {
     this.visitStartedAt,
     this.visitedAt,
     this.visitDurationSec,
+    this.skippedAt,
     this.visitNotes,
     this.followUpDate,
     this.visitImageUrl,
@@ -129,6 +130,7 @@ class BeatPlanStopDto {
       visitStartedAt: _parseDate(json['visitStartedAt']),
       visitedAt: _parseDate(json['visitedAt']),
       visitDurationSec: (json['visitDurationSec'] as num?)?.toInt(),
+      skippedAt: _parseDate(json['skippedAt']),
       visitNotes: json['visitNotes'] as String?,
       followUpDate: _parseDate(json['followUpDate']),
       visitImageUrl: imageUrl,
@@ -160,6 +162,10 @@ class BeatPlanStopDto {
 
   /// Server-computed visit duration (end − start), seconds. Null if no start.
   final int? visitDurationSec;
+
+  /// When the stop was skipped. Set only for `SKIPPED` stops; `visitedAt`
+  /// stays null for a skip.
+  final DateTime? skippedAt;
   final String? visitNotes;
   final DateTime? followUpDate;
 

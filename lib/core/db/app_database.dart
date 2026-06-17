@@ -48,7 +48,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.test(super.connection);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -123,6 +123,16 @@ class AppDatabase extends _$AppDatabase {
             // current schema — which already has this column — so re-adding it
             // would raise a duplicate-column error.
             await m.addColumn(trackingPings, trackingPings.batteryLevel);
+          }
+          if (from >= 7 && from < 10) {
+            // v10 records when a stop was skipped (`skippedAt`) — the server
+            // leaves `visitedAt` null for a skip, so the card needs its own
+            // timestamp to show "Skipped at …". Same guard rationale as the v8
+            // block: only run when beatPlanStops was created by the pre-v10
+            // `from < 7` block (upgrading from v7/v8/v9). A direct v6→v10 hop
+            // creates the table with the current schema — which already has
+            // this column — so re-adding it would raise a duplicate-column error.
+            await m.addColumn(beatPlanStops, beatPlanStops.skippedAt);
           }
         },
       );

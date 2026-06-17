@@ -30,6 +30,22 @@ void main() {
     expect(dto.visitImageUrl, 'https://cdn.example/visit.jpg');
   });
 
+  test('BeatPlanStopDto parses a skipped stop: skippedAt set, visitedAt null',
+      () {
+    final dto = BeatPlanStopDto.fromJson(<String, dynamic>{
+      'id': 's2',
+      'kind': 'CUSTOMER',
+      'status': 'SKIPPED',
+      // Server stamps skippedAt and leaves visitedAt null for a skip.
+      'skippedAt': '2026-06-14T10:15:00.000Z',
+      'visitedAt': null,
+      'images': <Map<String, dynamic>>[],
+    });
+
+    expect(dto.skippedAt, isNotNull);
+    expect(dto.visitedAt, isNull);
+  });
+
   test('BeatPlanStop.timeSpentLabel formats the duration', () {
     BeatPlanStop withDuration(int? sec) => BeatPlanStop(
           id: 's',

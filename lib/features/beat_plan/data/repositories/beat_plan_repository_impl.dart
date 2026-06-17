@@ -210,7 +210,7 @@ class BeatPlanRepositoryImpl implements BeatPlanRepository {
       await _dao.markStopPending(
         stopId,
         status: 'SKIPPED',
-        visitedAt: at,
+        skippedAt: at,
         visitLatitude: latitude,
         visitLongitude: longitude,
       );
@@ -224,7 +224,7 @@ class BeatPlanRepositoryImpl implements BeatPlanRepository {
         await _dao.markStopPending(
           stopId,
           status: 'SKIPPED',
-          visitedAt: at,
+          skippedAt: at,
           visitLatitude: latitude,
           visitLongitude: longitude,
         );
@@ -284,6 +284,7 @@ class BeatPlanRepositoryImpl implements BeatPlanRepository {
       visitStartedAt: Value<DateTime?>(s.visitStartedAt),
       visitedAt: Value<DateTime?>(s.visitedAt),
       visitDurationSec: Value<int?>(s.visitDurationSec),
+      skippedAt: Value<DateTime?>(s.skippedAt),
       visitNotes: Value<String?>(s.visitNotes),
       followUpDate: Value<DateTime?>(s.followUpDate),
       visitImageUrl: Value<String?>(s.visitImageUrl),
@@ -335,6 +336,7 @@ class BeatPlanRepositoryImpl implements BeatPlanRepository {
       visitStartedAt: r.visitStartedAt,
       visitedAt: r.visitedAt,
       visitDurationSec: r.visitDurationSec,
+      skippedAt: r.skippedAt,
       visitNotes: r.visitNotes,
       followUpDate: r.followUpDate,
       visitImageUrl: r.visitImageUrl,

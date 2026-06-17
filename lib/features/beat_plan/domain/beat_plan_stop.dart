@@ -19,6 +19,7 @@ class BeatPlanStop {
     this.visitStartedAt,
     this.visitedAt,
     this.visitDurationSec,
+    this.skippedAt,
     this.visitNotes,
     this.followUpDate,
     this.visitImageUrl,
@@ -46,6 +47,10 @@ class BeatPlanStop {
 
   /// Server-computed visit duration (seconds). Null when no start was recorded.
   final int? visitDurationSec;
+
+  /// When the rep skipped this stop (the canonical "skipped at" time). Set only
+  /// for [isSkipped] stops — `visitedAt` stays null for a skip.
+  final DateTime? skippedAt;
   final String? visitNotes;
   final DateTime? followUpDate;
 
