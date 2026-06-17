@@ -7,6 +7,7 @@ class Routes {
 
   static const home = '/home';
   static const catalog = '/catalog';
+  static const catalogCategories = '/catalog/categories';
   static const billing = '/billing';
   static const customers = '/customers';
   static const more = '/more';
@@ -81,6 +82,7 @@ class Routes {
   static const forgotPasswordName = 'forgotPassword';
   static const homeName = 'home';
   static const catalogName = 'catalog';
+  static const catalogCategoriesName = 'catalogCategories';
   static const billingName = 'billing';
   static const customersName = 'customers';
   static const moreName = 'more';

@@ -14,6 +14,7 @@ import 'package:sales_sphere_erp/features/auth/presentation/pages/forgot_passwor
 import 'package:sales_sphere_erp/features/auth/presentation/pages/login_page.dart';
 import 'package:sales_sphere_erp/features/billing/presentation/pages/billing_page.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/pages/catalog_page.dart';
+import 'package:sales_sphere_erp/features/catalog/presentation/pages/category_selection_page.dart';
 import 'package:sales_sphere_erp/features/customers/presentation/pages/customers_hub_page.dart';
 import 'package:sales_sphere_erp/features/home/presentation/pages/home_page.dart';
 import 'package:sales_sphere_erp/features/leaves/domain/leave.dart';
@@ -142,6 +143,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const SettingsPage(),
           ),
         ],
+      ),
+      // Pushed full-screen over the shell (no bottom nav) — reached from
+      // the catalog page's "All" chip.
+      GoRoute(
+        path: Routes.catalogCategories,
+        name: Routes.catalogCategoriesName,
+        builder: (_, __) => const CategorySelectionPage(),
       ),
       GoRoute(
         path: Routes.profile,
