@@ -50,6 +50,13 @@ class Routes {
 
   static String noteDetailPath(String id) => '/notes/detail/$id';
 
+  static const expenseClaims = '/expense-claims';
+  static const addExpenseClaim = '/expense-claims/add';
+  static const expenseClaimDetail = '/expense-claims/detail/:id';
+
+  static String expenseClaimDetailPath(String id) =>
+      '/expense-claims/detail/$id';
+
   static const attendance = '/attendance';
   static const attendanceDetails = '/attendance/details';
   static const attendanceDayDetail = '/attendance/:date';
@@ -101,6 +108,9 @@ class Routes {
   static const notesName = 'notes';
   static const addNoteName = 'addNote';
   static const noteDetailName = 'noteDetail';
+  static const expenseClaimsName = 'expenseClaims';
+  static const addExpenseClaimName = 'addExpenseClaim';
+  static const expenseClaimDetailName = 'expenseClaimDetail';
   static const odometerName = 'odometer';
   static const odometerHistoryName = 'odometerHistory';
   static const odometerTripDetailName = 'odometerTripDetail';

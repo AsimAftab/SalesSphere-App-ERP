@@ -16,6 +16,10 @@ import 'package:sales_sphere_erp/features/billing/presentation/pages/billing_pag
 import 'package:sales_sphere_erp/features/catalog/presentation/pages/catalog_page.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/pages/category_selection_page.dart';
 import 'package:sales_sphere_erp/features/customers/presentation/pages/customers_hub_page.dart';
+import 'package:sales_sphere_erp/features/expenses/domain/expense_claim.dart';
+import 'package:sales_sphere_erp/features/expenses/presentation/pages/add_expense_claim_page.dart';
+import 'package:sales_sphere_erp/features/expenses/presentation/pages/edit_expense_claim_detail_page.dart';
+import 'package:sales_sphere_erp/features/expenses/presentation/pages/expense_claims_list_page.dart';
 import 'package:sales_sphere_erp/features/home/presentation/pages/home_page.dart';
 import 'package:sales_sphere_erp/features/leaves/domain/leave.dart';
 import 'package:sales_sphere_erp/features/leaves/presentation/pages/add_leave_page.dart';
@@ -246,6 +250,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return EditNoteDetailPage(
             id: id,
             initial: extra is Note ? extra : null,
+          );
+        },
+      ),
+      GoRoute(
+        path: Routes.expenseClaims,
+        name: Routes.expenseClaimsName,
+        builder: (_, __) => const ExpenseClaimsListPage(),
+      ),
+      GoRoute(
+        path: Routes.addExpenseClaim,
+        name: Routes.addExpenseClaimName,
+        builder: (_, __) => const AddExpenseClaimPage(),
+      ),
+      GoRoute(
+        path: Routes.expenseClaimDetail,
+        name: Routes.expenseClaimDetailName,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          final extra = state.extra;
+          return EditExpenseClaimDetailPage(
+            id: id,
+            initial: extra is ExpenseClaim ? extra : null,
           );
         },
       ),
