@@ -8,7 +8,9 @@ class Routes {
   static const home = '/home';
   static const catalog = '/catalog';
   static const catalogCategories = '/catalog/categories';
-  static const billing = '/billing';
+  static const invoice = '/invoice';
+  static const invoiceHistory = '/invoice/history';
+  static const invoiceSelectItems = '/invoice/select-items';
   static const customers = '/customers';
   static const more = '/more';
   static const profile = '/profile';
@@ -90,7 +92,9 @@ class Routes {
   static const homeName = 'home';
   static const catalogName = 'catalog';
   static const catalogCategoriesName = 'catalogCategories';
-  static const billingName = 'billing';
+  static const invoiceName = 'invoice';
+  static const invoiceHistoryName = 'invoiceHistory';
+  static const invoiceSelectItemsName = 'invoiceSelectItems';
   static const customersName = 'customers';
   static const moreName = 'more';
   static const profileName = 'profile';

@@ -9,12 +9,13 @@ import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/features/expenses/domain/expense_category.dart';
 import 'package:sales_sphere_erp/features/expenses/domain/expense_party.dart';
 import 'package:sales_sphere_erp/features/expenses/presentation/controllers/expenses_controller.dart';
+import 'package:sales_sphere_erp/features/expenses/presentation/providers/expenses_providers.dart';
 import 'package:sales_sphere_erp/features/expenses/presentation/widgets/expense_category_field.dart';
-import 'package:sales_sphere_erp/features/expenses/presentation/widgets/expense_party_field.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_date_picker.dart';
+import 'package:sales_sphere_erp/shared/widgets/party_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_image_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
@@ -196,9 +197,19 @@ class _AddExpenseClaimPageState extends ConsumerState<AddExpenseClaimPage> {
                               setState(() => _category = next),
                         ),
                         SizedBox(height: 16.h),
-                        ExpensePartyField(
+                        PartyPickerField<ExpenseParty>(
                           value: _party,
                           onChanged: (next) => setState(() => _party = next),
+                          items: ref.watch(expensePartiesProvider),
+                          titleOf: (p) => p.name,
+                          subtitleOf: (p) => p.address,
+                          searchTextOf: (p) => '${p.name} ${p.address}',
+                          label: 'Party (Optional)',
+                          hintText: 'Tap to link a party',
+                          sheetTitle: 'Select party',
+                          searchHint: 'Search parties',
+                          emptyText: 'No parties yet.',
+                          noMatchText: 'No parties match your search.',
                         ),
                         SizedBox(height: 16.h),
                         PrimaryTextField(
