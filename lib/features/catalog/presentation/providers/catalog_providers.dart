@@ -54,4 +54,6 @@ class Cart extends _$Cart {
     }
     state = next;
   }
+
+  void clear() => state = const <String, int>{};
 }

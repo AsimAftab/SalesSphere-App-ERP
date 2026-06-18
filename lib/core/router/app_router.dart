@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:sales_sphere_erp/core/auth/auth_state.dart';
 import 'package:sales_sphere_erp/core/router/router_refresh.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
@@ -8,11 +7,10 @@ import 'package:sales_sphere_erp/core/router/shell_scaffold.dart';
 import 'package:sales_sphere_erp/features/attendance/presentation/pages/attendance_day_detail_page.dart';
 import 'package:sales_sphere_erp/features/attendance/presentation/pages/attendance_details_page.dart';
 import 'package:sales_sphere_erp/features/attendance/presentation/pages/attendance_home_page.dart';
-import 'package:sales_sphere_erp/features/beat_plan/presentation/pages/beat_plan_detail_page.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/pages/forgot_password_page.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/pages/login_page.dart';
-import 'package:sales_sphere_erp/features/billing/presentation/pages/billing_page.dart';
+import 'package:sales_sphere_erp/features/beat_plan/presentation/pages/beat_plan_detail_page.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/pages/catalog_page.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/pages/category_selection_page.dart';
 import 'package:sales_sphere_erp/features/customers/presentation/pages/customers_hub_page.dart';
@@ -21,6 +19,9 @@ import 'package:sales_sphere_erp/features/expenses/presentation/pages/add_expens
 import 'package:sales_sphere_erp/features/expenses/presentation/pages/edit_expense_claim_detail_page.dart';
 import 'package:sales_sphere_erp/features/expenses/presentation/pages/expense_claims_list_page.dart';
 import 'package:sales_sphere_erp/features/home/presentation/pages/home_page.dart';
+import 'package:sales_sphere_erp/features/invoice/presentation/pages/invoice_history_page.dart';
+import 'package:sales_sphere_erp/features/invoice/presentation/pages/invoice_page.dart';
+import 'package:sales_sphere_erp/features/invoice/presentation/providers/invoice_providers.dart';
 import 'package:sales_sphere_erp/features/leaves/domain/leave.dart';
 import 'package:sales_sphere_erp/features/leaves/presentation/pages/add_leave_page.dart';
 import 'package:sales_sphere_erp/features/leaves/presentation/pages/edit_leave_detail_page.dart';
@@ -31,14 +32,12 @@ import 'package:sales_sphere_erp/features/miscellaneous_work/presentation/pages/
 import 'package:sales_sphere_erp/features/miscellaneous_work/presentation/pages/miscellaneous_work_list_page.dart';
 import 'package:sales_sphere_erp/features/more/presentation/pages/more_page.dart';
 import 'package:sales_sphere_erp/features/notes/domain/note.dart';
-import 'package:sales_sphere_erp/features/odometer/presentation/pages/odometer_history_page.dart';
-import 'package:sales_sphere_erp/features/odometer/presentation/pages/odometer_home_page.dart';
-import 'package:sales_sphere_erp/features/odometer/presentation/pages/odometer_trip_detail_page.dart';
-import 'package:sales_sphere_erp/features/unplanned_visits/presentation/pages/unplanned_visit_detail_page.dart';
-import 'package:sales_sphere_erp/features/unplanned_visits/presentation/pages/unplanned_visits_home_page.dart';
 import 'package:sales_sphere_erp/features/notes/presentation/pages/add_note_page.dart';
 import 'package:sales_sphere_erp/features/notes/presentation/pages/edit_note_detail_page.dart';
 import 'package:sales_sphere_erp/features/notes/presentation/pages/notes_list_page.dart';
+import 'package:sales_sphere_erp/features/odometer/presentation/pages/odometer_history_page.dart';
+import 'package:sales_sphere_erp/features/odometer/presentation/pages/odometer_home_page.dart';
+import 'package:sales_sphere_erp/features/odometer/presentation/pages/odometer_trip_detail_page.dart';
 import 'package:sales_sphere_erp/features/parties/domain/party.dart';
 import 'package:sales_sphere_erp/features/parties/presentation/pages/add_party_page.dart';
 import 'package:sales_sphere_erp/features/parties/presentation/pages/edit_party_detail_page.dart';
@@ -59,6 +58,8 @@ import 'package:sales_sphere_erp/features/tour_plans/domain/tour_plan.dart';
 import 'package:sales_sphere_erp/features/tour_plans/presentation/pages/add_tour_plan_page.dart';
 import 'package:sales_sphere_erp/features/tour_plans/presentation/pages/edit_tour_plan_detail_page.dart';
 import 'package:sales_sphere_erp/features/tour_plans/presentation/pages/tour_plans_list_page.dart';
+import 'package:sales_sphere_erp/features/unplanned_visits/presentation/pages/unplanned_visit_detail_page.dart';
+import 'package:sales_sphere_erp/features/unplanned_visits/presentation/pages/unplanned_visits_home_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   // Eagerly instantiate the auth controller so its startup resolution runs.
@@ -69,6 +70,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final refresh = RouterRefreshNotifier(ref);
   ref.onDispose(refresh.dispose);
 
+  // Tracks the previous location so we can reset the invoice draft when
+  // the user leaves the `/invoice` zone (e.g. switches tabs). Navigating
+  // within the zone (the Add-Item catalog, history) keeps the draft.
+  String? lastLocation;
+
   return GoRouter(
     initialLocation: Routes.splash,
     debugLogDiagnostics: true,
@@ -76,6 +82,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final auth = ref.read(authStateProvider);
       final loc = state.matchedLocation;
+
+      final leftInvoiceZone = (lastLocation?.startsWith(Routes.invoice) ??
+              false) &&
+          !loc.startsWith(Routes.invoice);
+      if (leftInvoiceZone) {
+        // Defer so we don't mutate a provider during navigation resolution.
+        Future<void>.microtask(
+          () => ref.read(invoiceDraftProvider.notifier).reset(),
+        );
+      }
+      lastLocation = loc;
 
       // Unknown auth state → splash, unless we're already there.
       if (auth.status == AuthStatus.unknown) {
@@ -127,9 +144,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const CatalogPage(),
           ),
           GoRoute(
-            path: Routes.billing,
-            name: Routes.billingName,
-            builder: (_, __) => const BillingPage(),
+            path: Routes.invoice,
+            name: Routes.invoiceName,
+            builder: (_, __) => const InvoicePage(),
           ),
           GoRoute(
             path: Routes.customers,
@@ -154,6 +171,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.catalogCategories,
         name: Routes.catalogCategoriesName,
         builder: (_, __) => const CategorySelectionPage(),
+      ),
+      // Invoice history (tabs) + the catalog item-selection flow, pushed
+      // full-screen over the shell from the invoice builder.
+      GoRoute(
+        path: Routes.invoiceHistory,
+        name: Routes.invoiceHistoryName,
+        builder: (context, state) => InvoiceHistoryPage(
+          initialTab: state.extra is int ? state.extra! as int : 0,
+        ),
+      ),
+      GoRoute(
+        path: Routes.invoiceSelectItems,
+        name: Routes.invoiceSelectItemsName,
+        builder: (_, __) => const CatalogPage(forInvoice: true),
       ),
       GoRoute(
         path: Routes.profile,
