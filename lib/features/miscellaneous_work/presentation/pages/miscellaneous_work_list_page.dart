@@ -84,7 +84,7 @@ class _MiscellaneousWorkListPageState
     if (context.canPop()) {
       context.pop();
     } else {
-      context.go(Routes.customers);
+      context.go(Routes.fieldOps);
     }
   }
 

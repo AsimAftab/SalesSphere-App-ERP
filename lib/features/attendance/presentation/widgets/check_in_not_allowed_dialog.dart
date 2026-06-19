@@ -25,7 +25,6 @@ class CheckInNotAllowedDialog extends StatelessWidget {
   }) {
     return showDialog<void>(
       context: context,
-      barrierDismissible: true,
       builder: (_) => CheckInNotAllowedDialog(message: message, title: title),
     );
   }
@@ -74,7 +73,7 @@ class CheckInNotAllowedDialog extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.primary,
-                    fontSize: 17.sp,
+                    fontSize: 16.sp,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.3,
                   ),
@@ -93,14 +92,13 @@ class CheckInNotAllowedDialog extends StatelessWidget {
                   textAlign: TextAlign.left,
                   style: TextStyle(
                     color: AppColors.textPrimary,
-                    fontSize: 13.sp,
+                    fontSize: 14.sp,
                     height: 1.5,
                   ),
                 ),
                 SizedBox(height: 24.h),
                 PrimaryButton(
                   label: 'OK',
-                  size: ButtonSize.medium,
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],

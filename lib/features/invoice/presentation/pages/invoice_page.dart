@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
@@ -160,87 +159,72 @@ class _InvoicePageState extends ConsumerState<InvoicePage> {
           padding: EdgeInsets.only(bottom: 84.h),
           child: PrimaryFabButton(label: 'Add Item', onPressed: _addItems),
         ),
-        body: Stack(
-          children: <Widget>[
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: SvgPicture.asset(
-                'assets/images/corner_bubble.svg',
-                fit: BoxFit.cover,
-                height: 180.h,
-              ),
-            ),
-            SafeArea(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  _Header(onHistory: () => context.push(Routes.invoiceHistory)),
-                  SizedBox(height: 4.h),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 160.h),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: <Widget>[
-                          const _SectionHeader(
-                            icon: Icons.storefront_outlined,
-                            title: 'Party Details',
-                          ),
-                          SizedBox(height: 10.h),
-                          _PartyDetailCard(
-                            draft: draft,
-                            ownerController: _ownerController,
-                            deliveryDateController: _deliveryDateController,
-                          ),
-                          SizedBox(height: 20.h),
-                          _SectionHeader(
-                            icon: Icons.shopping_bag_outlined,
-                            title: 'Items',
-                            trailing: draft.items.isEmpty
-                                ? null
-                                : '${draft.items.length}',
-                          ),
-                          SizedBox(height: 10.h),
-                          _ItemsSection(draft: draft),
-                          SizedBox(height: 20.h),
-                          const _SectionHeader(
-                            icon: Icons.receipt_outlined,
-                            title: 'Summary',
-                          ),
-                          SizedBox(height: 10.h),
-                          _SummaryCard(
-                            draft: draft,
-                            overallDiscountController:
-                                _overallDiscountController,
-                          ),
-                          SizedBox(height: 20.h),
-                          PrimaryButton(
-                            label: 'Create Invoice',
-                            leadingIcon: Icons.check_circle_outline,
-                            isLoading: _submitting,
-                            onPressed: _submitting
-                                ? null
-                                : () => _create(InvoiceKind.invoice),
-                          ),
-                          SizedBox(height: 12.h),
-                          OutlinedCustomButton(
-                            label: 'Create Estimate',
-                            leadingIcon: Icons.description_outlined,
-                            isLoading: _submitting,
-                            onPressed: _submitting
-                                ? null
-                                : () => _create(InvoiceKind.estimate),
-                          ),
-                        ],
+        body: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              _Header(onHistory: () => context.push(Routes.invoiceHistory)),
+              SizedBox(height: 4.h),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 160.h),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      const _SectionHeader(
+                        icon: Icons.storefront_outlined,
+                        title: 'Party Details',
                       ),
-                    ),
+                      SizedBox(height: 10.h),
+                      _PartyDetailCard(
+                        draft: draft,
+                        ownerController: _ownerController,
+                        deliveryDateController: _deliveryDateController,
+                      ),
+                      SizedBox(height: 20.h),
+                      _SectionHeader(
+                        icon: Icons.shopping_bag_outlined,
+                        title: 'Items',
+                        trailing: draft.items.isEmpty
+                            ? null
+                            : '${draft.items.length}',
+                      ),
+                      SizedBox(height: 10.h),
+                      _ItemsSection(draft: draft),
+                      SizedBox(height: 20.h),
+                      const _SectionHeader(
+                        icon: Icons.receipt_outlined,
+                        title: 'Summary',
+                      ),
+                      SizedBox(height: 10.h),
+                      _SummaryCard(
+                        draft: draft,
+                        overallDiscountController: _overallDiscountController,
+                      ),
+                      SizedBox(height: 20.h),
+                      PrimaryButton(
+                        label: 'Create Invoice',
+                        leadingIcon: Icons.check_circle_outline,
+                        isLoading: _submitting,
+                        onPressed: _submitting
+                            ? null
+                            : () => _create(InvoiceKind.invoice),
+                      ),
+                      SizedBox(height: 12.h),
+                      OutlinedCustomButton(
+                        label: 'Create Estimate',
+                        leadingIcon: Icons.description_outlined,
+                        isLoading: _submitting,
+                        onPressed: _submitting
+                            ? null
+                            : () => _create(InvoiceKind.estimate),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

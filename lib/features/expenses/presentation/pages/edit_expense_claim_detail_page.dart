@@ -458,7 +458,7 @@ class _StatusBanner extends StatelessWidget {
                       'Reason: $rejectionReason',
                       style: TextStyle(
                         color: accent,
-                        fontSize: 11.sp,
+                        fontSize: 12.sp,
                         fontWeight: FontWeight.w500,
                         height: 1.4,
                       ),
@@ -546,7 +546,7 @@ class _DetailAppBar extends StatelessWidget {
                 'Cancel',
                 style: TextStyle(
                   color: AppColors.error,
-                  fontSize: 15.sp,
+                  fontSize: 14.sp,
                   fontWeight: FontWeight.w600,
                 ),
               ),

@@ -11,7 +11,9 @@ import 'package:sales_sphere_erp/features/attendance/presentation/providers/atte
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/section_card.dart';
+import 'package:sales_sphere_erp/shared/widgets/status_badge.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// `/attendance/:date` — single-day detail surface reached by tapping a
@@ -35,7 +37,8 @@ class AttendanceDayDetailPage extends ConsumerWidget {
 
     return _Scaffold(
       child: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () =>
+            Skeletonizer(child: _DetailBody(record: _placeholderRecord)),
         error: (_, __) => const _Error(),
         data: (record) => record == null
             ? _NoRecord(date: theDate)
@@ -44,6 +47,25 @@ class AttendanceDayDetailPage extends ConsumerWidget {
     );
   }
 }
+
+/// Sample record fed to [_DetailBody] while the day's data loads so
+/// Skeletonizer can paint a realistic bone layout (status + hours,
+/// check-in, check-out, and marked-by cards).
+final _placeholderRecord = AttendanceRecord(
+  id: '',
+  date: DateTime(2026),
+  status: AttendanceStatus.present,
+  checkInAt: DateTime(2026, 1, 1, 9),
+  checkOutAt: DateTime(2026, 1, 1, 18),
+  checkInLat: 27.7,
+  checkInLng: 85.3,
+  checkInAddress: 'Loading address line for the location',
+  checkOutLat: 27.7,
+  checkOutLng: 85.3,
+  checkOutAddress: 'Loading address line for the location',
+  markedByName: 'Loading Name',
+  markedByRole: 'Member',
+);
 
 class _Scaffold extends StatelessWidget {
   const _Scaffold({required this.child});
@@ -123,10 +145,6 @@ class _DetailBody extends StatelessWidget {
           _StatusHeroCard(record: record),
           if (record.hasCheckIn) ...<Widget>[
             SizedBox(height: 16.h),
-            _WorkingHoursCard(record: record),
-          ],
-          if (record.hasCheckIn) ...<Widget>[
-            SizedBox(height: 16.h),
             _CheckEventCard(
               kind: _CheckEventKind.checkIn,
               at: record.checkInAt!,
@@ -158,93 +176,6 @@ class _DetailBody extends StatelessWidget {
   }
 }
 
-/// Compact summary card showing the duration the user spent on the
-/// clock for this day. Renders below the status hero and above the
-/// check-in card so the hours read first, before the user dives into
-/// the per-event details. Falls back to `--` until a check-out lands.
-class _WorkingHoursCard extends StatelessWidget {
-  const _WorkingHoursCard({required this.record});
-
-  final AttendanceRecord record;
-
-  String _formatHours(Duration? d) {
-    if (d == null) return '--';
-    final hours = d.inMinutes ~/ 60;
-    final minutes = d.inMinutes % 60;
-    return '${hours}h ${minutes.toString().padLeft(2, '0')}m';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final hoursLabel = _formatHours(record.hoursWorked);
-    final inProgress = record.hasCheckIn && !record.hasCheckOut;
-    return SectionCard(
-      children: <Widget>[
-        Row(
-          children: <Widget>[
-            Container(
-              width: 40.r,
-              height: 40.r,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: AppColors.secondary.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(10.r),
-              ),
-              child: Icon(
-                Icons.timer_outlined,
-                color: AppColors.secondary,
-                size: 20.sp,
-              ),
-            ),
-            SizedBox(width: 12.w),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    'Hours Worked',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  SizedBox(height: 2.h),
-                  Text(
-                    hoursLabel,
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 18.sp,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (inProgress)
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                decoration: BoxDecoration(
-                  color: AppColors.green500.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(40.r),
-                ),
-                child: Text(
-                  'In progress',
-                  style: TextStyle(
-                    color: AppColors.green500,
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
 class _StatusHeroCard extends StatelessWidget {
   const _StatusHeroCard({required this.record});
 
@@ -269,61 +200,114 @@ class _StatusHeroCard extends StatelessWidget {
     }
   }
 
+  String _formatHours(Duration? d) {
+    if (d == null) return '--';
+    final hours = d.inMinutes ~/ 60;
+    final minutes = d.inMinutes % 60;
+    return '${hours}h ${minutes.toString().padLeft(2, '0')}m';
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = record.status.palette;
-    return Container(
-      decoration: BoxDecoration(
-        color: p.accent.withValues(alpha: 0.10),
-        border: Border.all(
-          color: p.accent.withValues(alpha: 0.25),
-          width: 1.0,
-        ),
-        borderRadius: BorderRadius.circular(16.r),
-      ),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(20.w, 24.h, 20.w, 24.h),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+    final accent = p.accent;
+    final inProgress = record.hasCheckIn && !record.hasCheckOut;
+
+    return SectionCard(
+      children: <Widget>[
+        Row(
           children: <Widget>[
             Container(
-              width: 56.r,
-              height: 56.r,
+              width: 40.r,
+              height: 40.r,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: p.accent,
-                shape: BoxShape.circle,
+                color: accent.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(10.r),
               ),
-              child: Icon(
-                _heroIcon(record.status),
-                color: Colors.white,
-                size: 28.sp,
+              child: Icon(_heroIcon(record.status), color: accent, size: 20.sp),
+            ),
+            SizedBox(width: 12.w),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    DateFormat('EEEE').format(record.date),
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                  SizedBox(height: 2.h),
+                  Text(
+                    DateFormat('MMM d, yyyy').format(record.date),
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
             ),
-            SizedBox(height: 14.h),
-            Text(
-              p.label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: p.accent,
-                fontSize: 24.sp,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.4,
-              ),
-            ),
-            SizedBox(height: 6.h),
-            Text(
-              DateFormat('EEEE, MMM d, yyyy').format(record.date),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
+            SizedBox(width: 8.w),
+            StatusBadge(label: p.label, color: accent),
           ],
         ),
-      ),
+        if (record.hasCheckIn) ...<Widget>[
+          SizedBox(height: 14.h),
+          Divider(height: 1, color: AppColors.border.withValues(alpha: 0.6)),
+          SizedBox(height: 14.h),
+          Row(
+            children: <Widget>[
+              Icon(Icons.timer_outlined,
+                  color: AppColors.secondary, size: 18.sp),
+              SizedBox(width: 8.w),
+              Text(
+                'Hours Worked',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const Spacer(),
+              if (inProgress) ...<Widget>[
+                Container(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                  decoration: BoxDecoration(
+                    color: AppColors.green500.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(40.r),
+                  ),
+                  child: Text(
+                    'In progress',
+                    style: TextStyle(
+                      color: AppColors.green500,
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                SizedBox(width: 10.w),
+              ],
+              Text(
+                _formatHours(record.hoursWorked),
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 }

@@ -20,6 +20,7 @@ import 'package:sales_sphere_erp/shared/widgets/status_badge.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 import 'package:sales_sphere_erp/shared/widgets/summary_stats_card.dart';
 import 'package:sales_sphere_erp/shared/widgets/today_status_card.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 class OdometerHomePage extends ConsumerWidget {
   const OdometerHomePage({super.key});
@@ -29,9 +30,14 @@ class OdometerHomePage extends ConsumerWidget {
     final now = DateTime.now();
     final todayAsync = ref.watch(odometerTodayStatusProvider);
     final summary =
-        ref.watch(odometerMonthlyReportProvider(now.year, now.month)).value?.summary ??
-            OdometerMonthlySummary.empty;
-    final canRecord = ref.watch(hasPermissionProvider(Permissions.odometerRecord));
+        ref
+            .watch(odometerMonthlyReportProvider(now.year, now.month))
+            .value
+            ?.summary ??
+        OdometerMonthlySummary.empty;
+    final canRecord = ref.watch(
+      hasPermissionProvider(Permissions.odometerRecord),
+    );
 
     return DarkStatusBar(
       child: Scaffold(
@@ -64,8 +70,10 @@ class OdometerHomePage extends ConsumerWidget {
                           onPressed: () => context.pop(),
                           tooltip: 'Back',
                           padding: EdgeInsets.zero,
-                          constraints:
-                              BoxConstraints(minWidth: 36.w, minHeight: 36.h),
+                          constraints: BoxConstraints(
+                            minWidth: 36.w,
+                            minHeight: 36.h,
+                          ),
                         ),
                         SizedBox(width: 12.w),
                         Text(
@@ -92,9 +100,7 @@ class OdometerHomePage extends ConsumerWidget {
                         await ref.read(odometerTodayStatusProvider.future);
                       },
                       child: todayAsync.when(
-                        loading: () => const _ScrollableCenter(
-                          child: CircularProgressIndicator(),
-                        ),
+                        loading: () => const _HomeSkeleton(),
                         error: (_, __) => _ScrollableCenter(
                           child: _ErrorRetry(
                             onRetry: () =>
@@ -151,17 +157,18 @@ class _Content extends StatelessWidget {
             statusBadge: activeTrip != null
                 ? const StatusBadge(label: 'On Trip', color: AppColors.blue500)
                 : completedTrips.isNotEmpty
-                    ? const StatusBadge(
-                        label: 'Completed', color: AppColors.green500)
-                    : const StatusBadge(
-                        label: 'Not Started', color: AppColors.textSecondary),
+                ? const StatusBadge(
+                    label: 'Completed',
+                    color: AppColors.green500,
+                  )
+                : const StatusBadge(
+                    label: 'Not Started',
+                    color: AppColors.textSecondary,
+                  ),
           ),
           if (activeTrip != null) ...[
             SizedBox(height: 16.h),
-            _ActiveTripCard(
-              trip: activeTrip,
-              canRecord: canRecord,
-            ),
+            _ActiveTripCard(trip: activeTrip, canRecord: canRecord),
           ] else if (canRecord) ...[
             SizedBox(height: 24.h),
             CustomButton(
@@ -180,8 +187,11 @@ class _Content extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.timeline_rounded,
-                      color: AppColors.blue500, size: 20.sp),
+                  Icon(
+                    Icons.timeline_rounded,
+                    color: AppColors.blue500,
+                    size: 20.sp,
+                  ),
                   SizedBox(width: 8.w),
                   Text(
                     "Today's Trips",
@@ -214,8 +224,11 @@ class _Content extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  Icon(Icons.directions_car_outlined,
-                      color: AppColors.textHint, size: 48.sp),
+                  Icon(
+                    Icons.directions_car_outlined,
+                    color: AppColors.textHint,
+                    size: 48.sp,
+                  ),
                   SizedBox(height: 16.h),
                   Text(
                     'No trips recorded today',
@@ -287,8 +300,11 @@ class _ActiveTripCard extends StatelessWidget {
                   color: AppColors.red500.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.directions_car_rounded,
-                    color: AppColors.red500, size: 20.sp),
+                child: Icon(
+                  Icons.directions_car_rounded,
+                  color: AppColors.red500,
+                  size: 20.sp,
+                ),
               ),
               SizedBox(width: 12.w),
               Expanded(
@@ -398,14 +414,64 @@ class _TripsCarouselState extends State<_TripsCarousel> {
               width: _currentIndex == index ? 24.w : 8.w,
               height: 8.h,
               decoration: BoxDecoration(
-                color:
-                    _currentIndex == index ? AppColors.blue500 : AppColors.border,
+                color: _currentIndex == index
+                    ? AppColors.blue500
+                    : AppColors.border,
                 borderRadius: BorderRadius.circular(4.r),
               ),
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Shimmer placeholders shown while today's status loads.
+class _HomeSkeleton extends StatelessWidget {
+  const _HomeSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Skeletonizer(
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 32.h),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Bone(
+              width: double.infinity,
+              height: 64.h,
+              borderRadius: BorderRadius.circular(16.r),
+            ),
+            SizedBox(height: 16.h),
+            Bone(
+              width: double.infinity,
+              height: 56.h,
+              borderRadius: BorderRadius.circular(16.r),
+            ),
+            SizedBox(height: 32.h),
+            Bone(
+              width: 140.w,
+              height: 16.h,
+              borderRadius: BorderRadius.circular(4.r),
+            ),
+            SizedBox(height: 16.h),
+            Bone(
+              width: double.infinity,
+              height: 210.h,
+              borderRadius: BorderRadius.circular(16.r),
+            ),
+            SizedBox(height: 24.h),
+            Bone(
+              width: double.infinity,
+              height: 170.h,
+              borderRadius: BorderRadius.circular(16.r),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -423,7 +489,9 @@ class _ScrollableCenter extends StatelessWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: constraints.maxHeight),
-          child: Center(child: Padding(padding: EdgeInsets.all(32.w), child: child)),
+          child: Center(
+            child: Padding(padding: EdgeInsets.all(32.w), child: child),
+          ),
         ),
       ),
     );

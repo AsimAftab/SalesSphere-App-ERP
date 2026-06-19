@@ -8,7 +8,7 @@ import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
 /// "More" tab landing screen — surfaces account-adjacent destinations.
-/// Mirrors `CustomersHubPage`'s chrome (large header, 2-col tile grid,
+/// Mirrors `FieldOpsPage`'s chrome (large header, 2-col tile grid,
 /// soft-shadow flat surface, per-module accent colour) so both
 /// bottom-nav landing surfaces read as the same family.
 ///

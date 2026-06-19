@@ -14,7 +14,7 @@ class Routes {
 
   static String invoiceDetailPath(String id) => '/invoice/detail/$id';
 
-  static const customers = '/customers';
+  static const fieldOps = '/field-ops';
   static const more = '/more';
   static const profile = '/profile';
   static const settings = '/settings';
@@ -98,7 +98,7 @@ class Routes {
   static const invoiceName = 'invoice';
   static const invoiceHistoryName = 'invoiceHistory';
   static const invoiceDetailName = 'invoiceDetail';
-  static const customersName = 'customers';
+  static const fieldOpsName = 'fieldOps';
   static const moreName = 'more';
   static const profileName = 'profile';
   static const settingsName = 'settings';

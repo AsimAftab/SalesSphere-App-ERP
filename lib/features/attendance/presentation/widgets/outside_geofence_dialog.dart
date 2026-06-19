@@ -12,10 +12,10 @@ import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 /// Mirrors the checkout-not-allowed dialog's warning styling (orange header).
 class OutsideGeofenceDialog extends StatelessWidget {
   const OutsideGeofenceDialog({
-    super.key,
     required this.distanceMeters,
     required this.radiusMeters,
     this.officeAddress,
+    super.key,
   });
 
   /// How far the user currently is from the office anchor.
@@ -35,7 +35,6 @@ class OutsideGeofenceDialog extends StatelessWidget {
   }) {
     return showDialog<void>(
       context: context,
-      barrierDismissible: true,
       builder: (_) => OutsideGeofenceDialog(
         distanceMeters: distanceMeters,
         radiusMeters: radiusMeters,
@@ -48,7 +47,7 @@ class OutsideGeofenceDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final base = TextStyle(
       color: AppColors.textPrimary,
-      fontSize: 13.sp,
+      fontSize: 14.sp,
       height: 1.5,
     );
     final bold = base.copyWith(fontWeight: FontWeight.w700);
@@ -96,7 +95,7 @@ class OutsideGeofenceDialog extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.primary,
-                    fontSize: 17.sp,
+                    fontSize: 16.sp,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.3,
                   ),
@@ -135,7 +134,7 @@ class OutsideGeofenceDialog extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: AppColors.background,
                       borderRadius: BorderRadius.circular(12.r),
-                      border: Border.all(color: AppColors.border, width: 1),
+                      border: Border.all(color: AppColors.border),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -163,7 +162,6 @@ class OutsideGeofenceDialog extends StatelessWidget {
                 SizedBox(height: 24.h),
                 PrimaryButton(
                   label: 'OK',
-                  size: ButtonSize.medium,
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],

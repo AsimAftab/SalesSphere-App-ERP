@@ -135,7 +135,7 @@ class _LeaveCategorySheet extends StatelessWidget {
                   'Clear selection',
                   style: TextStyle(
                     color: AppColors.error,
-                    fontSize: 15.sp,
+                    fontSize: 14.sp,
                     fontWeight: FontWeight.w600,
                   ),
                 ),

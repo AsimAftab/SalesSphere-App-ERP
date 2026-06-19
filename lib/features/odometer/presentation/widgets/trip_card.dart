@@ -41,7 +41,10 @@ class OdometerTripCard extends StatelessWidget {
               if (isActive)
                 const StatusBadge(label: 'Active', color: AppColors.blue500)
               else
-                const StatusBadge(label: 'Completed', color: AppColors.green500),
+                const StatusBadge(
+                  label: 'Completed',
+                  color: AppColors.green500,
+                ),
             ],
           ),
           SizedBox(height: 16.h),
@@ -91,7 +94,7 @@ class OdometerTripCard extends StatelessWidget {
                   style: TextStyle(
                     color: AppColors.green500,
                     fontSize: 16.sp,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -148,7 +151,7 @@ class _ReadingBox extends StatelessWidget {
             style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 16.sp,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
             ),
           ),
           Text(

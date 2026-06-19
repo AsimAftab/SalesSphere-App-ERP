@@ -454,7 +454,7 @@ class _StatusBanner extends StatelessWidget {
                       'Reason: $rejectionReason',
                       style: TextStyle(
                         color: palette.fg,
-                        fontSize: 11.sp,
+                        fontSize: 12.sp,
                         fontWeight: FontWeight.w500,
                         height: 1.4,
                       ),

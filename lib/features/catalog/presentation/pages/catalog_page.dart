@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
@@ -41,12 +40,14 @@ class _CatalogPageState extends ConsumerState<CatalogPage> {
 
   List<Product> _filter(List<Product> products, String? categoryId) {
     final q = _query.trim().toLowerCase();
-    return products.where((p) {
-      if (categoryId != null && p.categoryId != categoryId) return false;
-      if (q.isEmpty) return true;
-      return p.name.toLowerCase().contains(q) ||
-          p.sku.toLowerCase().contains(q);
-    }).toList(growable: false);
+    return products
+        .where((p) {
+          if (categoryId != null && p.categoryId != categoryId) return false;
+          if (q.isEmpty) return true;
+          return p.name.toLowerCase().contains(q) ||
+              p.sku.toLowerCase().contains(q);
+        })
+        .toList(growable: false);
   }
 
   /// Pull-to-refresh. Mock-only: re-reads the catalogue providers and gives
@@ -69,112 +70,98 @@ class _CatalogPageState extends ConsumerState<CatalogPage> {
     return DarkStatusBar(
       child: Scaffold(
         backgroundColor: AppColors.background,
-        body: Stack(
-          children: <Widget>[
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: SvgPicture.asset(
-                'assets/images/corner_bubble.svg',
-                fit: BoxFit.cover,
-                height: 180.h,
+        body: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Padding(
+                padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
+                child: Text(
+                  'Catalog',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 24.sp,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.5,
+                  ),
+                ),
               ),
-            ),
-            SafeArea(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
-                    child: Text(
-                      'Catalog',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 24.sp,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 16.h),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20.w),
-                    child: PrimaryTextField(
-                      controller: _searchController,
-                      hintText: 'Search products or SKU',
-                      prefixIcon: Icons.search,
-                      onChanged: (v) => setState(() => _query = v),
-                      suffixWidget: _query.isEmpty
-                          ? null
-                          : IconButton(
-                              icon: Icon(
-                                Icons.close,
-                                size: 20.sp,
-                                color: AppColors.textSecondary,
-                              ),
-                              tooltip: 'Clear search',
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() => _query = '');
-                                FocusManager.instance.primaryFocus?.unfocus();
-                              },
-                            ),
-                    ),
-                  ),
-                  SizedBox(height: 12.h),
-                  _CategoryChips(
-                    categories: categories,
-                    selectedId: selectedCategoryId,
-                  ),
-                  SizedBox(height: 12.h),
-                  Expanded(
-                    child: RefreshIndicator(
-                      onRefresh: _refresh,
-                      color: AppColors.primary,
-                      backgroundColor: AppColors.surface,
-                      child: items.isEmpty
-                          // Scrollable so the pull gesture works even with
-                          // no products; min-height keeps the empty state
-                          // vertically centred.
-                          ? LayoutBuilder(
-                              builder: (context, constraints) =>
-                                  SingleChildScrollView(
-                                    physics: const AlwaysScrollableScrollPhysics(
-                                      parent: ClampingScrollPhysics(),
-                                    ),
-                                    child: ConstrainedBox(
-                                      constraints: BoxConstraints(
-                                        minHeight: constraints.maxHeight,
-                                      ),
-                                      child: _EmptyProducts(
-                                        hasQuery: _query.trim().isNotEmpty,
-                                      ),
-                                    ),
-                                  ),
-                            )
-                          : GridView.builder(
-                              physics: const AlwaysScrollableScrollPhysics(
-                                parent: ClampingScrollPhysics(),
-                              ),
-                              padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 140.h),
-                              gridDelegate:
-                                  SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 2,
-                                    childAspectRatio: 0.60,
-                                    crossAxisSpacing: 14.w,
-                                    mainAxisSpacing: 14.h,
-                                  ),
-                              itemCount: items.length,
-                              itemBuilder: (context, index) =>
-                                  CatalogProductCard(product: items[index]),
-                            ),
-                    ),
-                  ),
-                ],
+              SizedBox(height: 16.h),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20.w),
+                child: PrimaryTextField(
+                  controller: _searchController,
+                  hintText: 'Search products or SKU',
+                  prefixIcon: Icons.search,
+                  onChanged: (v) => setState(() => _query = v),
+                  suffixWidget: _query.isEmpty
+                      ? null
+                      : IconButton(
+                          icon: Icon(
+                            Icons.close,
+                            size: 20.sp,
+                            color: AppColors.textSecondary,
+                          ),
+                          tooltip: 'Clear search',
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _query = '');
+                            FocusManager.instance.primaryFocus?.unfocus();
+                          },
+                        ),
+                ),
               ),
-            ),
-          ],
+              SizedBox(height: 12.h),
+              _CategoryChips(
+                categories: categories,
+                selectedId: selectedCategoryId,
+              ),
+              SizedBox(height: 12.h),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: _refresh,
+                  color: AppColors.primary,
+                  backgroundColor: AppColors.surface,
+                  child: items.isEmpty
+                      // Scrollable so the pull gesture works even with
+                      // no products; min-height keeps the empty state
+                      // vertically centred.
+                      ? LayoutBuilder(
+                          builder: (context, constraints) =>
+                              SingleChildScrollView(
+                                physics: const AlwaysScrollableScrollPhysics(
+                                  parent: ClampingScrollPhysics(),
+                                ),
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    minHeight: constraints.maxHeight,
+                                  ),
+                                  child: _EmptyProducts(
+                                    hasQuery: _query.trim().isNotEmpty,
+                                  ),
+                                ),
+                              ),
+                        )
+                      : GridView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(
+                            parent: ClampingScrollPhysics(),
+                          ),
+                          padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 140.h),
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                childAspectRatio: 0.60,
+                                crossAxisSpacing: 14.w,
+                                mainAxisSpacing: 14.h,
+                              ),
+                          itemCount: items.length,
+                          itemBuilder: (context, index) =>
+                              CatalogProductCard(product: items[index]),
+                        ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

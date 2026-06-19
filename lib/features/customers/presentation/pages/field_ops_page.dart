@@ -7,18 +7,18 @@ import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
-/// Hub screen surfaced from the bottom-nav "Customers" tab. Groups
-/// Parties + Prospects + Sites + (placeholder) Notes under one
-/// entry so the user picks which list to drill into. `context.push`
-/// (not `go`) keeps the navbar visible and lets the destination's
-/// back arrow return here.
+/// Hub screen surfaced from the bottom-nav "Field Ops" tab. Groups the
+/// field-operations modules — Parties, Prospects, Sites, Unplanned
+/// Visits, Collection, Notes, Miscellaneous Work — under one entry so
+/// the user picks which list to drill into. `context.push` (not `go`)
+/// keeps the navbar visible and lets the destination's back arrow
+/// return here.
 ///
 /// Tiles share a flat white surface; identity comes from a per-module
 /// icon colour (blue / orange / green / red) tinted into a soft
-/// rounded icon block. Notes carries a small gold "Soon" pill
-/// in its title row to mark it as a placeholder.
-class CustomersHubPage extends StatelessWidget {
-  const CustomersHubPage({super.key});
+/// rounded icon block.
+class FieldOpsPage extends StatelessWidget {
+  const FieldOpsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +33,7 @@ class CustomersHubPage extends StatelessWidget {
               children: <Widget>[
                 SizedBox(height: 8.h),
                 Text(
-                  'Customers',
+                  'Field Ops',
                   style: TextStyle(
                     color: AppColors.primary,
                     fontSize: 28.sp,
@@ -44,7 +44,7 @@ class CustomersHubPage extends StatelessWidget {
                 ),
                 SizedBox(height: 6.h),
                 Text(
-                  'Tap any tile to manage that module.',
+                  'Your field operations, all in one place.',
                   style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 14.sp,
