@@ -4,6 +4,7 @@ import 'package:sales_sphere_erp/features/invoice/data/invoice_mock_data.dart';
 import 'package:sales_sphere_erp/features/invoice/domain/invoice.dart';
 import 'package:sales_sphere_erp/features/invoice/domain/invoice_draft_data.dart';
 import 'package:sales_sphere_erp/features/invoice/domain/invoice_line_item.dart';
+import 'package:sales_sphere_erp/features/invoice/domain/invoice_organization.dart';
 import 'package:sales_sphere_erp/features/invoice/domain/invoice_party.dart';
 import 'package:sales_sphere_erp/features/invoice/domain/tax_option.dart';
 
@@ -19,6 +20,12 @@ List<InvoiceParty> invoiceParties(Ref ref) => kMockInvoiceParties;
 @riverpod
 List<TaxOption> taxOptions(Ref ref) => kTaxOptions;
 
+/// The selling organisation rendered as the "From" party on the invoice
+/// detail page. Mock-only — swap for the authenticated tenant's profile
+/// when the backend lands.
+@riverpod
+InvoiceOrganization invoiceOrganization(Ref ref) => kMockInvoiceOrganization;
+
 /// The live invoice-builder draft. `keepAlive` so it survives navigation
 /// reliably (the Add-Item catalog round-trip, the History push). It is
 /// reset to empty after a successful create, and when the user leaves the
@@ -29,8 +36,7 @@ class InvoiceDraft extends _$InvoiceDraft {
   @override
   InvoiceDraftData build() => InvoiceDraftData.initial(kDefaultTaxOption);
 
-  void selectParty(InvoiceParty party) =>
-      state = state.copyWith(party: party);
+  void selectParty(InvoiceParty party) => state = state.copyWith(party: party);
 
   void clearParty() => state = state.copyWith(clearParty: true);
 
@@ -47,8 +53,9 @@ class InvoiceDraft extends _$InvoiceDraft {
         .map(InvoiceLineItem.fromProduct)
         .toList(growable: false);
     if (additions.isEmpty) return;
-    state =
-        state.copyWith(items: <InvoiceLineItem>[...state.items, ...additions]);
+    state = state.copyWith(
+      items: <InvoiceLineItem>[...state.items, ...additions],
+    );
   }
 
   /// Merge a catalog cart (productId → quantity) into the draft. New
@@ -73,26 +80,28 @@ class InvoiceDraft extends _$InvoiceDraft {
       );
     }
     if (additions.isEmpty) return;
-    state =
-        state.copyWith(items: <InvoiceLineItem>[...state.items, ...additions]);
+    state = state.copyWith(
+      items: <InvoiceLineItem>[...state.items, ...additions],
+    );
   }
 
   void removeItem(String productId) => state = state.copyWith(
-        items: state.items
-            .where((line) => line.productId != productId)
-            .toList(growable: false),
-      );
+    items: state.items
+        .where((line) => line.productId != productId)
+        .toList(growable: false),
+  );
 
-  void updateQuantity(String productId, int quantity) => _patch(productId, (line) {
+  void updateQuantity(String productId, int quantity) =>
+      _patch(productId, (line) {
         final max = line.availableStock < 1 ? 1 : line.availableStock;
         final clamped = quantity < 1 ? 1 : (quantity > max ? max : quantity);
         return line.copyWith(quantity: clamped);
       });
 
   void updateBasePrice(String productId, double basePrice) => _patch(
-        productId,
-        (line) => line.copyWith(basePrice: basePrice < 0 ? 0 : basePrice),
-      );
+    productId,
+    (line) => line.copyWith(basePrice: basePrice < 0 ? 0 : basePrice),
+  );
 
   /// Sets the base price implied by a discount off the listed price —
   /// the inverse of [InvoiceLineItem.discountPercent]. Keeps base price
@@ -114,8 +123,7 @@ class InvoiceDraft extends _$InvoiceDraft {
     String productId,
     InvoiceLineItem Function(InvoiceLineItem) update,
   ) {
-    final index =
-        state.items.indexWhere((line) => line.productId == productId);
+    final index = state.items.indexWhere((line) => line.productId == productId);
     if (index == -1) return;
     final next = <InvoiceLineItem>[...state.items];
     next[index] = update(next[index]);
@@ -147,11 +155,35 @@ class InvoiceHistory extends _$InvoiceHistory {
     state = AsyncValue<List<Invoice>>.data(<Invoice>[invoice, ...current]);
   }
 
-  /// Pull-to-refresh. Mock-only: simulates a round-trip and re-emits the
-  /// current list (locally-created rows are preserved).
+  /// Drop the record with [id] from the list. Backs the estimate delete
+  /// action (and the convert-to-invoice flow, which removes the source
+  /// estimate after creating the invoice).
+  void removeLocal(String id) {
+    final current = state.value ?? const <Invoice>[];
+    state = AsyncValue<List<Invoice>>.data(
+      current.where((i) => i.id != id).toList(growable: false),
+    );
+  }
+
+  /// Pull-to-refresh / header refresh. Mock-only: drops to a loading
+  /// state so the list paints the skeleton again, simulates a round-trip,
+  /// then re-emits the current list (locally-created rows are preserved).
   Future<void> refresh() async {
     final current = state.value ?? const <Invoice>[];
+    state = const AsyncValue<List<Invoice>>.loading();
     await Future<void>.delayed(const Duration(milliseconds: 600));
     state = AsyncValue<List<Invoice>>.data(<Invoice>[...current]);
   }
+}
+
+/// Resolves a single record by id from the loaded history. Returns `null`
+/// when the list hasn't resolved yet or the id isn't present (the detail
+/// page passes the record via `extra` to avoid the former).
+@riverpod
+Invoice? invoiceById(Ref ref, String id) {
+  final all = ref.watch(invoiceHistoryProvider).value ?? const <Invoice>[];
+  for (final invoice in all) {
+    if (invoice.id == id) return invoice;
+  }
+  return null;
 }

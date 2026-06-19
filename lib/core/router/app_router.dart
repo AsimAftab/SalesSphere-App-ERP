@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sales_sphere_erp/core/auth/auth_state.dart';
@@ -19,6 +21,8 @@ import 'package:sales_sphere_erp/features/expenses/presentation/pages/add_expens
 import 'package:sales_sphere_erp/features/expenses/presentation/pages/edit_expense_claim_detail_page.dart';
 import 'package:sales_sphere_erp/features/expenses/presentation/pages/expense_claims_list_page.dart';
 import 'package:sales_sphere_erp/features/home/presentation/pages/home_page.dart';
+import 'package:sales_sphere_erp/features/invoice/domain/invoice.dart';
+import 'package:sales_sphere_erp/features/invoice/presentation/pages/invoice_detail_page.dart';
 import 'package:sales_sphere_erp/features/invoice/presentation/pages/invoice_history_page.dart';
 import 'package:sales_sphere_erp/features/invoice/presentation/pages/invoice_page.dart';
 import 'package:sales_sphere_erp/features/invoice/presentation/providers/invoice_providers.dart';
@@ -75,6 +79,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   // within the zone (the Add-Item catalog, history) keeps the draft.
   String? lastLocation;
 
+  // The invoice draft is kept for a 5-minute grace period after the user
+  // leaves the `/invoice` zone, so a quick detour to another tab doesn't
+  // discard a half-built invoice. Re-entering the zone before the timer
+  // fires cancels the reset.
+  Timer? invoiceDraftResetTimer;
+  ref.onDispose(() => invoiceDraftResetTimer?.cancel());
+
   return GoRouter(
     initialLocation: Routes.splash,
     debugLogDiagnostics: true,
@@ -83,14 +94,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final auth = ref.read(authStateProvider);
       final loc = state.matchedLocation;
 
-      final leftInvoiceZone = (lastLocation?.startsWith(Routes.invoice) ??
-              false) &&
-          !loc.startsWith(Routes.invoice);
+      final inInvoiceZone = loc.startsWith(Routes.invoice);
+      final leftInvoiceZone =
+          (lastLocation?.startsWith(Routes.invoice) ?? false) &&
+          !inInvoiceZone;
       if (leftInvoiceZone) {
-        // Defer so we don't mutate a provider during navigation resolution.
-        Future<void>.microtask(
+        // Don't reset immediately — schedule it 5 minutes out so brief
+        // detours keep the draft. A re-entry (below) cancels it.
+        invoiceDraftResetTimer?.cancel();
+        invoiceDraftResetTimer = Timer(
+          const Duration(minutes: 5),
           () => ref.read(invoiceDraftProvider.notifier).reset(),
         );
+      } else if (inInvoiceZone) {
+        // Back in the zone within the grace period — keep the draft.
+        invoiceDraftResetTimer?.cancel();
+        invoiceDraftResetTimer = null;
       }
       lastLocation = loc;
 
@@ -172,8 +191,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: Routes.catalogCategoriesName,
         builder: (_, __) => const CategorySelectionPage(),
       ),
-      // Invoice history (tabs) + the catalog item-selection flow, pushed
-      // full-screen over the shell from the invoice builder.
+      // Invoice history (tabs), pushed full-screen over the shell from the
+      // invoice builder.
       GoRoute(
         path: Routes.invoiceHistory,
         name: Routes.invoiceHistoryName,
@@ -181,10 +200,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           initialTab: state.extra is int ? state.extra! as int : 0,
         ),
       ),
+      // Read-only invoice / estimate detail, pushed full-screen over the
+      // shell from a history card. Stays within the `/invoice` zone so the
+      // draft isn't reset. `extra` carries the record for instant paint;
+      // the page falls back to the store for cold opens / deep links.
       GoRoute(
-        path: Routes.invoiceSelectItems,
-        name: Routes.invoiceSelectItemsName,
-        builder: (_, __) => const CatalogPage(forInvoice: true),
+        path: Routes.invoiceDetail,
+        name: Routes.invoiceDetailName,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          final extra = state.extra;
+          return InvoiceDetailPage(
+            id: id,
+            initial: extra is Invoice ? extra : null,
+          );
+        },
       ),
       GoRoute(
         path: Routes.profile,

@@ -38,12 +38,15 @@ class _InvoiceItemCardState extends ConsumerState<InvoiceItemCard> {
   @override
   void initState() {
     super.initState();
-    _quantityController =
-        TextEditingController(text: '${widget.line.quantity}');
-    _basePriceController =
-        TextEditingController(text: _num(widget.line.basePrice));
-    _discountController =
-        TextEditingController(text: _num(widget.line.discountPercent, 1));
+    _quantityController = TextEditingController(
+      text: '${widget.line.quantity}',
+    );
+    _basePriceController = TextEditingController(
+      text: _num(widget.line.basePrice),
+    );
+    _discountController = TextEditingController(
+      text: _num(widget.line.discountPercent, 1),
+    );
   }
 
   @override
@@ -61,9 +64,7 @@ class _InvoiceItemCardState extends ConsumerState<InvoiceItemCard> {
   static String _num(double value, [int decimals = 2]) {
     if (value == value.roundToDouble()) return value.toInt().toString();
     final s = value.toStringAsFixed(decimals);
-    return s
-        .replaceFirst(RegExp(r'0+$'), '')
-        .replaceFirst(RegExp(r'\.$'), '');
+    return s.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
   }
 
   /// Mirror a derived value into the field the user is *not* editing.
@@ -130,7 +131,7 @@ class _InvoiceItemCardState extends ConsumerState<InvoiceItemCard> {
                   Row(
                     children: <Widget>[
                       Text(
-                        'Listed ${_currency.format(line.listedPrice)}',
+                        'List Price ${_currency.format(line.listedPrice)}',
                         style: TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 12.sp,
@@ -178,7 +179,7 @@ class _InvoiceItemCardState extends ConsumerState<InvoiceItemCard> {
                   'Quantity',
                   style: TextStyle(
                     color: AppColors.textSecondary,
-                    fontSize: 13.sp,
+                    fontSize: 14.sp,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -187,9 +188,9 @@ class _InvoiceItemCardState extends ConsumerState<InvoiceItemCard> {
                   '${line.availableStock} in stock',
                   style: TextStyle(
                     color: line.quantity >= line.availableStock
-                        ? AppColors.warning
+                        ? AppColors.error
                         : AppColors.textHint,
-                    fontSize: 11.sp,
+                    fontSize: 12.sp,
                   ),
                 ),
               ],
@@ -217,13 +218,9 @@ class _InvoiceItemCardState extends ConsumerState<InvoiceItemCard> {
                   final capped = '${line.availableStock}';
                   _quantityController.value = TextEditingValue(
                     text: capped,
-                    selection:
-                        TextSelection.collapsed(offset: capped.length),
+                    selection: TextSelection.collapsed(offset: capped.length),
                   );
-                  _draft.updateQuantity(
-                    line.productId,
-                    line.availableStock,
-                  );
+                  _draft.updateQuantity(line.productId, line.availableStock);
                   return;
                 }
                 _draft.updateQuantity(line.productId, n);
@@ -236,7 +233,7 @@ class _InvoiceItemCardState extends ConsumerState<InvoiceItemCard> {
           children: <Widget>[
             Expanded(
               child: _AdornedField(
-                label: 'Base Price',
+                label: 'Unit Price',
                 controller: _basePriceController,
                 focusNode: _basePriceFocus,
                 prefixText: 'Rs ',
@@ -270,7 +267,7 @@ class _InvoiceItemCardState extends ConsumerState<InvoiceItemCard> {
               'Subtotal',
               style: TextStyle(
                 color: AppColors.textSecondary,
-                fontSize: 13.sp,
+                fontSize: 14.sp,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -279,7 +276,7 @@ class _InvoiceItemCardState extends ConsumerState<InvoiceItemCard> {
               _currency.format(line.subtotal),
               style: TextStyle(
                 color: AppColors.primary,
-                fontSize: 15.sp,
+                fontSize: 14.sp,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -342,9 +339,9 @@ class _QuantityField extends StatelessWidget {
                   FocusManager.instance.primaryFocus?.unfocus(),
               style: TextStyle(
                 color: AppColors.textPrimary,
-                fontSize: 15.sp,
+                fontSize: 14.sp,
                 fontFamily: 'Poppins',
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
               ),
               decoration: const InputDecoration(
                 isDense: true,
@@ -420,7 +417,7 @@ class _AdornedField extends StatelessWidget {
           label,
           style: TextStyle(
             color: AppColors.textSecondary,
-            fontSize: 11.sp,
+            fontSize: 12.sp,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -454,8 +451,10 @@ class _AdornedField extends StatelessWidget {
               fontSize: 14.sp,
               fontFamily: 'Poppins',
             ),
-            contentPadding:
-                EdgeInsets.symmetric(horizontal: 10.w, vertical: 10.h),
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: 10.w,
+              vertical: 10.h,
+            ),
             filled: true,
             fillColor: AppColors.background,
             border: OutlineInputBorder(
@@ -468,7 +467,10 @@ class _AdornedField extends StatelessWidget {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10.r),
-              borderSide: const BorderSide(color: AppColors.secondary, width: 2),
+              borderSide: const BorderSide(
+                color: AppColors.secondary,
+                width: 2,
+              ),
             ),
           ),
         ),

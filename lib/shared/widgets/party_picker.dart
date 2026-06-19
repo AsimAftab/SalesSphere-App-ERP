@@ -33,6 +33,9 @@ Future<PartyPickerResult<T>?> showPartyPicker<T>(
   return showModalBottomSheet<PartyPickerResult<T>>(
     context: context,
     isScrollControlled: true,
+    // Use the root navigator so the sheet (and its scrim) render above the
+    // shell's bottom nav bar instead of being clipped to the page body.
+    useRootNavigator: true,
     backgroundColor: Colors.transparent,
     builder: (_) => _PartyPickerSheet<T>(
       items: items,
