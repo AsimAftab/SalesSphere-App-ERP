@@ -20,6 +20,8 @@ import 'package:sales_sphere_erp/core/constants/app_colors.dart';
       return (icon: Icons.plumbing, accent: const Color(0xFF4CAF50));
     case 'ply':
       return (icon: Icons.layers, accent: const Color(0xFFFF9800));
+    case 'tiles':
+      return (icon: Icons.grid_view_rounded, accent: const Color(0xFF00BCD4));
     default:
       return (icon: Icons.category, accent: AppColors.secondary);
   }

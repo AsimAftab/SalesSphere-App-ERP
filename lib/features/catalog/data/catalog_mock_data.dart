@@ -12,6 +12,8 @@ const kMockCategories = <ProductCategory>[
   ProductCategory(id: 'cat_sanitary', name: 'Sanitary', itemCount: 3),
   ProductCategory(id: 'cat_cpvc', name: 'CPVC', itemCount: 3),
   ProductCategory(id: 'cat_ply', name: 'Ply', itemCount: 2),
+  // Intentionally has no products — exercises the catalog's empty state.
+  ProductCategory(id: 'cat_tiles', name: 'Tiles', itemCount: 0),
 ];
 
 const kMockProducts = <Product>[
