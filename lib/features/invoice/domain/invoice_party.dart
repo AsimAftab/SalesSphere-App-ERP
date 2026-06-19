@@ -15,6 +15,8 @@ class InvoiceParty {
     required this.name,
     required this.ownerName,
     required this.address,
+    this.panVat = '',
+    this.phone = '',
   });
 
   final String id;
@@ -24,6 +26,14 @@ class InvoiceParty {
   /// read-only "Owner name" field when this party is selected.
   final String ownerName;
   final String address;
+
+  /// PAN / VAT registration number — shown on the invoice detail's
+  /// "Bill to" card. Empty when the party has none on file.
+  final String panVat;
+
+  /// Contact phone — shown on the invoice detail's "Bill to" card.
+  /// Empty when not on file.
+  final String phone;
 
   @override
   bool operator ==(Object other) => other is InvoiceParty && other.id == id;

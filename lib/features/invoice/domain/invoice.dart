@@ -13,6 +13,19 @@ enum InvoiceKind { invoice, estimate }
 String invoiceKindLabel(InvoiceKind kind) =>
     kind == InvoiceKind.invoice ? 'Invoice' : 'Estimate';
 
+/// Fulfilment state of a saved invoice / estimate. New records start
+/// [pending]; the rest model the delivery workflow. Drives the status
+/// badge on the history cards and the detail page.
+enum InvoiceStatus { pending, inProgress, inTransit, completed, rejected }
+
+String invoiceStatusLabel(InvoiceStatus status) => switch (status) {
+      InvoiceStatus.pending => 'Pending',
+      InvoiceStatus.inProgress => 'In Progress',
+      InvoiceStatus.inTransit => 'In Transit',
+      InvoiceStatus.completed => 'Completed',
+      InvoiceStatus.rejected => 'Rejected',
+    };
+
 /// A saved invoice or estimate. Built from an `InvoiceDraftData`
 /// snapshot at create time and stored in the in-memory history list.
 /// Reuses [InvoiceTotals] so history rows show the same grand total the
@@ -23,6 +36,7 @@ class Invoice with InvoiceTotals {
     required this.id,
     required this.number,
     required this.kind,
+    required this.status,
     required this.items,
     required this.overallDiscountPercent,
     required this.tax,
@@ -36,6 +50,7 @@ class Invoice with InvoiceTotals {
   /// Human-facing document number, e.g. `INV-1007` / `EST-1003`.
   final String number;
   final InvoiceKind kind;
+  final InvoiceStatus status;
   final InvoiceParty? party;
   final DateTime? deliveryDate;
   @override

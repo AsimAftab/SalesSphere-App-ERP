@@ -23,17 +23,59 @@ class InvoiceController extends _$InvoiceController {
 
   Future<Invoice> createEstimate() => _create(InvoiceKind.estimate);
 
+  /// Removes a saved estimate from the in-memory history. Mock-only;
+  /// gains a `repo.deleteInvoice(id)` call when a backend lands.
+  void deleteEstimate(String id) =>
+      ref.read(invoiceHistoryProvider.notifier).removeLocal(id);
+
+  /// Converts an [estimate] into a committed invoice with the chosen
+  /// [deliveryDate]. Stamps a fresh `INV-` number + id, prepends the new
+  /// invoice to the history and drops the source estimate, then returns
+  /// the created invoice. Mock-only.
+  Future<Invoice> convertToInvoice(
+    Invoice estimate,
+    DateTime deliveryDate,
+  ) async {
+    final now = DateTime.now();
+    final history = ref.read(invoiceHistoryProvider).value ?? const <Invoice>[];
+    final number = _formatNumber(
+      'INV',
+      now.year,
+      _nextSequence(history, InvoiceKind.invoice),
+    );
+
+    final invoice = Invoice(
+      id: 'inv_${now.microsecondsSinceEpoch}',
+      number: number,
+      kind: InvoiceKind.invoice,
+      status: InvoiceStatus.pending,
+      party: estimate.party,
+      deliveryDate: deliveryDate,
+      items: List<InvoiceLineItem>.unmodifiable(estimate.items),
+      overallDiscountPercent: estimate.overallDiscountPercent,
+      tax: estimate.tax,
+      createdAt: now,
+    );
+
+    ref.read(invoiceHistoryProvider.notifier)
+      ..prependLocal(invoice)
+      ..removeLocal(estimate.id);
+    return invoice;
+  }
+
   Future<Invoice> _create(InvoiceKind kind) async {
     final draft = ref.read(invoiceDraftProvider);
     final now = DateTime.now();
     final prefix = kind == InvoiceKind.invoice ? 'INV' : 'EST';
     final history = ref.read(invoiceHistoryProvider).value ?? const <Invoice>[];
-    final number = '$prefix-${_nextSequence(history, kind, prefix)}';
+    final number =
+        _formatNumber(prefix, now.year, _nextSequence(history, kind));
 
     final invoice = Invoice(
       id: '${prefix.toLowerCase()}_${now.microsecondsSinceEpoch}',
       number: number,
       kind: kind,
+      status: InvoiceStatus.pending,
       party: draft.party,
       deliveryDate: draft.deliveryDate,
       items: List<InvoiceLineItem>.unmodifiable(draft.items),
@@ -47,16 +89,22 @@ class InvoiceController extends _$InvoiceController {
     return invoice;
   }
 
-  /// Next document number for [kind]: one past the highest existing
-  /// `PREFIX-<n>` suffix (so it never collides with the seed numbers).
-  /// Falls back to 1001 when there are none yet.
-  int _nextSequence(List<Invoice> history, InvoiceKind kind, String prefix) {
-    var maxSuffix = 1000;
+  /// Formats a document number as `PREFIX-YEAR-NNNN`, e.g.
+  /// `INV-2026-0001` / `EST-2026-0003`. The sequence is zero-padded to
+  /// four digits.
+  String _formatNumber(String prefix, int year, int sequence) =>
+      '$prefix-$year-${sequence.toString().padLeft(4, '0')}';
+
+  /// Next sequence number for [kind]: one past the highest existing
+  /// trailing `-NNNN` segment (so it never collides with the seed
+  /// numbers). Starts at 1 when there are none yet.
+  int _nextSequence(List<Invoice> history, InvoiceKind kind) {
+    var maxSeq = 0;
     for (final invoice in history) {
       if (invoice.kind != kind) continue;
-      final suffix = int.tryParse(invoice.number.replaceFirst('$prefix-', ''));
-      if (suffix != null && suffix > maxSuffix) maxSuffix = suffix;
+      final seq = int.tryParse(invoice.number.split('-').last);
+      if (seq != null && seq > maxSeq) maxSeq = seq;
     }
-    return maxSuffix + 1;
+    return maxSeq + 1;
   }
 }

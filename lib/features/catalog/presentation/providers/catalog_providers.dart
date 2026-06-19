@@ -31,8 +31,10 @@ class SelectedCategory extends _$SelectedCategory {
 
 /// In-memory cart: product id → quantity. Mirrors v1's
 /// `orderControllerProvider` — purely local visual state, no checkout
-/// or backend.
-@riverpod
+/// or backend. `keepAlive` so the cart survives the Catalog→Invoice tab
+/// switch: the invoice builder reads it on re-entry to merge the picked
+/// products into the draft.
+@Riverpod(keepAlive: true)
 class Cart extends _$Cart {
   @override
   Map<String, int> build() => const <String, int>{};

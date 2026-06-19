@@ -51,8 +51,9 @@ class _InvoicePageState extends ConsumerState<InvoicePage> {
     final draft = ref.read(invoiceDraftProvider);
     _ownerController.text = draft.party?.ownerName ?? '';
     if (draft.deliveryDate != null) {
-      _deliveryDateController.text =
-          DateFormat('dd MMM yyyy').format(draft.deliveryDate!);
+      _deliveryDateController.text = DateFormat(
+        'dd MMM yyyy',
+      ).format(draft.deliveryDate!);
     }
     if (draft.overallDiscountPercent != 0) {
       _overallDiscountController.text = _num(draft.overallDiscountPercent);
@@ -77,15 +78,10 @@ class _InvoicePageState extends ConsumerState<InvoicePage> {
     ref.read(cartProvider.notifier).clear();
   }
 
-  /// Opens the catalog to add items, then merges whatever was put in the
-  /// cart on return — works for the bottom bar, the back button and the
-  /// system back. (If this page was rebuilt while away, `initState`'s
-  /// merge handles it instead.)
-  Future<void> _addItems() async {
-    await context.push(Routes.invoiceSelectItems);
-    if (!mounted) return;
-    _mergeCartIntoDraft();
-  }
+  /// Switches to the Catalog tab to add items. Products added to the cart
+  /// there are merged into the draft when the user returns to this tab —
+  /// handled by [initState]'s [_mergeCartIntoDraft].
+  void _addItems() => context.go(Routes.catalog);
 
   @override
   void dispose() {
@@ -95,8 +91,9 @@ class _InvoicePageState extends ConsumerState<InvoicePage> {
     super.dispose();
   }
 
-  static String _num(double value) =>
-      value == value.roundToDouble() ? value.toInt().toString() : value.toString();
+  static String _num(double value) => value == value.roundToDouble()
+      ? value.toInt().toString()
+      : value.toString();
 
   /// Keep the read-only owner field mirrored to the selected party.
   /// Deferred + guarded to avoid the build-phase `.text =` assertion.
@@ -161,10 +158,7 @@ class _InvoicePageState extends ConsumerState<InvoicePage> {
         // page).
         floatingActionButton: Padding(
           padding: EdgeInsets.only(bottom: 84.h),
-          child: PrimaryFabButton(
-            label: 'Add Item',
-            onPressed: _addItems,
-          ),
+          child: PrimaryFabButton(label: 'Add Item', onPressed: _addItems),
         ),
         body: Stack(
           children: <Widget>[
@@ -182,9 +176,7 @@ class _InvoicePageState extends ConsumerState<InvoicePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  _Header(
-                    onHistory: () => context.push(Routes.invoiceHistory),
-                  ),
+                  _Header(onHistory: () => context.push(Routes.invoiceHistory)),
                   SizedBox(height: 4.h),
                   Expanded(
                     child: SingleChildScrollView(
@@ -284,7 +276,7 @@ class _Header extends StatelessWidget {
                   'Build an invoice or estimate',
                   style: TextStyle(
                     color: AppColors.textSecondary,
-                    fontSize: 13.sp,
+                    fontSize: 14.sp,
                   ),
                 ),
               ],
@@ -302,7 +294,11 @@ class _Header extends StatelessWidget {
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.icon, required this.title, this.trailing});
+  const _SectionHeader({
+    required this.icon,
+    required this.title,
+    this.trailing,
+  });
 
   final IconData icon;
   final String title;
@@ -359,6 +355,7 @@ class _PartyDetailCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notifier = ref.read(invoiceDraftProvider.notifier);
+    final now = DateTime.now();
     return SectionCard(
       children: <Widget>[
         PartyPickerField<InvoiceParty>(
@@ -397,6 +394,8 @@ class _PartyDetailCard extends ConsumerWidget {
           hintText: 'Select a date',
           prefixIcon: Icons.local_shipping_outlined,
           initialDate: draft.deliveryDate,
+          // Delivery can't be in the past — today is the earliest day.
+          firstDate: DateTime(now.year, now.month, now.day),
           onDateSelected: notifier.setDeliveryDate,
         ),
       ],
@@ -458,7 +457,7 @@ class _EmptyItems extends StatelessWidget {
             'No items added yet',
             style: TextStyle(
               color: AppColors.textSecondary,
-              fontSize: 15.sp,
+              fontSize: 16.sp,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -466,7 +465,7 @@ class _EmptyItems extends StatelessWidget {
           Text(
             'Tap the "Add Item" button to pick products from the catalog.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.textHint, fontSize: 13.sp),
+            style: TextStyle(color: AppColors.textHint, fontSize: 14.sp),
           ),
         ],
       ),
@@ -484,8 +483,10 @@ class _SummaryCard extends ConsumerWidget {
   final TextEditingController overallDiscountController;
 
   double get _totalSavings {
-    final lineSavings =
-        draft.items.fold<double>(0, (sum, i) => sum + i.savings);
+    final lineSavings = draft.items.fold<double>(
+      0,
+      (sum, i) => sum + i.savings,
+    );
     return lineSavings + draft.overallDiscountAmount;
   }
 
@@ -493,8 +494,7 @@ class _SummaryCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final notifier = ref.read(invoiceDraftProvider.notifier);
     final taxes = ref.watch(taxOptionsProvider);
-    final totalUnits =
-        draft.items.fold<int>(0, (sum, i) => sum + i.quantity);
+    final totalUnits = draft.items.fold<int>(0, (sum, i) => sum + i.quantity);
 
     return SectionCard(
       children: <Widget>[
@@ -512,7 +512,11 @@ class _SummaryCard extends ConsumerWidget {
         ),
         SizedBox(height: 14.h),
         CustomOptionPicker(
-          value: draft.tax.label,
+          // Show the placeholder (not a preselected "No Tax") until the
+          // user picks a tax — mirrors the empty discount field. The draft
+          // still defaults to No Tax internally so the maths is correct;
+          // here `none` simply renders as "unselected".
+          value: draft.tax.id == 'none' ? null : draft.tax.label,
           options: taxes.map((t) => t.label).toList(growable: false),
           label: 'Tax',
           hintText: 'Select tax',
@@ -520,8 +524,12 @@ class _SummaryCard extends ConsumerWidget {
           sheetTitle: 'Select tax',
           sheetIcon: Icons.account_balance_outlined,
           onChanged: (label) {
-            if (label == null) return;
-            notifier.setTax(taxes.firstWhere((t) => t.label == label));
+            // Clearing the selection falls back to No Tax.
+            notifier.setTax(
+              label == null
+                  ? taxes.firstWhere((t) => t.id == 'none')
+                  : taxes.firstWhere((t) => t.label == label),
+            );
           },
         ),
         SizedBox(height: 16.h),
@@ -548,8 +556,9 @@ class _SummaryCard extends ConsumerWidget {
     );
   }
 
-  static String _pct(double value) =>
-      value == value.roundToDouble() ? value.toInt().toString() : value.toString();
+  static String _pct(double value) => value == value.roundToDouble()
+      ? value.toInt().toString()
+      : value.toString();
 }
 
 class _BreakdownRow extends StatelessWidget {
@@ -560,7 +569,10 @@ class _BreakdownRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final formatted = value < 0
+    // Deductions (negative values — e.g. the overall discount) read in red
+    // so it's clear the amount is subtracted from the total.
+    final isDeduction = value < 0;
+    final formatted = isDeduction
         ? '- ${_currency.format(value.abs())}'
         : _currency.format(value);
     return Padding(
@@ -579,9 +591,9 @@ class _BreakdownRow extends StatelessWidget {
           Text(
             formatted,
             style: TextStyle(
-              color: AppColors.textPrimary,
+              color: isDeduction ? AppColors.negative : AppColors.textPrimary,
               fontSize: 14.sp,
-              fontWeight: FontWeight.w500,
+              fontWeight: isDeduction ? FontWeight.w600 : FontWeight.w500,
             ),
           ),
         ],
@@ -613,17 +625,17 @@ class _TotalChip extends StatelessWidget {
               'Total',
               style: TextStyle(
                 color: AppColors.primary,
-                fontSize: 17.sp,
-                fontWeight: FontWeight.w700,
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w600,
               ),
             ),
             const Spacer(),
             Text(
               _currency.format(total),
               style: TextStyle(
-                color: AppColors.primary,
+                color: AppColors.textPrimary,
                 fontSize: 20.sp,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -634,10 +646,7 @@ class _TotalChip extends StatelessWidget {
             Text(
               '$itemCount ${itemCount == 1 ? 'item' : 'items'} · '
               '$unitCount ${unitCount == 1 ? 'unit' : 'units'}',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 12.sp,
-              ),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 12.sp),
             ),
             const Spacer(),
             if (savings > 0)

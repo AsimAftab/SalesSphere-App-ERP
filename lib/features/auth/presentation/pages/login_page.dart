@@ -81,6 +81,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final mediaQuery = MediaQuery.of(context);
     final screenHeight = mediaQuery.size.height;
     final keyboardInset = mediaQuery.viewInsets.bottom;
+    final keyboardOpen = keyboardInset > 0;
     _pinFormAboveKeyboard(keyboardInset);
 
     return LightStatusBar(
@@ -136,7 +137,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   child: Column(
                     children: <Widget>[
                       SizedBox(height: 80.h),
-                      const _BrandHeader(),
+                      // Fade the brand header out while the keyboard is open
+                      // so it's hidden rather than sitting awkwardly pushed
+                      // up above the card that lifts into focus. It fades
+                      // back in when the keyboard closes.
+                      AnimatedOpacity(
+                        duration: const Duration(milliseconds: 200),
+                        opacity: keyboardOpen ? 0 : 1,
+                        child: const _BrandHeader(),
+                      ),
                       SizedBox(height: 30.h),
                       _CentralCard(
                         child: Padding(

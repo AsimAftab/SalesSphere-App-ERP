@@ -11,7 +11,6 @@ import 'package:sales_sphere_erp/features/catalog/presentation/providers/catalog
 import 'package:sales_sphere_erp/features/catalog/presentation/widgets/category_chip.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/widgets/category_visuals.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/widgets/product_card.dart';
-import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
@@ -20,16 +19,11 @@ import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 /// client-side (local `_query`); the category filter is the shared
 /// [selectedCategoryProvider]; cards drive the in-memory cart.
 ///
-/// When [forInvoice] is true the page is opened from the invoice builder's
-/// "Add Item" button: it shows a back button and a bottom "Add to invoice"
-/// bar. The cart's own +/- Add controls do the picking; the invoice page
-/// reads the cart when it regains focus, so any way back (the bar, the
-/// header back, or the system back) carries the items over. The default
-/// (`false`) is the normal browse tab — unchanged.
+/// The invoice builder's "Add Item" button switches to this tab; products
+/// added to the cart here are merged into the invoice draft when the user
+/// returns to the Invoice tab (see `InvoicePage` initState).
 class CatalogPage extends ConsumerStatefulWidget {
-  const CatalogPage({super.key, this.forInvoice = false});
-
-  final bool forInvoice;
+  const CatalogPage({super.key});
 
   @override
   ConsumerState<CatalogPage> createState() => _CatalogPageState();
@@ -61,18 +55,10 @@ class _CatalogPageState extends ConsumerState<CatalogPage> {
     final categories = ref.watch(catalogCategoriesProvider);
     final selectedCategoryId = ref.watch(selectedCategoryProvider);
     final items = _filter(products, selectedCategoryId);
-    final forInvoice = widget.forInvoice;
-    final cartCount = forInvoice ? ref.watch(cartProvider).length : 0;
 
     return DarkStatusBar(
       child: Scaffold(
         backgroundColor: AppColors.background,
-        bottomNavigationBar: forInvoice
-            ? _InvoiceCartBar(
-                count: cartCount,
-                onConfirm: cartCount > 0 ? () => context.pop() : null,
-              )
-            : null,
         body: Stack(
           children: <Widget>[
             Positioned(
@@ -89,46 +75,18 @@ class _CatalogPageState extends ConsumerState<CatalogPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  if (forInvoice)
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(4.w, 4.h, 20.w, 0),
-                      child: Row(
-                        children: <Widget>[
-                          IconButton(
-                            icon: Icon(
-                              Icons.arrow_back,
-                              color: AppColors.textdark,
-                              size: 20.sp,
-                            ),
-                            tooltip: 'Back',
-                            onPressed: () => context.pop(),
-                          ),
-                          SizedBox(width: 8.w),
-                          Text(
-                            'Add Items',
-                            style: TextStyle(
-                              color: AppColors.primary,
-                              fontSize: 22.sp,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  else
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
-                      child: Text(
-                        'Catalog',
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontSize: 24.sp,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: -0.5,
-                        ),
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
+                    child: Text(
+                      'Catalog',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 24.sp,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.5,
                       ),
                     ),
+                  ),
                   SizedBox(height: 16.h),
                   Padding(
                     padding: EdgeInsets.symmetric(horizontal: 20.w),
@@ -271,38 +229,6 @@ class _EmptyProducts extends StatelessWidget {
               ),
             ],
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Bottom bar shown only when the catalog is opened for the invoice: adds
-/// the cart's products to the invoice draft and returns to the builder.
-class _InvoiceCartBar extends StatelessWidget {
-  const _InvoiceCartBar({required this.count, required this.onConfirm});
-
-  final int count;
-  final VoidCallback? onConfirm;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.border)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 12.h),
-          child: PrimaryButton(
-            label: count == 0
-                ? 'Add items using the + button'
-                : 'Add $count ${count == 1 ? 'item' : 'items'} to invoice',
-            leadingIcon: Icons.check_rounded,
-            onPressed: onConfirm,
-          ),
         ),
       ),
     );
