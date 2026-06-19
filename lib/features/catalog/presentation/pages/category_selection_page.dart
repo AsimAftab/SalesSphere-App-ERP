@@ -193,17 +193,33 @@ class _CategoryTile extends StatelessWidget {
   final int? itemCount;
   final VoidCallback onTap;
 
+  /// Sublabel under the name: a pluralised count for categories, an empty
+  /// hint when the category has no products, or a "browse" cue for the
+  /// leading All-Products tile (no count passed).
+  String get _subLabel {
+    final count = itemCount;
+    if (count == null) return 'Browse all';
+    if (count == 0) return 'No items';
+    return '$count ${count == 1 ? 'item' : 'items'}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16.r),
+        // Refined hero-card shadow — matches the catalog product cards.
         boxShadow: <BoxShadow>[
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: AppColors.primary.withValues(alpha: 0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
           ),
         ],
       ),
@@ -213,22 +229,23 @@ class _CategoryTile extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(16.r),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              Container(
-                width: 80.w,
-                height: 80.w,
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(16.r),
+          child: Padding(
+            padding: EdgeInsets.all(14.w),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Container(
+                  width: 60.w,
+                  height: 60.w,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(16.r),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(icon, size: 30.sp, color: accent),
                 ),
-                child: Icon(icon, size: 40.sp, color: accent),
-              ),
-              SizedBox(height: 12.h),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8.w),
-                child: Text(
+                SizedBox(height: 12.h),
+                Text(
                   name,
                   textAlign: TextAlign.center,
                   maxLines: 1,
@@ -239,18 +256,16 @@ class _CategoryTile extends StatelessWidget {
                     color: AppColors.primary,
                   ),
                 ),
-              ),
-              if (itemCount != null) ...<Widget>[
                 SizedBox(height: 4.h),
                 Text(
-                  '$itemCount items',
+                  _subLabel,
                   style: TextStyle(
                     fontSize: 12.sp,
                     color: AppColors.textSecondary,
                   ),
                 ),
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -271,15 +286,26 @@ class _EmptyCategories extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Icon(Icons.search_off, size: 64.sp, color: AppColors.textHint),
-            SizedBox(height: 16.h),
+            Icon(
+              Icons.search_off_rounded,
+              size: 48.sp,
+              color: AppColors.secondary,
+            ),
+            SizedBox(height: 14.h),
             Text(
-              'No categories found for "$query"',
+              'No categories found',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 14.sp,
-                color: AppColors.textSecondary,
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
               ),
+            ),
+            SizedBox(height: 4.h),
+            Text(
+              'No categories match "$query".',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14.sp, color: AppColors.textHint),
             ),
           ],
         ),

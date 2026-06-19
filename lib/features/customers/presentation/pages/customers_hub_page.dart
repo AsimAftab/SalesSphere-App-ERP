@@ -86,25 +86,11 @@ class CustomersHubPage extends StatelessWidget {
       onTap: () => context.push(Routes.sites),
     ),
     _TileSpec(
-      icon: Icons.event_note_outlined,
-      title: 'Notes',
-      subtitle: 'Log discussions, feedback & issues',
-      iconColor: AppColors.red500,
-      onTap: () => context.push(Routes.notes),
-    ),
-    _TileSpec(
       icon: Icons.add_location_alt_outlined,
       title: 'Unplanned Visits',
-      subtitle: 'Log ad-hoc field visits with geofence',
+      subtitle: 'Log ad-hoc visits',
       iconColor: AppColors.blue500,
       onTap: () => context.push(Routes.unplannedVisits),
-    ),
-    _TileSpec(
-      icon: Icons.work_outline_rounded,
-      title: 'Miscellaneous Work',
-      subtitle: 'Log odd tasks',
-      iconColor: AppColors.purple500,
-      onTap: () => context.push(Routes.miscellaneousWorks),
     ),
     _TileSpec(
       icon: Icons.account_balance_wallet_outlined,
@@ -112,6 +98,20 @@ class CustomersHubPage extends StatelessWidget {
       subtitle: 'Record payments collected from parties',
       iconColor: AppColors.yellow500,
       onTap: () => SnackbarUtils.showInfo(context, 'Collection — coming soon.'),
+    ),
+    _TileSpec(
+      icon: Icons.event_note_outlined,
+      title: 'Notes',
+      subtitle: 'Log discussions, feedback & issues',
+      iconColor: AppColors.red500,
+      onTap: () => context.push(Routes.notes),
+    ),
+    _TileSpec(
+      icon: Icons.work_outline_rounded,
+      title: 'Miscellaneous Work',
+      subtitle: 'Log odd tasks',
+      iconColor: AppColors.purple500,
+      onTap: () => context.push(Routes.miscellaneousWorks),
     ),
   ];
 }

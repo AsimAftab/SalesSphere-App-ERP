@@ -49,6 +49,16 @@ class _CatalogPageState extends ConsumerState<CatalogPage> {
     }).toList(growable: false);
   }
 
+  /// Pull-to-refresh. Mock-only: re-reads the catalogue providers and gives
+  /// the indicator a visible beat. Swap for a repository refetch when the
+  /// products API lands.
+  Future<void> _refresh() async {
+    ref
+      ..invalidate(catalogProductsProvider)
+      ..invalidate(catalogCategoriesProvider);
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+  }
+
   @override
   Widget build(BuildContext context) {
     final products = ref.watch(catalogProductsProvider);
@@ -119,21 +129,47 @@ class _CatalogPageState extends ConsumerState<CatalogPage> {
                   ),
                   SizedBox(height: 12.h),
                   Expanded(
-                    child: items.isEmpty
-                        ? _EmptyProducts(hasQuery: _query.trim().isNotEmpty)
-                        : GridView.builder(
-                            padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 140.h),
-                            gridDelegate:
-                                SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  childAspectRatio: 0.62,
-                                  crossAxisSpacing: 12.w,
-                                  mainAxisSpacing: 12.h,
-                                ),
-                            itemCount: items.length,
-                            itemBuilder: (context, index) =>
-                                CatalogProductCard(product: items[index]),
-                          ),
+                    child: RefreshIndicator(
+                      onRefresh: _refresh,
+                      color: AppColors.primary,
+                      backgroundColor: AppColors.surface,
+                      child: items.isEmpty
+                          // Scrollable so the pull gesture works even with
+                          // no products; min-height keeps the empty state
+                          // vertically centred.
+                          ? LayoutBuilder(
+                              builder: (context, constraints) =>
+                                  SingleChildScrollView(
+                                    physics: const AlwaysScrollableScrollPhysics(
+                                      parent: ClampingScrollPhysics(),
+                                    ),
+                                    child: ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        minHeight: constraints.maxHeight,
+                                      ),
+                                      child: _EmptyProducts(
+                                        hasQuery: _query.trim().isNotEmpty,
+                                      ),
+                                    ),
+                                  ),
+                            )
+                          : GridView.builder(
+                              physics: const AlwaysScrollableScrollPhysics(
+                                parent: ClampingScrollPhysics(),
+                              ),
+                              padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 140.h),
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 2,
+                                    childAspectRatio: 0.60,
+                                    crossAxisSpacing: 14.w,
+                                    mainAxisSpacing: 14.h,
+                                  ),
+                              itemCount: items.length,
+                              itemBuilder: (context, index) =>
+                                  CatalogProductCard(product: items[index]),
+                            ),
+                    ),
                   ),
                 ],
               ),
@@ -147,47 +183,89 @@ class _CatalogPageState extends ConsumerState<CatalogPage> {
 
 /// Horizontal category filter row. The leading "All" chip opens the
 /// category-selection grid (matching v1); the rest toggle the shared
-/// category filter.
-class _CategoryChips extends ConsumerWidget {
+/// category filter. The selected chip is scrolled into view so the active
+/// category stays visible as confirmation — important after picking a
+/// category from the All-categories grid, which may otherwise leave the
+/// highlighted pill off-screen.
+class _CategoryChips extends ConsumerStatefulWidget {
   const _CategoryChips({required this.categories, required this.selectedId});
 
   final List<ProductCategory> categories;
   final String? selectedId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return SizedBox(
-      height: 48.h,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.symmetric(horizontal: 20.w),
-        itemCount: categories.length + 1,
-        separatorBuilder: (_, __) => SizedBox(width: 8.w),
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            return Center(
-              child: CategoryChip(
-                label: 'All',
-                icon: Icons.grid_view_rounded,
-                selected: selectedId == null,
-                onTap: () {
-                  FocusManager.instance.primaryFocus?.unfocus();
-                  context.push(Routes.catalogCategories);
-                },
-              ),
-            );
-          }
-          final cat = categories[index - 1];
-          return Center(
-            child: CategoryChip(
+  ConsumerState<_CategoryChips> createState() => _CategoryChipsState();
+}
+
+class _CategoryChipsState extends ConsumerState<_CategoryChips> {
+  // Tags the currently-selected chip so we can scroll it into view.
+  final _selectedKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    _ensureSelectedVisible();
+  }
+
+  @override
+  void didUpdateWidget(_CategoryChips oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedId != widget.selectedId) _ensureSelectedVisible();
+  }
+
+  void _ensureSelectedVisible() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _selectedKey.currentContext;
+      if (ctx == null) return;
+      Scrollable.ensureVisible(
+        ctx,
+        alignment: 0.5,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final allSelected = widget.selectedId == null;
+    final chips = <Widget>[
+      CategoryChip(
+        key: allSelected ? _selectedKey : null,
+        label: 'All',
+        icon: Icons.grid_view_rounded,
+        selected: allSelected,
+        onTap: () {
+          FocusManager.instance.primaryFocus?.unfocus();
+          context.push(Routes.catalogCategories);
+        },
+      ),
+      for (final cat in widget.categories) ...<Widget>[
+        SizedBox(width: 8.w),
+        Builder(
+          builder: (context) {
+            final selected = widget.selectedId == cat.id;
+            return CategoryChip(
+              key: selected ? _selectedKey : null,
               label: cat.name,
               icon: categoryVisuals(cat.name).icon,
-              selected: selectedId == cat.id,
+              selected: selected,
               onTap: () =>
                   ref.read(selectedCategoryProvider.notifier).select(cat.id),
-            ),
-          );
-        },
+            );
+          },
+        ),
+      ],
+    ];
+
+    // A non-lazy scroll view (vs. ListView.builder) keeps every chip built
+    // so an off-screen selected chip can still be scrolled into view.
+    return SizedBox(
+      height: 48.h,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: 20.w),
+        child: Row(children: chips),
       ),
     );
   }
@@ -208,26 +286,27 @@ class _EmptyProducts extends StatelessWidget {
           children: <Widget>[
             Icon(
               Icons.inventory_2_outlined,
-              size: 64.sp,
-              color: AppColors.textHint,
+              size: 48.sp,
+              color: AppColors.secondary,
             ),
-            SizedBox(height: 16.h),
+            SizedBox(height: 14.h),
             Text(
               'No products found',
+              textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 16.sp,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
               ),
             ),
-            if (hasQuery) ...<Widget>[
-              SizedBox(height: 6.h),
-              Text(
-                'Try a different search or category.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13.sp, color: AppColors.textHint),
-              ),
-            ],
+            SizedBox(height: 4.h),
+            Text(
+              hasQuery
+                  ? 'Try a different search or category.'
+                  : 'Products will appear here.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14.sp, color: AppColors.textHint),
+            ),
           ],
         ),
       ),
