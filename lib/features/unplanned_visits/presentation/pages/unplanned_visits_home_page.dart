@@ -147,14 +147,22 @@ class _Content extends StatelessWidget {
   Widget build(BuildContext context) {
     final activeVisit = status.activeVisit;
     final completed = status.completedVisits;
-    // Chronological order (earliest first) so "Visit 1" is the day's first
-    // visit — matching the detail page's numbering (which sorts ascending).
-    final ordered = <UnplannedVisit>[...status.visits]..sort((a, b) {
+    // Number by chronological order so "Visit 1" is the day's first visit
+    // (matches the detail page), but display the active visit first.
+    final chrono = <UnplannedVisit>[...status.visits]..sort((a, b) {
       final at = a.startedAt ?? a.createdAt;
       final bt = b.startedAt ?? b.createdAt;
       if (at == null || bt == null) return 0;
       return at.compareTo(bt);
     });
+    final numbers = <String, int>{
+      for (var i = 0; i < chrono.length; i++) chrono[i].id: i + 1,
+    };
+    final ordered = <UnplannedVisit>[
+      if (activeVisit != null) activeVisit,
+      for (final v in chrono)
+        if (v.id != activeVisit?.id) v,
+    ];
 
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -233,7 +241,7 @@ class _Content extends StatelessWidget {
           if (ordered.isEmpty)
             const _EmptyToday()
           else
-            _VisitsCarousel(visits: ordered),
+            _VisitsCarousel(visits: ordered, numbers: numbers),
           SizedBox(height: 24.h),
           SummaryStatsCard(
             title: 'Monthly Summary',
@@ -266,9 +274,13 @@ class _Content extends StatelessWidget {
 /// Swipeable carousel of the day's visits with animated page dots — mirrors
 /// the odometer home carousel.
 class _VisitsCarousel extends StatefulWidget {
-  const _VisitsCarousel({required this.visits});
+  const _VisitsCarousel({required this.visits, required this.numbers});
 
   final List<UnplannedVisit> visits;
+
+  /// Visit id → chronological "Visit N" number (the display order is
+  /// active-first, so it doesn't match the card positions).
+  final Map<String, int> numbers;
 
   @override
   State<_VisitsCarousel> createState() => _VisitsCarouselState();
@@ -300,7 +312,7 @@ class _VisitsCarouselState extends State<_VisitsCarousel> {
               final visit = visits[index];
               return VisitSummaryCard(
                 visit: visit,
-                number: index + 1,
+                number: widget.numbers[visit.id] ?? (index + 1),
                 // A carousel card is one specific visit → open it directly
                 // (focused single view), not the day-grouped tabs/list.
                 onTap: () => context.pushNamed(

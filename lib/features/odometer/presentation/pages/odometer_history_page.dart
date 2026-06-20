@@ -192,7 +192,8 @@ class _DayCard extends StatelessWidget {
       total += t.distance ?? 0;
     }
     final unitLabel = trips.isEmpty ? '' : trips.first.distanceUnit.label;
-    final anyActive = trips.any((t) => t.isInProgress);
+    final active = trips.where((t) => t.isInProgress).length;
+    final completed = trips.length - active;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -258,14 +259,14 @@ class _DayCard extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: 14.w),
-                // Date + trip count (+ in-progress hint).
+                // Relative day + a summary line (count · done · active).
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
                       Text(
-                        DateFormat('d MMM yyyy').format(day),
+                        _relativeDayLabel(day),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -274,8 +275,11 @@ class _DayCard extends StatelessWidget {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      SizedBox(height: 4.h),
-                      Row(
+                      SizedBox(height: 6.h),
+                      Wrap(
+                        spacing: 10.w,
+                        runSpacing: 4.h,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: <Widget>[
                           Text(
                             '${trips.length} '
@@ -286,26 +290,15 @@ class _DayCard extends StatelessWidget {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          if (anyActive) ...<Widget>[
-                            SizedBox(width: 8.w),
-                            Container(
-                              width: 6.w,
-                              height: 6.w,
-                              decoration: const BoxDecoration(
-                                color: AppColors.blue500,
-                                shape: BoxShape.circle,
-                              ),
+                          _CountChip(
+                            color: AppColors.green500,
+                            label: '$completed done',
+                          ),
+                          if (active > 0)
+                            _CountChip(
+                              color: AppColors.blue500,
+                              label: '$active active',
                             ),
-                            SizedBox(width: 4.w),
-                            Text(
-                              'In progress',
-                              style: TextStyle(
-                                color: AppColors.blue500,
-                                fontSize: 12.sp,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
                         ],
                       ),
                     ],
@@ -353,6 +346,48 @@ class _DayCard extends StatelessWidget {
 }
 
 /// Shimmer placeholder list shown while the month's report loads.
+/// "Today" / "Yesterday" for recent days, otherwise "d MMM yyyy".
+String _relativeDayLabel(DateTime day) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final d = DateTime(day.year, day.month, day.day);
+  final diff = today.difference(d).inDays;
+  if (diff == 0) return 'Today';
+  if (diff == 1) return 'Yesterday';
+  return DateFormat('d MMM yyyy').format(day);
+}
+
+/// A tiny status indicator: a coloured dot + label (e.g. "4 done").
+class _CountChip extends StatelessWidget {
+  const _CountChip({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Container(
+          width: 7.w,
+          height: 7.w,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        SizedBox(width: 5.w),
+        Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 12.sp,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _HistorySkeleton extends StatelessWidget {
   const _HistorySkeleton();
 
