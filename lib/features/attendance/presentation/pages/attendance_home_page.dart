@@ -3,19 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/attendance/domain/attendance_record.dart';
 import 'package:sales_sphere_erp/features/attendance/domain/attendance_status.dart';
+import 'package:sales_sphere_erp/features/attendance/domain/monthly_summary.dart';
 import 'package:sales_sphere_erp/features/attendance/presentation/providers/attendance_providers.dart';
 import 'package:sales_sphere_erp/features/attendance/presentation/widgets/attendance_calendar.dart';
 import 'package:sales_sphere_erp/features/attendance/presentation/widgets/check_in_out_button.dart';
-
-import 'package:sales_sphere_erp/features/attendance/domain/monthly_summary.dart';
-
 import 'package:sales_sphere_erp/shared/widgets/status_badge.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 import 'package:sales_sphere_erp/shared/widgets/summary_stats_card.dart';
@@ -173,7 +170,6 @@ class _AttendanceHomePageState extends ConsumerState<AttendanceHomePage> {
         SummaryStatTile(value: '${summary.leave}', label: 'Leave'),
         SummaryStatTile(value: '${summary.halfDay}', label: 'Half-Day'),
         SummaryStatTile(value: '${summary.weeklyOff}', label: 'Weekend'),
-        SummaryStatTile(value: '${summary.late}', label: 'Late'),
         SummaryStatTile(value: pctLabel, label: 'Attendance'),
       ],
     );

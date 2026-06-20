@@ -7,9 +7,9 @@ import 'package:sales_sphere_erp/features/attendance/domain/attendance_record.da
 import 'package:sales_sphere_erp/features/attendance/domain/attendance_status.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_badge.dart';
 
-/// One row on the month-list page: weekday + date + status pill,
-/// horizontal divider, 2×2 mini-grid of (check-in, check-out, hours
-/// worked, location).
+/// One row on the month-list page: weekday + date + status pill, a
+/// horizontal divider, a check-in / check-out row, then an hours-worked
+/// bar. Per-leg locations live on the full day-detail page, not here.
 class DayDetailCard extends StatelessWidget {
   const DayDetailCard({
     required this.record,
@@ -64,7 +64,7 @@ class DayDetailCard extends StatelessWidget {
                             style: TextStyle(
                               color: AppColors.textPrimary,
                               fontSize: 16.sp,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w700,
                               letterSpacing: -0.2,
                             ),
                           ),
@@ -74,7 +74,7 @@ class DayDetailCard extends StatelessWidget {
                             style: TextStyle(
                               color: AppColors.textSecondary,
                               fontSize: 12.sp,
-                              fontWeight: FontWeight.w400,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
@@ -101,7 +101,7 @@ class DayDetailCard extends StatelessWidget {
                             : DateFormat('hh:mm a').format(record.checkInAt!),
                       ),
                     ),
-                    SizedBox(width: 8.w),
+                    SizedBox(width: 12.w),
                     Expanded(
                       child: _MiniTile(
                         icon: Icons.logout_rounded,
@@ -115,26 +115,37 @@ class DayDetailCard extends StatelessWidget {
                   ],
                 ),
                 SizedBox(height: 12.h),
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: _MiniTile(
-                        icon: Icons.access_time_rounded,
-                        iconColor: AppColors.secondary,
-                        label: 'Hours Worked',
-                        value: _formatHours(record.hoursWorked),
+                // Hours worked — full-width bar so the figure is never cramped.
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10.r),
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      Icon(Icons.access_time_rounded,
+                          color: AppColors.secondary, size: 18.sp),
+                      SizedBox(width: 8.w),
+                      Text(
+                        'Hours Worked',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                    SizedBox(width: 8.w),
-                    Expanded(
-                      child: _MiniTile(
-                        icon: Icons.location_on_rounded,
-                        iconColor: AppColors.secondary,
-                        label: 'Location',
-                        value: record.checkInAddress ?? '--',
+                      const Spacer(),
+                      Text(
+                        _formatHours(record.hoursWorked),
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),

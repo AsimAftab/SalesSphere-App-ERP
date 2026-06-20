@@ -22,10 +22,10 @@ import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 /// ```
 class CheckoutNotAllowedDialog extends StatelessWidget {
   const CheckoutNotAllowedDialog({
-    super.key,
     required this.scheduledCheckOut,
     required this.fullDayAllowedFrom,
     required this.halfDayAvailableAt,
+    super.key,
   });
 
   /// Scheduled full-day checkout time string (HH:MM) — shown in the info card.
@@ -45,7 +45,6 @@ class CheckoutNotAllowedDialog extends StatelessWidget {
   }) {
     return showDialog<void>(
       context: context,
-      barrierDismissible: true,
       builder: (_) => CheckoutNotAllowedDialog(
         scheduledCheckOut: scheduledCheckOut,
         fullDayAllowedFrom: fullDayAllowedFrom,
@@ -58,7 +57,7 @@ class CheckoutNotAllowedDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final baseStyle = TextStyle(
       color: AppColors.textPrimary,
-      fontSize: 13.sp,
+      fontSize: 14.sp,
       height: 1.5,
     );
     final boldStyle = baseStyle.copyWith(fontWeight: FontWeight.w700);
@@ -107,7 +106,7 @@ class CheckoutNotAllowedDialog extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.primary,
-                    fontSize: 17.sp,
+                    fontSize: 16.sp,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.3,
                   ),
@@ -144,7 +143,6 @@ class CheckoutNotAllowedDialog extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12.r),
                     border: Border.all(
                       color: AppColors.border,
-                      width: 1,
                     ),
                   ),
                   child: Column(
@@ -165,7 +163,7 @@ class CheckoutNotAllowedDialog extends StatelessWidget {
                         valueColor: AppColors.green500,
                       ),
                       SizedBox(height: 10.h),
-                      _InfoRow(
+                      const _InfoRow(
                         icon: Icons.info_outline,
                         iconColor: AppColors.textSecondary,
                         label: 'Checkout Type:',
@@ -177,7 +175,6 @@ class CheckoutNotAllowedDialog extends StatelessWidget {
                 SizedBox(height: 24.h),
                 PrimaryButton(
                   label: 'OK',
-                  size: ButtonSize.medium,
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],

@@ -15,7 +15,7 @@ import 'package:sales_sphere_erp/features/auth/presentation/pages/login_page.dar
 import 'package:sales_sphere_erp/features/beat_plan/presentation/pages/beat_plan_detail_page.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/pages/catalog_page.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/pages/category_selection_page.dart';
-import 'package:sales_sphere_erp/features/customers/presentation/pages/customers_hub_page.dart';
+import 'package:sales_sphere_erp/features/customers/presentation/pages/field_ops_page.dart';
 import 'package:sales_sphere_erp/features/expenses/domain/expense_claim.dart';
 import 'package:sales_sphere_erp/features/expenses/presentation/pages/add_expense_claim_page.dart';
 import 'package:sales_sphere_erp/features/expenses/presentation/pages/edit_expense_claim_detail_page.dart';
@@ -168,9 +168,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const InvoicePage(),
           ),
           GoRoute(
-            path: Routes.customers,
-            name: Routes.customersName,
-            builder: (_, __) => const CustomersHubPage(),
+            path: Routes.fieldOps,
+            name: Routes.fieldOpsName,
+            builder: (_, __) => const FieldOpsPage(),
           ),
           GoRoute(
             path: Routes.more,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
@@ -11,9 +12,9 @@ import 'package:sales_sphere_erp/features/odometer/domain/odometer_monthly_repor
 import 'package:sales_sphere_erp/features/odometer/domain/odometer_trip.dart';
 import 'package:sales_sphere_erp/features/odometer/presentation/odometer_formatting.dart';
 import 'package:sales_sphere_erp/features/odometer/presentation/providers/odometer_providers.dart';
-import 'package:sales_sphere_erp/features/odometer/presentation/widgets/trip_card.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 class OdometerHistoryPage extends ConsumerStatefulWidget {
   const OdometerHistoryPage({super.key});
@@ -35,59 +36,98 @@ class _OdometerHistoryPageState extends ConsumerState<OdometerHistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final reportAsync =
-        ref.watch(odometerMonthlyReportProvider(_month.year, _month.month));
+    final reportAsync = ref.watch(
+      odometerMonthlyReportProvider(_month.year, _month.month),
+    );
 
     return DarkStatusBar(
       child: Scaffold(
         backgroundColor: AppColors.background,
-        appBar: AppBar(
-          backgroundColor: AppColors.background,
-          elevation: 0,
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back,
-                color: AppColors.textPrimary, size: 20.sp),
-            onPressed: () => context.pop(),
-          ),
-          title: Text(
-            'Odometer History',
-            style: TextStyle(
-              color: AppColors.primary,
-              fontSize: 18.sp,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        body: Column(
-          children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
-              child: MonthNavHeader(
-                displayedMonth: _month,
-                onMonthChange: (m) => setState(() => _month = m),
+        body: Stack(
+          children: <Widget>[
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SvgPicture.asset(
+                'assets/images/corner_bubble.svg',
+                fit: BoxFit.cover,
+                height: 180.h,
               ),
             ),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: () async {
-                  ref.invalidate(
-                    odometerMonthlyReportProvider(_month.year, _month.month),
-                  );
-                  await ref.read(
-                    odometerMonthlyReportProvider(_month.year, _month.month)
-                        .future,
-                  );
-                },
-                child: reportAsync.when(
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (_, __) => _ErrorRetry(
-                    onRetry: () => ref.invalidate(
-                      odometerMonthlyReportProvider(
-                          _month.year, _month.month),
+            SafeArea(
+              child: Column(
+                children: [
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(12.w, 4.h, 20.w, 0),
+                    child: Row(
+                      children: <Widget>[
+                        IconButton(
+                          icon: Icon(
+                            Icons.arrow_back,
+                            color: AppColors.textPrimary,
+                            size: 20.sp,
+                          ),
+                          onPressed: () => context.pop(),
+                          tooltip: 'Back',
+                          padding: EdgeInsets.zero,
+                          constraints: BoxConstraints(
+                            minWidth: 36.w,
+                            minHeight: 36.h,
+                          ),
+                        ),
+                        SizedBox(width: 12.w),
+                        Text(
+                          'Odometer History',
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 20.sp,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  data: (report) => _HistoryList(report: report),
-                ),
+                  SizedBox(height: 12.h),
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
+                    child: MonthNavHeader(
+                      displayedMonth: _month,
+                      onMonthChange: (m) => setState(() => _month = m),
+                    ),
+                  ),
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: () async {
+                        ref.invalidate(
+                          odometerMonthlyReportProvider(
+                            _month.year,
+                            _month.month,
+                          ),
+                        );
+                        await ref.read(
+                          odometerMonthlyReportProvider(
+                            _month.year,
+                            _month.month,
+                          ).future,
+                        );
+                      },
+                      child: reportAsync.when(
+                        loading: () => const _HistorySkeleton(),
+                        error: (_, __) => _ErrorRetry(
+                          onRetry: () => ref.invalidate(
+                            odometerMonthlyReportProvider(
+                              _month.year,
+                              _month.month,
+                            ),
+                          ),
+                        ),
+                        data: (report) => _HistoryList(report: report),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -121,92 +161,26 @@ class _HistoryList extends StatelessWidget {
     return ListView.builder(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 32.h),
-      itemCount: days.length + 1,
+      itemCount: days.length,
       itemBuilder: (context, index) {
-        if (index == 0) {
-          return Padding(
-            padding: EdgeInsets.only(bottom: 12.h),
-            child: _MonthSummaryBar(summary: report.summary),
-          );
-        }
-        final day = days[index - 1];
-        final trips = byDay[day]!..sort((a, b) => a.tripNumber.compareTo(b.tripNumber));
-        return _DaySection(day: day, trips: trips);
+        final day = days[index];
+        final trips = byDay[day]!
+          ..sort((a, b) => a.tripNumber.compareTo(b.tripNumber));
+        return Padding(
+          padding: EdgeInsets.only(bottom: 12.h),
+          child: _DayCard(day: day, trips: trips),
+        );
       },
     );
   }
 }
 
-class _MonthSummaryBar extends StatelessWidget {
-  const _MonthSummaryBar({required this.summary});
-
-  final OdometerMonthlySummary summary;
-
-  @override
-  Widget build(BuildContext context) {
-    final unit = summary.distanceUnit.toUpperCase();
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14.r),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _Stat(value: '${summary.totalTrips}', label: 'Trips'),
-          _divider(),
-          _Stat(
-            value: '${formatReading(summary.totalDistance)} $unit',
-            label: 'Distance',
-          ),
-          _divider(),
-          _Stat(
-            value: '${summary.avgDistancePerTrip} $unit',
-            label: 'Avg/Trip',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _divider() => Container(width: 1, height: 32.h, color: AppColors.border);
-}
-
-class _Stat extends StatelessWidget {
-  const _Stat({required this.value, required this.label});
-
-  final String value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 16.sp,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        SizedBox(height: 2.h),
-        Text(
-          label,
-          style: TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 11.sp,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DaySection extends StatelessWidget {
-  const _DaySection({required this.day, required this.trips});
+/// One card per calendar day. Shows the date, trip count and the day's
+/// total distance — no odometer readings (those live on the detail page).
+/// Tapping opens the day's trips in the tabbed detail view, focused on the
+/// first trip.
+class _DayCard extends StatelessWidget {
+  const _DayCard({required this.day, required this.trips});
 
   final DateTime day;
   final List<OdometerTrip> trips;
@@ -218,47 +192,232 @@ class _DaySection extends StatelessWidget {
       total += t.distance ?? 0;
     }
     final unitLabel = trips.isEmpty ? '' : trips.first.distanceUnit.label;
+    final anyActive = trips.any((t) => t.isInProgress);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: EdgeInsets.symmetric(vertical: 8.h),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                DateFormat('EEE, d MMM').format(day),
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              Text(
-                '${trips.length} ${trips.length == 1 ? 'trip' : 'trips'} · '
-                '${formatReading(total)} $unitLabel',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16.r),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
           ),
-        ),
-        for (final trip in trips)
-          Padding(
-            padding: EdgeInsets.only(bottom: 12.h),
-            child: OdometerTripCard(
-              trip: trip,
-              onTap: () => context.pushNamed(
-                Routes.odometerTripDetailName,
-                pathParameters: <String, String>{'id': trip.id},
-              ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16.r),
+        child: InkWell(
+          onTap: () => context.pushNamed(
+            Routes.odometerTripDetailName,
+            pathParameters: <String, String>{'id': trips.first.id},
+          ),
+          borderRadius: BorderRadius.circular(16.r),
+          child: Padding(
+            padding: EdgeInsets.all(16.w),
+            child: Row(
+              children: <Widget>[
+                // Date chip — weekday over day-of-month.
+                Container(
+                  width: 48.w,
+                  height: 48.w,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                  alignment: Alignment.center,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text(
+                        DateFormat('EEE').format(day).toUpperCase(),
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 10.sp,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      Text(
+                        DateFormat('d').format(day),
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.w700,
+                          height: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(width: 14.w),
+                // Date + trip count (+ in-progress hint).
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text(
+                        DateFormat('d MMM yyyy').format(day),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      SizedBox(height: 4.h),
+                      Row(
+                        children: <Widget>[
+                          Text(
+                            '${trips.length} '
+                            '${trips.length == 1 ? 'trip' : 'trips'}',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (anyActive) ...<Widget>[
+                            SizedBox(width: 8.w),
+                            Container(
+                              width: 6.w,
+                              height: 6.w,
+                              decoration: const BoxDecoration(
+                                color: AppColors.blue500,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            SizedBox(width: 4.w),
+                            Text(
+                              'In progress',
+                              style: TextStyle(
+                                color: AppColors.blue500,
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(width: 12.w),
+                // Day total distance + unit on one line (e.g. "9 km").
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: <Widget>[
+                    Text(
+                      formatReading(total),
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 18.sp,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    SizedBox(width: 4.w),
+                    Text(
+                      unitLabel,
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(width: 4.w),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.textHint,
+                  size: 20.sp,
+                ),
+              ],
             ),
           ),
-      ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shimmer placeholder list shown while the month's report loads.
+class _HistorySkeleton extends StatelessWidget {
+  const _HistorySkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Skeletonizer(
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 32.h),
+        itemCount: 6,
+        itemBuilder: (_, __) => Padding(
+          padding: EdgeInsets.only(bottom: 12.h),
+          child: const _DayCardSkeleton(),
+        ),
+      ),
+    );
+  }
+}
+
+class _DayCardSkeleton extends StatelessWidget {
+  const _DayCardSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(16.w),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16.r),
+      ),
+      child: Row(
+        children: <Widget>[
+          Bone(
+            width: 48.w,
+            height: 48.w,
+            borderRadius: BorderRadius.circular(12.r),
+          ),
+          SizedBox(width: 14.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Bone(
+                  width: 130.w,
+                  height: 14.h,
+                  borderRadius: BorderRadius.circular(4.r),
+                ),
+                SizedBox(height: 8.h),
+                Bone(
+                  width: 64.w,
+                  height: 12.h,
+                  borderRadius: BorderRadius.circular(4.r),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 12.w),
+          Bone(
+            width: 52.w,
+            height: 18.h,
+            borderRadius: BorderRadius.circular(4.r),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -270,8 +429,11 @@ class _EmptyMonth extends StatelessWidget {
       physics: const AlwaysScrollableScrollPhysics(),
       children: [
         SizedBox(height: 120.h),
-        Icon(Icons.directions_car_outlined,
-            color: AppColors.textHint, size: 56.sp),
+        Icon(
+          Icons.directions_car_outlined,
+          color: AppColors.textHint,
+          size: 56.sp,
+        ),
         SizedBox(height: 16.h),
         Center(
           child: Text(

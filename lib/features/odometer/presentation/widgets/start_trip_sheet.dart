@@ -121,7 +121,7 @@ class _StartTripSheetState extends ConsumerState<StartTripSheet> {
                     style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 20.sp,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   IconButton(

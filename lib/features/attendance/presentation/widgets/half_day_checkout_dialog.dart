@@ -12,8 +12,8 @@ import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 /// Resolves to `true` when the user confirms half-day, `null` otherwise.
 class HalfDayCheckoutDialog extends StatelessWidget {
   const HalfDayCheckoutDialog({
-    super.key,
     required this.fullDayAvailableFrom,
+    super.key,
   });
 
   /// Time (h:mm a) the full-day checkout window opens — shown so the user
@@ -26,7 +26,6 @@ class HalfDayCheckoutDialog extends StatelessWidget {
   }) {
     return showDialog<bool>(
       context: context,
-      barrierDismissible: true,
       builder: (_) => HalfDayCheckoutDialog(
         fullDayAvailableFrom: fullDayAvailableFrom,
       ),
@@ -37,7 +36,7 @@ class HalfDayCheckoutDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final base = TextStyle(
       color: AppColors.textPrimary,
-      fontSize: 13.sp,
+      fontSize: 14.sp,
       height: 1.5,
     );
     final bold = base.copyWith(fontWeight: FontWeight.w700);
@@ -118,13 +117,11 @@ class HalfDayCheckoutDialog extends StatelessWidget {
                   // Full-width stacked actions — primary on top, cancel below.
                   PrimaryButton(
                     label: 'Checkout as Half-Day',
-                    size: ButtonSize.medium,
                     onPressed: () => Navigator.of(context).pop(true),
                   ),
                   SizedBox(height: 10.h),
                   OutlinedCustomButton(
                     label: 'Cancel',
-                    size: ButtonSize.medium,
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],

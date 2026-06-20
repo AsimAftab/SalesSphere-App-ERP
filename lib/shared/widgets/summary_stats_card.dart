@@ -49,18 +49,14 @@ class SummaryStatsCard extends StatelessWidget {
         children: <Widget>[
           Row(
             children: <Widget>[
-              Icon(
-                icon,
-                color: iconColor,
-                size: 22.sp,
-              ),
+              Icon(icon, color: iconColor, size: 22.sp),
               SizedBox(width: 12.w),
               Text(
                 title,
                 style: TextStyle(
                   color: AppColors.textPrimary,
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -84,15 +80,12 @@ class SummaryStatsCard extends StatelessWidget {
                         height: 36.h,
                         color: AppColors.border,
                       ),
-                  ]
+                  ],
                 ],
               ),
             ),
           SizedBox(height: 18.h),
-          OutlinedCustomButton(
-            onPressed: onViewDetails,
-            label: 'View Details',
-          ),
+          OutlinedCustomButton(onPressed: onViewDetails, label: 'View Details'),
         ],
       ),
     );
@@ -106,7 +99,7 @@ class SummaryStatsCard extends StatelessWidget {
           style: TextStyle(
             color: AppColors.textPrimary,
             fontSize: 24.sp,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             height: 1.1,
           ),
         ),

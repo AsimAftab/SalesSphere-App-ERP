@@ -67,7 +67,7 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  _Label('Current Password'),
+                  const _Label('Current Password'),
                   PrimaryTextField(
                     controller: _currentPwdCtrl,
                     hintText: 'Enter your current password',
@@ -83,7 +83,7 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
                     ),
                   ),
                   SizedBox(height: 20.h),
-                  _Label('New Password'),
+                  const _Label('New Password'),
                   PrimaryTextField(
                     controller: _newPwdCtrl,
                     hintText: 'Enter your new password',
@@ -100,7 +100,7 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
                     ),
                   ),
                   SizedBox(height: 20.h),
-                  _Label('Confirm New Password'),
+                  const _Label('Confirm New Password'),
                   PrimaryTextField(
                     controller: _confirmPwdCtrl,
                     hintText: 'Re-enter your new password',
@@ -164,7 +164,7 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
                     isMet: state.hasNumber,
                   ),
                   _RequirementRow(
-                    text: 'One special character (!@#\$%^&*)',
+                    text: r'One special character (!@#$%^&*)',
                     isMet: state.hasSpecialChar,
                   ),
                 ],
@@ -254,7 +254,7 @@ class _RequirementRow extends StatelessWidget {
             text,
             style: TextStyle(
               color: AppColors.textSecondary,
-              fontSize: 13.sp,
+              fontSize: 14.sp,
             ),
           ),
         ],
