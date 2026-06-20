@@ -303,7 +303,6 @@ class _StopVisitSheetState extends ConsumerState<StopVisitSheet> {
                 onPressed: _submit,
                 isLoading: _isLoading,
                 label: 'Complete Visit',
-                backgroundColor: AppColors.red500,
               ),
             ],
           ),

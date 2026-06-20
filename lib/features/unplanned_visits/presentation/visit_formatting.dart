@@ -19,12 +19,15 @@ String formatVisitDate(DateTime? value) {
       '${d.day.toString().padLeft(2, '0')}';
 }
 
-/// Visit length from the server-computed seconds, e.g. `1h 23m` / `45m`.
-/// Returns `--` for null.
+/// Visit length from the server-computed seconds, e.g. `1h 23m` / `5m 30s` /
+/// `45s`. Seconds are shown for sub-hour durations so short visits don't read
+/// as `0m`. Returns `--` for null.
 String formatVisitDuration(int? seconds) {
   if (seconds == null) return '--';
+  if (seconds < 60) return '${seconds}s';
   final mins = seconds ~/ 60;
-  if (mins < 60) return '${mins}m';
+  final secs = seconds % 60;
+  if (mins < 60) return secs == 0 ? '${mins}m' : '${mins}m ${secs}s';
   final h = mins ~/ 60;
   final m = mins % 60;
   return m == 0 ? '${h}h' : '${h}h ${m}m';

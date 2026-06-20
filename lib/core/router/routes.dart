@@ -36,6 +36,7 @@ class Routes {
   static String odometerTripDetailPath(String id) => '/odometer/trips/$id';
 
   static const unplannedVisits = '/unplanned-visits';
+  static const unplannedVisitsHistory = '/unplanned-visits/history';
   static const unplannedVisitDetail = '/unplanned-visits/detail/:id';
 
   static String unplannedVisitDetailPath(String id) =>
@@ -122,6 +123,7 @@ class Routes {
   static const odometerHistoryName = 'odometerHistory';
   static const odometerTripDetailName = 'odometerTripDetail';
   static const unplannedVisitsName = 'unplannedVisits';
+  static const unplannedVisitsHistoryName = 'unplannedVisitsHistory';
   static const unplannedVisitDetailName = 'unplannedVisitDetail';
   static const attendanceName = 'attendance';
   static const attendanceDetailsName = 'attendanceDetails';
