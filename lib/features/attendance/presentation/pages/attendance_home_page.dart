@@ -104,40 +104,85 @@ class _AttendanceHomePageState extends ConsumerState<AttendanceHomePage> {
                   ),
                   SizedBox(height: 18.h),
                   Expanded(
-                    child: SingleChildScrollView(
-                      physics: const ClampingScrollPhysics(),
-                      padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 32.h),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: <Widget>[
-                          _buildTodayStatusCard(todayAsync.value),
-                          SizedBox(height: 18.h),
-                          const CheckInOutButton(),
-                          SizedBox(height: 22.h),
-                          _CalendarCard(
-                            child: AttendanceCalendar(
-                              displayedMonth: _displayedMonth,
-                              selected: _selected,
-                              statusByDay: _statusByDay(
-                                monthAsync.value ?? const <AttendanceRecord>[],
-                              ),
-                              onSelect: (date) {
-                                setState(() => _selected = date);
-                                context.push(
-                                  Routes.attendanceDayDetailPath(
-                                    date.toIso8601String().split('T').first,
-                                  ),
-                                );
-                              },
-                              onMonthChange: (next) =>
-                                  setState(() => _displayedMonth = next),
+                    child: RefreshIndicator(
+                      onRefresh: () async {
+                        ref
+                          ..invalidate(
+                            attendanceMonthProvider(
+                              _displayedMonth.year,
+                              _displayedMonth.month,
                             ),
-                          ),
-                          SizedBox(height: 18.h),
-                          const _LegendRow(),
-                          SizedBox(height: 22.h),
-                          _buildMonthlySummaryCard(context, summary),
-                        ],
+                          )
+                          ..invalidate(todayAttendanceProvider);
+                        await ref.read(
+                          attendanceMonthProvider(
+                            _displayedMonth.year,
+                            _displayedMonth.month,
+                          ).future,
+                        );
+                      },
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(
+                          parent: ClampingScrollPhysics(),
+                        ),
+                        padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 32.h),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: <Widget>[
+                            _buildTodayStatusCard(todayAsync.value),
+                            SizedBox(height: 18.h),
+                            const CheckInOutButton(),
+                            SizedBox(height: 22.h),
+                            _CalendarCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  AttendanceCalendar(
+                                    displayedMonth: _displayedMonth,
+                                    selected: _selected,
+                                    statusByDay: _statusByDay(
+                                      monthAsync.value ??
+                                          const <AttendanceRecord>[],
+                                    ),
+                                    onSelect: (date) {
+                                      setState(() => _selected = date);
+                                      context.push(
+                                        Routes.attendanceDayDetailPath(
+                                          date
+                                              .toIso8601String()
+                                              .split('T')
+                                              .first,
+                                        ),
+                                      );
+                                    },
+                                    onMonthChange: (next) =>
+                                        setState(() => _displayedMonth = next),
+                                  ),
+                                  Padding(
+                                    padding: EdgeInsets.fromLTRB(
+                                      8.w,
+                                      16.h,
+                                      8.w,
+                                      14.h,
+                                    ),
+                                    child: Divider(
+                                      height: 1,
+                                      color: AppColors.border,
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 8.w,
+                                    ),
+                                    child: const _LegendRow(),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(height: 22.h),
+                            _buildMonthlySummaryCard(context, summary),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -150,13 +195,16 @@ class _AttendanceHomePageState extends ConsumerState<AttendanceHomePage> {
     );
   }
 
-  Widget _buildMonthlySummaryCard(BuildContext context, MonthlySummary summary) {
+  Widget _buildMonthlySummaryCard(
+    BuildContext context,
+    MonthlySummary summary,
+  ) {
     final pct = summary.attendancePct;
     final pctLabel = pct >= 1
         ? '${pct.round()}%'
         : pct > 0
-            ? '${pct.toStringAsFixed(1)}%'
-            : '0%';
+        ? '${pct.toStringAsFixed(1)}%'
+        : '0%';
 
     return SummaryStatsCard(
       title: 'Monthly Summary',
@@ -192,8 +240,11 @@ class _AttendanceHomePageState extends ConsumerState<AttendanceHomePage> {
       statusBadge: hasCheckOut
           ? const StatusBadge(label: 'Checked Out', color: AppColors.blue500)
           : hasCheckIn
-              ? const StatusBadge(label: 'Checked In', color: AppColors.green500)
-              : const StatusBadge(label: 'Not Checked In', color: AppColors.textSecondary),
+          ? const StatusBadge(label: 'Checked In', color: AppColors.green500)
+          : const StatusBadge(
+              label: 'Not Checked In',
+              color: AppColors.textSecondary,
+            ),
       trailingWidget: hasCheckIn
           ? Text(
               formatTimes(record!),
@@ -218,11 +269,7 @@ class _AppBar extends StatelessWidget {
     return Row(
       children: <Widget>[
         IconButton(
-          icon: Icon(
-            Icons.arrow_back,
-            color: AppColors.textdark,
-            size: 20.sp,
-          ),
+          icon: Icon(Icons.arrow_back, color: AppColors.textdark, size: 20.sp),
           onPressed: onBack,
           tooltip: 'Back',
           padding: EdgeInsets.zero,

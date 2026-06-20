@@ -20,6 +20,7 @@ import 'package:sales_sphere_erp/features/unplanned_visits/presentation/widgets/
 import 'package:sales_sphere_erp/shared/utils/error_messages.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
+import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_badge.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 import 'package:sales_sphere_erp/shared/widgets/summary_stats_card.dart';
@@ -410,26 +411,12 @@ class _EmptyToday extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(vertical: 32.h),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16.r),
-      ),
-      child: Column(
-        children: <Widget>[
-          Icon(Icons.pin_drop_outlined, color: AppColors.textHint, size: 48.sp),
-          SizedBox(height: 16.h),
-          Text(
-            'No visits recorded today',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 24.h),
+      child: const EmptyStateView(
+        icon: Icons.pin_drop_outlined,
+        title: 'No visits today',
+        message: 'Logged visits appear here.',
       ),
     );
   }

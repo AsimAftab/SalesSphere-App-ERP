@@ -16,6 +16,7 @@ import 'package:sales_sphere_erp/features/odometer/presentation/widgets/start_tr
 import 'package:sales_sphere_erp/features/odometer/presentation/widgets/stop_trip_sheet.dart';
 import 'package:sales_sphere_erp/features/odometer/presentation/widgets/trip_card.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
+import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_badge.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 import 'package:sales_sphere_erp/shared/widgets/summary_stats_card.dart';
@@ -230,30 +231,12 @@ class _Content extends StatelessWidget {
           ),
           SizedBox(height: 16.h),
           if (ordered.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.symmetric(vertical: 32.h),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(16.r),
-              ),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.directions_car_outlined,
-                    color: AppColors.textHint,
-                    size: 48.sp,
-                  ),
-                  SizedBox(height: 16.h),
-                  Text(
-                    'No trips recorded today',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 24.h),
+              child: const EmptyStateView(
+                icon: Icons.directions_car_outlined,
+                title: 'No trips today',
+                message: 'Start a trip to see it here.',
               ),
             )
           else

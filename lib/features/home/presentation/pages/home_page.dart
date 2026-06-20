@@ -5,11 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/router/routes.dart';
+import '../../../../shared/widgets/empty_state_view.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
+import '../../../beat_plan/domain/beat_plan.dart';
 import '../../../beat_plan/presentation/providers/beat_plan_providers.dart';
 import '../../../beat_plan/presentation/widgets/beat_plan_summary_card.dart';
 import '../../../beat_plan/presentation/widgets/beat_plan_tabs.dart';
-import '../../../beat_plan/domain/beat_plan.dart';
 import '../../../tracking/domain/usecases/reconcile_tracking_usecase.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -291,42 +292,16 @@ class _HomePageState extends ConsumerState<HomePage> {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.only(bottom: 80.0, top: 40.0),
               children: [
-                Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        tabIndex == 0
-                            ? Icons.assignment_late_outlined
-                            : Icons.assignment_turned_in_outlined,
-                        size: 64,
-                        color: Colors.grey.shade300,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        tabIndex == 0
-                            ? 'No beat plan assigned'
-                            : 'No completed plans',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey.shade700,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        tabIndex == 0
-                            ? 'Contact your supervisor to get assigned'
-                            : 'You haven\'t completed any beat plans yet.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade500,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                    ],
-                  ),
+                EmptyStateView(
+                  icon: tabIndex == 0
+                      ? Icons.assignment_late_outlined
+                      : Icons.assignment_turned_in_outlined,
+                  title: tabIndex == 0
+                      ? 'No beat plan assigned'
+                      : 'No completed plans',
+                  message: tabIndex == 0
+                      ? 'Contact your supervisor to get assigned'
+                      : "You haven't completed any beat plans yet.",
                 ),
               ],
             )

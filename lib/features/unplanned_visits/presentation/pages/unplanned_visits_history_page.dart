@@ -12,6 +12,7 @@ import 'package:sales_sphere_erp/features/unplanned_visits/domain/unplanned_visi
 import 'package:sales_sphere_erp/features/unplanned_visits/domain/unplanned_visits_monthly_report.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/presentation/providers/unplanned_visit_providers.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
+import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
@@ -451,17 +452,10 @@ class _EmptyMonth extends StatelessWidget {
       physics: const AlwaysScrollableScrollPhysics(),
       children: <Widget>[
         SizedBox(height: 120.h),
-        Icon(Icons.pin_drop_outlined, color: AppColors.textHint, size: 56.sp),
-        SizedBox(height: 16.h),
-        Center(
-          child: Text(
-            'No visits this month',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+        const EmptyStateView(
+          icon: Icons.pin_drop_outlined,
+          title: 'No visits this month',
+          message: 'Logged visits appear here.',
         ),
       ],
     );

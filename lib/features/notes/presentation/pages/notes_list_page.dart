@@ -11,6 +11,7 @@ import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/notes/domain/note.dart';
 import 'package:sales_sphere_erp/features/notes/presentation/providers/notes_providers.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
+import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_search_filter.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
@@ -643,17 +644,12 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 32.w),
-        child: Text(
-          hasActiveFilter
-              ? 'No notes match the current filters.'
-              : 'No notes yet — tap "Add Note" to log your first visit.',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
-        ),
-      ),
+    return EmptyStateView(
+      icon: Icons.sticky_note_2_outlined,
+      title: hasActiveFilter ? 'No matches' : 'No notes yet',
+      message: hasActiveFilter
+          ? 'No notes match the current filters.'
+          : 'Tap "Add Note" to log your first visit.',
     );
   }
 }

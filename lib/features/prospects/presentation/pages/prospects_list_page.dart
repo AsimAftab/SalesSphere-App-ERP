@@ -9,6 +9,7 @@ import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/prospects/domain/prospect.dart';
 import 'package:sales_sphere_erp/features/prospects/presentation/providers/prospects_providers.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
+import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/refreshable_list.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
@@ -140,7 +141,8 @@ class _ProspectsListPageState extends ConsumerState<ProspectsListPage> {
                         prospect: _placeholderProspect,
                         onTap: () {},
                       ),
-                      emptyBuilder: (_) => const _EmptyState(),
+                      emptyBuilder: (_) =>
+                          _EmptyState(searching: _query.trim().isNotEmpty),
                       errorBuilder: (_, __, ___) => const _ErrorState(),
                     ),
                   ),
@@ -296,19 +298,18 @@ const _placeholderProspect = Prospect(
 );
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+  const _EmptyState({required this.searching});
+
+  final bool searching;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 32.w),
-        child: Text(
-          'No prospects match your search.',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
-        ),
-      ),
+    return EmptyStateView(
+      icon: Icons.person_search_outlined,
+      title: searching ? 'No matches' : 'No prospects yet',
+      message: searching
+          ? 'No prospects match your search.'
+          : 'Tap "Add Prospect" to get started.',
     );
   }
 }

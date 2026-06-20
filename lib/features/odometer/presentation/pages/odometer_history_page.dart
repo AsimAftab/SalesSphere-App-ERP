@@ -13,6 +13,7 @@ import 'package:sales_sphere_erp/features/odometer/domain/odometer_trip.dart';
 import 'package:sales_sphere_erp/features/odometer/presentation/odometer_formatting.dart';
 import 'package:sales_sphere_erp/features/odometer/presentation/providers/odometer_providers.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
+import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
@@ -462,23 +463,12 @@ class _EmptyMonth extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      children: [
+      children: <Widget>[
         SizedBox(height: 120.h),
-        Icon(
-          Icons.directions_car_outlined,
-          color: AppColors.textHint,
-          size: 56.sp,
-        ),
-        SizedBox(height: 16.h),
-        Center(
-          child: Text(
-            'No trips this month',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+        const EmptyStateView(
+          icon: Icons.directions_car_outlined,
+          title: 'No trips this month',
+          message: 'Logged trips appear here.',
         ),
       ],
     );

@@ -11,6 +11,7 @@ import 'package:sales_sphere_erp/features/leaves/domain/leave.dart';
 import 'package:sales_sphere_erp/features/leaves/presentation/providers/leaves_providers.dart';
 import 'package:sales_sphere_erp/features/leaves/presentation/widgets/leave_category_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
+import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_search_filter.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/refreshable_list.dart';
@@ -371,17 +372,12 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 32.w),
-        child: Text(
-          hasActiveFilter
-              ? 'No leave requests match the current filters.'
-              : 'No leave requests yet — tap "Apply Leave" to submit one.',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
-        ),
-      ),
+    return EmptyStateView(
+      icon: Icons.event_busy_outlined,
+      title: hasActiveFilter ? 'No matches' : 'No leave requests yet',
+      message: hasActiveFilter
+          ? 'No leave requests match the current filters.'
+          : 'Tap "Apply Leave" to submit one.',
     );
   }
 }

@@ -11,6 +11,7 @@ import 'package:sales_sphere_erp/features/attendance/domain/attendance_status.da
 import 'package:sales_sphere_erp/features/attendance/presentation/providers/attendance_providers.dart';
 import 'package:sales_sphere_erp/features/attendance/presentation/widgets/day_detail_card.dart';
 import 'package:sales_sphere_erp/features/attendance/presentation/widgets/month_nav_header.dart';
+import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_search_filter.dart';
 import 'package:sales_sphere_erp/shared/widgets/refreshable_list.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
@@ -49,11 +50,11 @@ class _AttendanceDetailsPageState extends ConsumerState<AttendanceDetailsPage> {
     // focused on real attendance days.
     final actionable = source
         .where((r) => r.status != AttendanceStatus.weeklyOff)
-        .toList(growable: false);
-    if (_filter == null) return actionable;
-    return actionable
-        .where((r) => r.status == _filter)
-        .toList(growable: false);
+        .where((r) => _filter == null || r.status == _filter)
+        .toList();
+    // Most recent day first, so today's record sits at the top.
+    actionable.sort((a, b) => b.date.compareTo(a.date));
+    return actionable;
   }
 
   @override
@@ -217,17 +218,12 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 32.w),
-        child: Text(
-          hasFilter
-              ? 'No days match the current filter.'
-              : 'No attendance logged for this month yet.',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
-        ),
-      ),
+    return EmptyStateView(
+      icon: Icons.event_note_outlined,
+      title: hasFilter ? 'No matches' : 'No attendance yet',
+      message: hasFilter
+          ? 'No days match the current filter.'
+          : 'No attendance logged for this month yet.',
     );
   }
 }
