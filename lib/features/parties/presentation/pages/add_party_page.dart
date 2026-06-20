@@ -13,11 +13,13 @@ import 'package:sales_sphere_erp/features/parties/presentation/widgets/party_typ
 import 'package:sales_sphere_erp/shared/utils/image_validation.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
+import 'package:sales_sphere_erp/shared/widgets/add_form_header.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_date_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/location_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_image_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
+import 'package:sales_sphere_erp/shared/widgets/section_card.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
 class AddPartyPage extends ConsumerStatefulWidget {
@@ -163,11 +165,15 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
         ),
         body: Column(
           children: <Widget>[
-            _Header(onBack: () => context.pop()),
+            AddFormHeader(
+              title: 'Add New Party',
+              subtitle: "Enter the new party's details",
+              onBack: () => context.pop(),
+            ),
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: AppColors.surface,
+                  color: AppColors.background,
                   borderRadius: BorderRadius.vertical(
                     top: Radius.circular(32.r),
                   ),
@@ -177,9 +183,8 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
                   key: _formKey,
                   child: SingleChildScrollView(
                     physics: const ClampingScrollPhysics(),
-                    padding: EdgeInsets.fromLTRB(24.w, 32.h, 24.w, 32.h),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                    padding: EdgeInsets.fromLTRB(20.w, 24.h, 20.w, 28.h),
+                    child: SectionCard(
                       children: <Widget>[
                         PrimaryTextField(
                           controller: _nameController,
@@ -314,65 +319,6 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
                 ),
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({required this.onBack});
-
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    return ColoredBox(
-      color: AppColors.primary,
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          children: <Widget>[
-            Padding(
-              padding: EdgeInsets.fromLTRB(4.w, 4.h, 16.w, 0),
-              child: Row(
-                children: <Widget>[
-                  IconButton(
-                    icon: Icon(
-                      Icons.arrow_back_rounded,
-                      color: Colors.white,
-                      size: 24.sp,
-                    ),
-                    onPressed: onBack,
-                    tooltip: 'Back',
-                  ),
-                  const Spacer(),
-                ],
-              ),
-            ),
-            SizedBox(height: 8.h),
-            Text(
-              'New member in the family',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.8),
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-            SizedBox(height: 4.h),
-            Text(
-              'Add New Party',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 28.sp,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.5,
-              ),
-            ),
-            SizedBox(height: 32.h),
           ],
         ),
       ),
