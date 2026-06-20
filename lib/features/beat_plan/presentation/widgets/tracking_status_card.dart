@@ -199,7 +199,7 @@ class TrackingStatusCard extends StatelessWidget {
             child: Text(
               value,
               style: TextStyle(
-                fontSize: 15.sp,
+                fontSize: 16.sp,
                 fontWeight: FontWeight.w800,
                 color: AppColors.textPrimary,
                 letterSpacing: -0.3,
@@ -212,7 +212,7 @@ class TrackingStatusCard extends StatelessWidget {
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 11.sp,
+              fontSize: 12.sp,
               color: AppColors.textSecondary,
               fontWeight: FontWeight.w500,
             ),

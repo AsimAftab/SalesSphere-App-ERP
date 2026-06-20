@@ -107,7 +107,7 @@ class _InterestPickerState extends State<InterestPicker> {
               ),
               floatingLabelStyle: TextStyle(
                 color: isReadOnly ? AppColors.textSecondary : AppColors.secondary,
-                fontSize: 13.sp,
+                fontSize: 14.sp,
                 fontFamily: 'Poppins',
                 fontWeight: FontWeight.w500,
               ),
@@ -169,7 +169,7 @@ class _InterestPickerState extends State<InterestPicker> {
                       color: isReadOnly
                           ? AppColors.textSecondary.withValues(alpha: 0.6)
                           : AppColors.textPrimary,
-                      fontSize: 15.sp,
+                      fontSize: 16.sp,
                       fontFamily: 'Poppins',
                       fontWeight: FontWeight.w400,
                     ),
@@ -226,7 +226,7 @@ class _InterestChip extends StatelessWidget {
             interest.category.toUpperCase(),
             style: TextStyle(
               color: AppColors.secondary,
-              fontSize: 9.sp,
+              fontSize: 10.sp,
               fontFamily: 'Poppins',
               fontWeight: FontWeight.w700,
               letterSpacing: 0.7,
@@ -557,7 +557,7 @@ class _InterestSheetState extends State<_InterestSheet> {
             child: Text(
               'No categories yet — add one below.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 13.sp),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
             ),
           )
         else if (filtered.isEmpty)
@@ -566,7 +566,7 @@ class _InterestSheetState extends State<_InterestSheet> {
             child: Text(
               'No matches for "$_query".',
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 13.sp),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
             ),
           )
         else
@@ -591,7 +591,7 @@ class _InterestSheetState extends State<_InterestSheet> {
                     cat,
                     style: TextStyle(
                       color: AppColors.textPrimary,
-                      fontSize: 15.sp,
+                      fontSize: 16.sp,
                       fontWeight: pickedFromCat > 0
                           ? FontWeight.w600
                           : FontWeight.w400,
@@ -628,7 +628,7 @@ class _InterestSheetState extends State<_InterestSheet> {
             'Add New Category',
             style: TextStyle(
               color: AppColors.secondary,
-              fontSize: 15.sp,
+              fontSize: 16.sp,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -651,7 +651,7 @@ class _InterestSheetState extends State<_InterestSheet> {
             child: Text(
               'No brands yet — add one below.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 13.sp),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
             ),
           )
         else
@@ -688,7 +688,7 @@ class _InterestSheetState extends State<_InterestSheet> {
             'Add New Brand',
             style: TextStyle(
               color: AppColors.secondary,
-              fontSize: 15.sp,
+              fontSize: 16.sp,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -730,7 +730,7 @@ class _BrandRow extends StatelessWidget {
                 brand,
                 style: TextStyle(
                   color: AppColors.textPrimary,
-                  fontSize: 15.sp,
+                  fontSize: 16.sp,
                   fontFamily: 'Poppins',
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                 ),

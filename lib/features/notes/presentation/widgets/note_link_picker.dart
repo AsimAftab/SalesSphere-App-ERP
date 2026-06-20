@@ -160,11 +160,11 @@ class _NoteLinkPickerSheet extends StatelessWidget {
                 indicatorColor: AppColors.secondary,
                 indicatorWeight: 2.5,
                 labelStyle: TextStyle(
-                  fontSize: 13.sp,
+                  fontSize: 14.sp,
                   fontWeight: FontWeight.w600,
                 ),
                 unselectedLabelStyle: TextStyle(
-                  fontSize: 13.sp,
+                  fontSize: 14.sp,
                   fontWeight: FontWeight.w500,
                 ),
                 tabs: const <Widget>[
@@ -198,7 +198,7 @@ class _NoteLinkPickerSheet extends StatelessWidget {
                     'Clear selection',
                     style: TextStyle(
                       color: AppColors.error,
-                      fontSize: 15.sp,
+                      fontSize: 16.sp,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -552,7 +552,7 @@ class _ErrorList extends StatelessWidget {
         child: Text(
           message,
           textAlign: TextAlign.center,
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 13.sp),
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
         ),
       ),
     );
@@ -578,7 +578,7 @@ class _EmptyList extends StatelessWidget {
         child: Text(
           hasQuery ? noMatchText : emptyText,
           textAlign: TextAlign.center,
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 13.sp),
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
         ),
       ),
     );

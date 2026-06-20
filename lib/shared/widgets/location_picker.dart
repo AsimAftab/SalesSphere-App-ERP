@@ -539,7 +539,7 @@ class _InfoBanner extends StatelessWidget {
               message,
               style: TextStyle(
                 color: _kInfoDark,
-                fontSize: 13.sp,
+                fontSize: 14.sp,
                 fontWeight: FontWeight.w500,
                 height: 1.4,
               ),
@@ -644,7 +644,7 @@ class _CoordField extends StatelessWidget {
         ),
         floatingLabelStyle: TextStyle(
           color: AppColors.textSecondary,
-          fontSize: 13.sp,
+          fontSize: 14.sp,
           fontFamily: 'Poppins',
           fontWeight: FontWeight.w500,
         ),
@@ -669,7 +669,7 @@ class _CoordField extends StatelessWidget {
         value,
         style: TextStyle(
           color: AppColors.textSecondary.withValues(alpha: 0.6),
-          fontSize: 15.sp,
+          fontSize: 16.sp,
           fontFamily: 'Poppins',
           fontWeight: FontWeight.w400,
         ),

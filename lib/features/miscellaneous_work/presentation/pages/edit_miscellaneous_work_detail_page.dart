@@ -585,7 +585,7 @@ class _DetailAppBar extends StatelessWidget {
                 'Cancel',
                 style: TextStyle(
                   color: AppColors.error,
-                  fontSize: 15.sp,
+                  fontSize: 16.sp,
                   fontWeight: FontWeight.w600,
                 ),
               ),

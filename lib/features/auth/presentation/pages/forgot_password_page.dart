@@ -242,7 +242,7 @@ class _ForgotPasswordSheet extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.textSecondary,
-                    fontSize: 15.sp,
+                    fontSize: 16.sp,
                     height: 1.4,
                   ),
                 ),
@@ -280,14 +280,14 @@ class _ForgotPasswordSheet extends StatelessWidget {
                         text: 'Remember your password? ',
                         style: TextStyle(
                           color: AppColors.textSecondary,
-                          fontSize: 15.sp,
+                          fontSize: 16.sp,
                         ),
                         children: <InlineSpan>[
                           TextSpan(
                             text: 'Login',
                             style: TextStyle(
                               color: AppColors.secondary,
-                              fontSize: 15.sp,
+                              fontSize: 16.sp,
                               fontWeight: FontWeight.w600,
                               decoration: TextDecoration.underline,
                               decorationColor: AppColors.secondary,
@@ -378,7 +378,7 @@ class _SuccessSheet extends StatelessWidget {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: AppColors.textSecondary,
-                        fontSize: 15.sp,
+                        fontSize: 16.sp,
                         height: 1.5,
                       ),
                     ),

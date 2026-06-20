@@ -126,7 +126,7 @@ class _NoteLinkFieldState extends State<NoteLinkField> {
               typeLabel,
               style: TextStyle(
                 color: AppColors.textSecondary,
-                fontSize: 11.sp,
+                fontSize: 12.sp,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.5,
               ),

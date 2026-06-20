@@ -348,7 +348,7 @@ class _LoadMoreFooter extends StatelessWidget {
                   "Couldn't load more — tap to retry",
                   style: TextStyle(
                     color: AppColors.textSecondary,
-                    fontSize: 13.sp,
+                    fontSize: 14.sp,
                     fontWeight: FontWeight.w500,
                   ),
                 ),

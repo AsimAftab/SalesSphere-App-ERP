@@ -185,7 +185,7 @@ class _PrimarySearchFilterState<T> extends State<PrimarySearchFilter<T>> {
                 'Filter',
                 style: TextStyle(
                   color: AppColors.textSecondary,
-                  fontSize: 15.sp,
+                  fontSize: 16.sp,
                   fontFamily: 'Poppins',
                   fontWeight: FontWeight.w600,
                 ),
@@ -207,7 +207,7 @@ class _PrimarySearchFilterState<T> extends State<PrimarySearchFilter<T>> {
                   selectedOption.label,
                   style: TextStyle(
                     color: AppColors.textPrimary,
-                    fontSize: 15.sp,
+                    fontSize: 16.sp,
                     fontFamily: 'Poppins',
                     fontWeight: FontWeight.w600,
                   ),

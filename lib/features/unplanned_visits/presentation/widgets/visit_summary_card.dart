@@ -56,7 +56,7 @@ class VisitSummaryCard extends StatelessWidget {
                         text: '  (${visit.target.type.label})',
                         style: TextStyle(
                           color: AppColors.textSecondary,
-                          fontSize: 13.sp,
+                          fontSize: 14.sp,
                           fontWeight: FontWeight.w500,
                         ),
                       ),

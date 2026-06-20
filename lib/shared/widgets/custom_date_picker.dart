@@ -139,7 +139,7 @@ class _CustomDatePickerState extends State<CustomDatePicker> {
             color: shouldShowGreyStyle
                 ? AppColors.textSecondary.withValues(alpha: 0.6)
                 : AppColors.textPrimary,
-            fontSize: 15.sp,
+            fontSize: 16.sp,
             fontFamily: 'Poppins',
             fontWeight: FontWeight.w400,
           ),
@@ -164,7 +164,7 @@ class _CustomDatePickerState extends State<CustomDatePicker> {
                   : (shouldShowGreyStyle
                         ? AppColors.textSecondary
                         : AppColors.secondary),
-              fontSize: 13.sp,
+              fontSize: 14.sp,
               fontFamily: 'Poppins',
               fontWeight: FontWeight.w500,
             ),

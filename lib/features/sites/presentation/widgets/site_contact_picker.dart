@@ -105,7 +105,7 @@ class _SiteContactPickerState extends State<SiteContactPicker> {
               floatingLabelStyle: TextStyle(
                 color:
                     isReadOnly ? AppColors.textSecondary : AppColors.secondary,
-                fontSize: 13.sp,
+                fontSize: 14.sp,
                 fontFamily: 'Poppins',
                 fontWeight: FontWeight.w500,
               ),
@@ -171,7 +171,7 @@ class _SiteContactPickerState extends State<SiteContactPicker> {
                                 ? AppColors.textSecondary
                                     .withValues(alpha: 0.6)
                                 : AppColors.textPrimary,
-                            fontSize: 15.sp,
+                            fontSize: 16.sp,
                             fontFamily: 'Poppins',
                             fontWeight: FontWeight.w400,
                           ),
@@ -520,7 +520,7 @@ class _SiteContactSheetState extends State<_SiteContactSheet> {
           textAlign: TextAlign.center,
           style: TextStyle(
             color: AppColors.textSecondary,
-            fontSize: 13.sp,
+            fontSize: 14.sp,
           ),
         ),
       );
@@ -594,7 +594,7 @@ class _SiteContactSheetState extends State<_SiteContactSheet> {
             'Add new contact',
             style: TextStyle(
               color: AppColors.primary,
-              fontSize: 13.sp,
+              fontSize: 14.sp,
               fontWeight: FontWeight.w700,
             ),
           ),

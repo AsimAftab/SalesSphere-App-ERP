@@ -274,7 +274,7 @@ class _CustomOptionPickerShell extends StatelessWidget {
           ),
           floatingLabelStyle: TextStyle(
             color: isReadOnly ? AppColors.textSecondary : AppColors.secondary,
-            fontSize: 13.sp,
+            fontSize: 14.sp,
             fontFamily: 'Poppins',
             fontWeight: FontWeight.w500,
           ),
@@ -332,7 +332,7 @@ class _CustomOptionPickerShell extends StatelessWidget {
                   color: isReadOnly
                       ? AppColors.textSecondary.withValues(alpha: 0.6)
                       : AppColors.textPrimary,
-                  fontSize: 15.sp,
+                  fontSize: 16.sp,
                   fontFamily: 'Poppins',
                   fontWeight: FontWeight.w400,
                 ),
@@ -416,7 +416,7 @@ class _CustomOptionPickerSheet extends StatelessWidget {
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: AppColors.textSecondary,
-                          fontSize: 13.sp,
+                          fontSize: 14.sp,
                         ),
                       ),
                     )
@@ -438,7 +438,7 @@ class _CustomOptionPickerSheet extends StatelessWidget {
                             option,
                             style: TextStyle(
                               color: AppColors.textPrimary,
-                              fontSize: 15.sp,
+                              fontSize: 16.sp,
                               fontWeight: isSelected
                                   ? FontWeight.w600
                                   : FontWeight.w400,
@@ -472,7 +472,7 @@ class _CustomOptionPickerSheet extends StatelessWidget {
                   addNewLabel!,
                   style: TextStyle(
                     color: AppColors.secondary,
-                    fontSize: 15.sp,
+                    fontSize: 16.sp,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -495,7 +495,7 @@ class _CustomOptionPickerSheet extends StatelessWidget {
                   'Clear selection',
                   style: TextStyle(
                     color: AppColors.error,
-                    fontSize: 15.sp,
+                    fontSize: 16.sp,
                     fontWeight: FontWeight.w600,
                   ),
                 ),

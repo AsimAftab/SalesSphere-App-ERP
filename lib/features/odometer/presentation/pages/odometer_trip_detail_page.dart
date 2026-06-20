@@ -472,7 +472,7 @@ class _DayDateHeader extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: AppColors.textPrimary,
-                fontSize: 15.sp,
+                fontSize: 16.sp,
                 fontWeight: FontWeight.w700,
                 letterSpacing: -0.2,
               ),
@@ -483,7 +483,7 @@ class _DayDateHeader extends StatelessWidget {
             '$count ${count == 1 ? 'trip' : 'trips'}',
             style: TextStyle(
               color: AppColors.textSecondary,
-              fontSize: 13.sp,
+              fontSize: 14.sp,
               fontWeight: FontWeight.w600,
             ),
           ),

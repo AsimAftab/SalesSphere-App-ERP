@@ -87,7 +87,7 @@ class RouteProgressCard extends StatelessWidget {
                   '${(plan.progress * 100).toInt()}%',
                   style: TextStyle(
                     fontSize: 14.sp,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w700,
                     color: AppColors.success,
                   ),
                 ),

@@ -139,7 +139,7 @@ class _StopVisitSheetState extends ConsumerState<StopVisitSheet> {
                           widget.visit.target.displayName,
                           style: TextStyle(
                             color: AppColors.textSecondary,
-                            fontSize: 13.sp,
+                            fontSize: 14.sp,
                             fontWeight: FontWeight.w500,
                           ),
                           maxLines: 1,
