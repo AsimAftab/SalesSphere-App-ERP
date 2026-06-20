@@ -355,10 +355,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.odometerTripDetail,
         name: Routes.odometerTripDetailName,
-        builder: (context, state) {
-          final id = state.pathParameters['id']!;
-          return OdometerTripDetailPage(tripId: id);
-        },
+        builder: (context, state) => OdometerTripDetailPage(
+          tripId: state.pathParameters['id']!,
+          // `?focus=1` forces a single-trip view (no day grouping), so the
+          // busy-day list can drill into one trip without re-showing the list.
+          focused: state.uri.queryParameters['focus'] == '1',
+        ),
       ),
       GoRoute(
         path: Routes.unplannedVisits,

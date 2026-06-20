@@ -8,10 +8,12 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/odometer/domain/odometer_monthly_report.dart';
 import 'package:sales_sphere_erp/features/odometer/domain/odometer_trip.dart';
 import 'package:sales_sphere_erp/features/odometer/presentation/odometer_formatting.dart';
 import 'package:sales_sphere_erp/features/odometer/presentation/providers/odometer_providers.dart';
+import 'package:sales_sphere_erp/features/odometer/presentation/widgets/trip_card.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/section_card.dart';
@@ -25,9 +27,17 @@ import 'package:url_launcher/url_launcher.dart';
 /// the day's sibling trips, and shows one tab per trip, so a day with
 /// several trips reads as a single entry with a tab switcher.
 class OdometerTripDetailPage extends ConsumerWidget {
-  const OdometerTripDetailPage({required this.tripId, super.key});
+  const OdometerTripDetailPage({
+    required this.tripId,
+    this.focused = false,
+    super.key,
+  });
 
   final String tripId;
+
+  /// When true, show only this trip's detail — no day grouping, tabs or list.
+  /// The busy-day list drills in with this set so it doesn't re-show the list.
+  final bool focused;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -46,6 +56,10 @@ class OdometerTripDetailPage extends ConsumerWidget {
         ),
       ),
       data: (trip) {
+        if (focused) {
+          // Single-trip view — skip sibling resolution entirely.
+          return _DayDetail(dayTrips: <OdometerTrip>[trip], initialId: trip.id);
+        }
         final day = trip.date;
         if (day == null) {
           // No calendar day → can't resolve siblings; show this trip alone.
@@ -262,9 +276,9 @@ class _CardSkeleton extends StatelessWidget {
   }
 }
 
-/// A day's trips with a per-trip tab switcher. Owns the [TabController],
-/// rebuilding it only when the set of trip ids changes (e.g. an external
-/// refresh) while preserving the selected tab.
+/// A day's trips. With a handful (≤ `tabThreshold`) they read as a tab
+/// switcher; busy days with more switch to a vertical scrolling list (a tab bar
+/// stops scaling past a few), opening at the top.
 class _DayDetail extends StatefulWidget {
   const _DayDetail({required this.dayTrips, required this.initialId});
 
@@ -272,6 +286,9 @@ class _DayDetail extends StatefulWidget {
 
   /// The trip the page was opened on — drives the initial tab.
   final String initialId;
+
+  /// Above this many trips per day, tabs give way to a vertical list.
+  static const int tabThreshold = 4;
 
   @override
   State<_DayDetail> createState() => _DayDetailState();
@@ -282,16 +299,29 @@ class _DayDetailState extends State<_DayDetail>
   TabController? _controller;
   List<String> _ids = const <String>[];
 
+  bool get _useTabs {
+    final n = widget.dayTrips.length;
+    return n > 1 && n <= _DayDetail.tabThreshold;
+  }
+
+  bool get _useList => widget.dayTrips.length > _DayDetail.tabThreshold;
+
   @override
   void initState() {
     super.initState();
-    _syncController();
+    if (_useTabs) _syncController();
   }
 
   @override
   void didUpdateWidget(_DayDetail oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _syncController();
+    if (_useTabs) {
+      _syncController();
+    } else {
+      _controller?.dispose();
+      _controller = null;
+      _ids = const <String>[];
+    }
   }
 
   @override
@@ -331,8 +361,6 @@ class _DayDetailState extends State<_DayDetail>
   @override
   Widget build(BuildContext context) {
     final trips = widget.dayTrips;
-    final controller = _controller!;
-    final multi = trips.length > 1;
 
     return DarkStatusBar(
       child: Scaffold(
@@ -344,14 +372,10 @@ class _DayDetailState extends State<_DayDetail>
               child: Column(
                 children: <Widget>[
                   const _PageHeader(title: 'Trip Details'),
-                  if (multi) ...<Widget>[
+                  if (_useTabs) ...<Widget>[
                     SizedBox(height: 4.h),
                     TabBar(
-                      controller: controller,
-                      isScrollable: trips.length > 3,
-                      tabAlignment: trips.length > 3
-                          ? TabAlignment.start
-                          : null,
+                      controller: _controller,
                       labelColor: AppColors.primary,
                       unselectedLabelColor: AppColors.textSecondary,
                       indicatorColor: AppColors.secondary,
@@ -367,21 +391,103 @@ class _DayDetailState extends State<_DayDetail>
                       ],
                     ),
                   ],
-                  Expanded(
-                    child: multi
-                        ? TabBarView(
-                            controller: controller,
-                            children: <Widget>[
-                              for (final t in trips) _TripDetailBody(trip: t),
-                            ],
-                          )
-                        : _TripDetailBody(trip: trips.first),
-                  ),
+                  if (_useList)
+                    _DayDateHeader(
+                      date:
+                          trips.first.date ??
+                          trips.first.startedAt ??
+                          trips.first.createdAt,
+                      count: trips.length,
+                    ),
+                  Expanded(child: _buildBody(trips)),
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildBody(List<OdometerTrip> trips) {
+    if (_useTabs) {
+      return TabBarView(
+        controller: _controller,
+        children: <Widget>[
+          for (final t in trips) _TripDetailBody(trip: t),
+        ],
+      );
+    }
+    if (_useList) {
+      // Busy day → a scannable list of trip cards, opening at the top. Tapping
+      // one drills into that trip's full detail via the focused route.
+      return ListView.builder(
+        padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 28.h),
+        itemCount: trips.length,
+        itemBuilder: (context, i) {
+          final t = trips[i];
+          return Padding(
+            padding: EdgeInsets.only(bottom: 14.h),
+            child: OdometerTripCard(
+              trip: t,
+              onTap: () => context.pushNamed(
+                Routes.odometerTripDetailName,
+                pathParameters: <String, String>{'id': t.id},
+                queryParameters: <String, String>{'focus': '1'},
+              ),
+            ),
+          );
+        },
+      );
+    }
+    return _TripDetailBody(trip: trips.first);
+  }
+}
+
+/// Date + trip count shown above the busy-day list, so the day being viewed
+/// is clear at a glance.
+class _DayDateHeader extends StatelessWidget {
+  const _DayDateHeader({required this.date, required this.count});
+
+  final DateTime? date;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final d = date?.toLocal();
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 4.h),
+      child: Row(
+        children: <Widget>[
+          Icon(
+            Icons.calendar_today_rounded,
+            color: AppColors.primary,
+            size: 16.sp,
+          ),
+          SizedBox(width: 8.w),
+          Expanded(
+            child: Text(
+              d == null ? 'This day' : DateFormat('EEEE, d MMM yyyy').format(d),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 15.sp,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.2,
+              ),
+            ),
+          ),
+          SizedBox(width: 8.w),
+          Text(
+            '$count ${count == 1 ? 'trip' : 'trips'}',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13.sp,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }

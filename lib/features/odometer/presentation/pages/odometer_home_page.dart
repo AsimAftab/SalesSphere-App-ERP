@@ -140,6 +140,8 @@ class _Content extends StatelessWidget {
   Widget build(BuildContext context) {
     final activeTrip = status.activeTrip;
     final completedTrips = status.completedTrips;
+    // Show the active trip first (it's the current activity), then the
+    // completed trips in trip-number order.
     final ordered = <OdometerTrip>[
       if (activeTrip != null) activeTrip,
       ...completedTrips,
@@ -167,8 +169,21 @@ class _Content extends StatelessWidget {
                   ),
           ),
           if (activeTrip != null) ...[
-            SizedBox(height: 16.h),
-            _ActiveTripCard(trip: activeTrip, canRecord: canRecord),
+            if (canRecord) ...[
+              SizedBox(height: 16.h),
+              // Status lives in the Today's Status card and the carousel below —
+              // this is just the action.
+              CustomButton(
+                onPressed: () => showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => StopTripSheet(trip: activeTrip),
+                ),
+                label: 'Stop Trip ->',
+                backgroundColor: AppColors.red500,
+              ),
+            ],
           ] else if (canRecord) ...[
             SizedBox(height: 24.h),
             CustomButton(
@@ -268,97 +283,6 @@ class _Content extends StatelessWidget {
   }
 }
 
-class _ActiveTripCard extends StatelessWidget {
-  const _ActiveTripCard({required this.trip, required this.canRecord});
-
-  final OdometerTrip trip;
-  final bool canRecord;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(16.w),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16.r),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.red500.withValues(alpha: 0.05),
-            blurRadius: 20.r,
-            spreadRadius: 2.r,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(8.r),
-                decoration: BoxDecoration(
-                  color: AppColors.red500.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.directions_car_rounded,
-                  color: AppColors.red500,
-                  size: 20.sp,
-                ),
-              ),
-              SizedBox(width: 12.w),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Trip #${trip.tripNumber}',
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      'Currently Active',
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 16.sp,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                width: 12.w,
-                height: 12.h,
-                decoration: const BoxDecoration(
-                  color: AppColors.red500,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ],
-          ),
-          if (canRecord) ...[
-            SizedBox(height: 16.h),
-            CustomButton(
-              onPressed: () => showModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (_) => StopTripSheet(trip: trip),
-              ),
-              label: 'Stop Trip ->',
-              backgroundColor: AppColors.red500,
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 class _TripsCarousel extends StatefulWidget {
   const _TripsCarousel({required this.trips});
 
@@ -384,7 +308,7 @@ class _TripsCarouselState extends State<_TripsCarousel> {
     return Column(
       children: [
         SizedBox(
-          height: 230.h,
+          height: 152.h,
           child: PageView.builder(
             controller: _controller,
             clipBehavior: Clip.none,
@@ -394,9 +318,12 @@ class _TripsCarouselState extends State<_TripsCarousel> {
               final trip = trips[index];
               return OdometerTripCard(
                 trip: trip,
+                // A carousel card is one specific trip → open it directly
+                // (focused single view), not the day-grouped tabs/list.
                 onTap: () => context.pushNamed(
                   Routes.odometerTripDetailName,
                   pathParameters: <String, String>{'id': trip.id},
+                  queryParameters: <String, String>{'focus': '1'},
                 ),
               );
             },
@@ -448,7 +375,7 @@ class _HomeSkeleton extends StatelessWidget {
             SizedBox(height: 16.h),
             Bone(
               width: double.infinity,
-              height: 56.h,
+              height: 48.h,
               borderRadius: BorderRadius.circular(16.r),
             ),
             SizedBox(height: 32.h),
@@ -460,7 +387,7 @@ class _HomeSkeleton extends StatelessWidget {
             SizedBox(height: 16.h),
             Bone(
               width: double.infinity,
-              height: 210.h,
+              height: 152.h,
               borderRadius: BorderRadius.circular(16.r),
             ),
             SizedBox(height: 24.h),
