@@ -135,7 +135,7 @@ class _BiometricSetupSheet extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppColors.textSecondary,
-                fontSize: 13.sp,
+                fontSize: 14.sp,
                 height: 1.5,
               ),
             ),

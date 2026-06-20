@@ -171,7 +171,7 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
                     plan.title,
                     style: const TextStyle(
                       fontSize: 24,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w700,
                       color: AppColors.textPrimary,
                       height: 1.2,
                     ),
@@ -194,7 +194,7 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
               'Route Stops',
               style: TextStyle(
                 fontSize: 18.sp,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w700,
                 color: AppColors.textPrimary,
               ),
             ),
@@ -547,7 +547,7 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
                   tab == 'All' ? 'All (${stops.length})' : tab,
                   style: TextStyle(
                     fontSize: 12.sp,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
                     color: isSelected ? Colors.white : AppColors.textSecondary,
                   ),
                   maxLines: 1,
@@ -575,7 +575,7 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
               style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 16.sp,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],

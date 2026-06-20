@@ -803,7 +803,7 @@ class _DetailAppBar extends StatelessWidget {
                 'Cancel',
                 style: TextStyle(
                   color: AppColors.error,
-                  fontSize: 15.sp,
+                  fontSize: 16.sp,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -831,7 +831,7 @@ class _NameAddressCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final addressStyle = TextStyle(
       color: AppColors.textSecondary,
-      fontSize: 13.sp,
+      fontSize: 14.sp,
       fontWeight: FontWeight.w400,
       height: 1.45,
     );
@@ -917,7 +917,7 @@ class _OpenInMapsButton extends StatelessWidget {
                 'Open in Maps',
                 style: TextStyle(
                   color: AppColors.primary,
-                  fontSize: 13.sp,
+                  fontSize: 14.sp,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -1109,7 +1109,7 @@ class _DetailSkeleton extends StatelessWidget {
                                       ),
                                       Expanded(
                                         child: Bone.multiText(
-                                          fontSize: 13.sp,
+                                          fontSize: 14.sp,
                                         ),
                                       ),
                                     ],

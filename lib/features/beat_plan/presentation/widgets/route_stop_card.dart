@@ -457,7 +457,7 @@ class RouteStopCard extends StatelessWidget {
                           child: Text(
                             notes!.trim(),
                             style: TextStyle(
-                              fontSize: 13.sp,
+                              fontSize: 14.sp,
                               color: AppColors.textPrimary,
                               height: 1.4,
                             ),
@@ -476,7 +476,7 @@ class RouteStopCard extends StatelessWidget {
                         Text(
                           'Follow-up: $followUp',
                           style: TextStyle(
-                            fontSize: 13.sp,
+                            fontSize: 14.sp,
                             color: AppColors.primary,
                             fontWeight: FontWeight.w600,
                           ),

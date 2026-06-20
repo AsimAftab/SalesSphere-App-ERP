@@ -190,7 +190,7 @@ class _PartyPickerSheetState<T> extends State<_PartyPickerSheet<T>> {
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: AppColors.textSecondary,
-                            fontSize: 13.sp,
+                            fontSize: 14.sp,
                           ),
                         ),
                       ),
@@ -226,7 +226,7 @@ class _PartyPickerSheetState<T> extends State<_PartyPickerSheet<T>> {
                   'Clear selection',
                   style: TextStyle(
                     color: AppColors.error,
-                    fontSize: 15.sp,
+                    fontSize: 16.sp,
                     fontWeight: FontWeight.w600,
                   ),
                 ),

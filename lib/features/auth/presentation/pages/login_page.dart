@@ -161,7 +161,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                   style: TextStyle(
                                     color: AppColors.primary,
                                     fontSize: 28.sp,
-                                    fontWeight: FontWeight.bold,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                                 SizedBox(height: 8.h),

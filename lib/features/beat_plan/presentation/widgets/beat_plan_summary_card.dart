@@ -54,7 +54,7 @@ class BeatPlanSummaryCard extends ConsumerWidget {
                         plan.title,
                         style: TextStyle(
                           fontSize: 18.sp,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w700,
                           color: AppColors.textPrimary,
                         ),
                         maxLines: 1,
@@ -161,7 +161,7 @@ class BeatPlanSummaryCard extends ConsumerWidget {
                             style: TextStyle(
                               color: AppColors.primary,
                               fontSize: 16.sp,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ],

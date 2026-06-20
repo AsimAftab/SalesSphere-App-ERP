@@ -173,7 +173,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                       firstName,
                       style: const TextStyle(
                         fontSize: 32,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w700,
                         color: AppColors.textOrange,
                         height: 1.1,
                       ),
@@ -208,7 +208,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 22,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
@@ -226,7 +226,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           'My Beat Plans',
           style: TextStyle(
             fontSize: 20,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
           ),
         ),

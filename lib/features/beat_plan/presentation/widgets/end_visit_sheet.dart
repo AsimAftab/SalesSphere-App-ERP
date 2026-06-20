@@ -94,7 +94,7 @@ class _EndVisitSheetState extends State<EndVisitSheet> {
                         'End Visit',
                         style: TextStyle(
                           fontSize: 22.sp,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w700,
                           color: AppColors.textPrimary,
                         ),
                       ),

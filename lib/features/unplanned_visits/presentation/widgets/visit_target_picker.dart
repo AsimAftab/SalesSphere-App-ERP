@@ -100,9 +100,9 @@ class _VisitTargetPickerSheet extends StatelessWidget {
                 indicatorColor: AppColors.secondary,
                 indicatorWeight: 2.5,
                 labelStyle:
-                    TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w600),
+                    TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w600),
                 unselectedLabelStyle:
-                    TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w500),
+                    TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w500),
                 tabs: const <Widget>[
                   Tab(text: 'Parties'),
                   Tab(text: 'Prospects'),
@@ -457,7 +457,7 @@ class _MessageList extends StatelessWidget {
         child: Text(
           message,
           textAlign: TextAlign.center,
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 13.sp),
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
         ),
       ),
     );
