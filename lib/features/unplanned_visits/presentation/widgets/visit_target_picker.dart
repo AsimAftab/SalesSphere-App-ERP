@@ -12,7 +12,7 @@ import 'package:sales_sphere_erp/features/sites/presentation/providers/sites_pro
 import 'package:sales_sphere_erp/features/unplanned_visits/domain/visit_target.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 
-/// Opens a 3-tab bottom sheet (Customers / Prospects / Sites) and returns the
+/// Opens a 3-tab bottom sheet (Parties / Prospects / Sites) and returns the
 /// [VisitTarget] the rep selects — carrying its coordinates so the start flow
 /// can run the geofence gate. Mirrors the notes link picker. Returns `null`
 /// when dismissed without a pick.
@@ -104,7 +104,7 @@ class _VisitTargetPickerSheet extends StatelessWidget {
                 unselectedLabelStyle:
                     TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w500),
                 tabs: const <Widget>[
-                  Tab(text: 'Customers'),
+                  Tab(text: 'Parties'),
                   Tab(text: 'Prospects'),
                   Tab(text: 'Sites'),
                 ],
@@ -185,21 +185,21 @@ class _CustomersTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return _TabShell(
-      searchHint: 'Search customers',
+      searchHint: 'Search parties',
       builder: (context, query) {
         final asyncList = ref.watch(partiesListVisibleProvider);
         return asyncList.when(
           loading: () => const _LoadingList(),
           error: (_, __) =>
-              const _MessageList(message: "Couldn't load customers."),
+              const _MessageList(message: "Couldn't load parties."),
           data: (all) {
             final filtered =
                 _filter(all, query, (Party p) => p.name, (p) => p.address);
             if (filtered.isEmpty) {
               return _MessageList(
                 message: query.isEmpty
-                    ? 'No customers yet.'
-                    : 'No customers match your search.',
+                    ? 'No parties yet.'
+                    : 'No parties match your search.',
               );
             }
             return _list(

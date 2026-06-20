@@ -9,27 +9,39 @@ import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/domain/unplanned_visit.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/domain/unplanned_visit_exceptions.dart';
+import 'package:sales_sphere_erp/features/unplanned_visits/domain/unplanned_visits_monthly_report.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/domain/unplanned_visits_today.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/presentation/controllers/unplanned_visit_controller.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/presentation/providers/unplanned_visit_providers.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/presentation/widgets/stop_visit_sheet.dart';
-import 'package:sales_sphere_erp/features/unplanned_visits/presentation/widgets/visit_card.dart';
+import 'package:sales_sphere_erp/features/unplanned_visits/presentation/widgets/visit_out_of_range_dialog.dart';
+import 'package:sales_sphere_erp/features/unplanned_visits/presentation/widgets/visit_summary_card.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/presentation/widgets/visit_target_picker.dart';
 import 'package:sales_sphere_erp/shared/utils/error_messages.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_badge.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
+import 'package:sales_sphere_erp/shared/widgets/summary_stats_card.dart';
 import 'package:sales_sphere_erp/shared/widgets/today_status_card.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 class UnplannedVisitsHomePage extends ConsumerWidget {
   const UnplannedVisitsHomePage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final now = DateTime.now();
     final todayAsync = ref.watch(unplannedVisitsTodayProvider);
-    final canRecord =
-        ref.watch(hasPermissionProvider(Permissions.unplannedVisitRecord));
+    final summary =
+        ref
+            .watch(unplannedVisitsMonthlyReportProvider(now.year, now.month))
+            .value
+            ?.summary ??
+        UnplannedVisitsMonthlySummary.empty;
+    final canRecord = ref.watch(
+      hasPermissionProvider(Permissions.unplannedVisitRecord),
+    );
 
     return DarkStatusBar(
       child: Scaffold(
@@ -54,13 +66,18 @@ class UnplannedVisitsHomePage extends ConsumerWidget {
                     child: Row(
                       children: <Widget>[
                         IconButton(
-                          icon: Icon(Icons.arrow_back,
-                              color: AppColors.textPrimary, size: 20.sp),
+                          icon: Icon(
+                            Icons.arrow_back,
+                            color: AppColors.textPrimary,
+                            size: 20.sp,
+                          ),
                           onPressed: () => context.pop(),
                           tooltip: 'Back',
                           padding: EdgeInsets.zero,
-                          constraints:
-                              BoxConstraints(minWidth: 36.w, minHeight: 36.h),
+                          constraints: BoxConstraints(
+                            minWidth: 36.w,
+                            minHeight: 36.h,
+                          ),
                         ),
                         SizedBox(width: 12.w),
                         Text(
@@ -79,21 +96,29 @@ class UnplannedVisitsHomePage extends ConsumerWidget {
                   Expanded(
                     child: RefreshIndicator(
                       onRefresh: () async {
-                        ref.invalidate(unplannedVisitsTodayProvider);
+                        ref
+                          ..invalidate(unplannedVisitsTodayProvider)
+                          ..invalidate(
+                            unplannedVisitsMonthlyReportProvider(
+                              now.year,
+                              now.month,
+                            ),
+                          );
                         await ref.read(unplannedVisitsTodayProvider.future);
                       },
                       child: todayAsync.when(
-                        loading: () => const _ScrollableCenter(
-                          child: CircularProgressIndicator(),
-                        ),
+                        loading: () => const _HomeSkeleton(),
                         error: (_, __) => _ScrollableCenter(
                           child: _ErrorRetry(
                             onRetry: () =>
                                 ref.invalidate(unplannedVisitsTodayProvider),
                           ),
                         ),
-                        data: (status) =>
-                            _Content(status: status, canRecord: canRecord),
+                        data: (status) => _Content(
+                          status: status,
+                          summary: summary,
+                          canRecord: canRecord,
+                        ),
                       ),
                     ),
                   ),
@@ -108,19 +133,28 @@ class UnplannedVisitsHomePage extends ConsumerWidget {
 }
 
 class _Content extends StatelessWidget {
-  const _Content({required this.status, required this.canRecord});
+  const _Content({
+    required this.status,
+    required this.summary,
+    required this.canRecord,
+  });
 
   final UnplannedVisitsToday status;
+  final UnplannedVisitsMonthlySummary summary;
   final bool canRecord;
 
   @override
   Widget build(BuildContext context) {
     final activeVisit = status.activeVisit;
     final completed = status.completedVisits;
-    final ordered = <UnplannedVisit>[
-      if (activeVisit != null) activeVisit,
-      ...completed,
-    ];
+    // Chronological order (earliest first) so "Visit 1" is the day's first
+    // visit — matching the detail page's numbering (which sorts ascending).
+    final ordered = <UnplannedVisit>[...status.visits]..sort((a, b) {
+      final at = a.startedAt ?? a.createdAt;
+      final bt = b.startedAt ?? b.createdAt;
+      if (at == null || bt == null) return 0;
+      return at.compareTo(bt);
+    });
 
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -134,14 +168,31 @@ class _Content extends StatelessWidget {
             statusBadge: activeVisit != null
                 ? const StatusBadge(label: 'On Visit', color: AppColors.blue500)
                 : completed.isNotEmpty
-                    ? const StatusBadge(
-                        label: 'Completed', color: AppColors.green500)
-                    : const StatusBadge(
-                        label: 'Not Started', color: AppColors.textSecondary),
+                ? const StatusBadge(
+                    label: 'Completed',
+                    color: AppColors.green500,
+                  )
+                : const StatusBadge(
+                    label: 'Not Started',
+                    color: AppColors.textSecondary,
+                  ),
           ),
           if (activeVisit != null) ...<Widget>[
-            SizedBox(height: 16.h),
-            _ActiveVisitCard(visit: activeVisit, canRecord: canRecord),
+            if (canRecord) ...<Widget>[
+              SizedBox(height: 16.h),
+              // Status lives in the Today's Status card and the carousel below —
+              // this is just the action.
+              CustomButton(
+                onPressed: () => showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => StopVisitSheet(visit: activeVisit),
+                ),
+                label: 'Complete Visit ->',
+                backgroundColor: AppColors.red500,
+              ),
+            ],
           ] else if (canRecord) ...<Widget>[
             SizedBox(height: 24.h),
             const _StartVisitButton(),
@@ -152,8 +203,11 @@ class _Content extends StatelessWidget {
             children: <Widget>[
               Row(
                 children: <Widget>[
-                  Icon(Icons.timeline_rounded,
-                      color: AppColors.blue500, size: 20.sp),
+                  Icon(
+                    Icons.timeline_rounded,
+                    color: AppColors.blue500,
+                    size: 20.sp,
+                  ),
                   SizedBox(width: 8.w),
                   Text(
                     "Today's Visits",
@@ -179,110 +233,108 @@ class _Content extends StatelessWidget {
           if (ordered.isEmpty)
             const _EmptyToday()
           else
-            ...ordered.map(
-              (v) => Padding(
-                padding: EdgeInsets.only(bottom: 10.h),
-                child: VisitCard(
-                  visit: v,
-                  onTap: () => context.pushNamed(
-                    Routes.unplannedVisitDetailName,
-                    pathParameters: <String, String>{'id': v.id},
-                  ),
-                ),
+            _VisitsCarousel(visits: ordered),
+          SizedBox(height: 24.h),
+          SummaryStatsCard(
+            title: 'Monthly Summary',
+            icon: Icons.insights_rounded,
+            crossAxisCount: 3,
+            onViewDetails: () =>
+                context.pushNamed(Routes.unplannedVisitsHistoryName),
+            stats: <SummaryStatTile>[
+              SummaryStatTile(
+                value: '${summary.totalVisits}',
+                label: 'Total Visits',
               ),
-            ),
+              SummaryStatTile(
+                value: '${summary.visitsCompleted}',
+                label: 'Completed',
+              ),
+              SummaryStatTile(
+                value: '${summary.visitsInProgress}',
+                label: 'In Progress',
+              ),
+            ],
+          ),
+          SizedBox(height: 40.h),
         ],
       ),
     );
   }
 }
 
-class _ActiveVisitCard extends StatelessWidget {
-  const _ActiveVisitCard({required this.visit, required this.canRecord});
+/// Swipeable carousel of the day's visits with animated page dots — mirrors
+/// the odometer home carousel.
+class _VisitsCarousel extends StatefulWidget {
+  const _VisitsCarousel({required this.visits});
 
-  final UnplannedVisit visit;
-  final bool canRecord;
+  final List<UnplannedVisit> visits;
+
+  @override
+  State<_VisitsCarousel> createState() => _VisitsCarouselState();
+}
+
+class _VisitsCarouselState extends State<_VisitsCarousel> {
+  final PageController _controller = PageController();
+  int _currentIndex = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(16.w),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16.r),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: AppColors.blue500.withValues(alpha: 0.05),
-            blurRadius: 20.r,
-            spreadRadius: 2.r,
+    final visits = widget.visits;
+    return Column(
+      children: <Widget>[
+        SizedBox(
+          height: 184.h,
+          child: PageView.builder(
+            controller: _controller,
+            clipBehavior: Clip.none,
+            onPageChanged: (index) => setState(() => _currentIndex = index),
+            itemCount: visits.length,
+            itemBuilder: (context, index) {
+              final visit = visits[index];
+              return VisitSummaryCard(
+                visit: visit,
+                number: index + 1,
+                // A carousel card is one specific visit → open it directly
+                // (focused single view), not the day-grouped tabs/list.
+                onTap: () => context.pushNamed(
+                  Routes.unplannedVisitDetailName,
+                  pathParameters: <String, String>{'id': visit.id},
+                  queryParameters: <String, String>{'focus': '1'},
+                ),
+              );
+            },
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
+        ),
+        if (visits.length > 1) ...<Widget>[
+          SizedBox(height: 16.h),
           Row(
-            children: <Widget>[
-              Container(
-                padding: EdgeInsets.all(8.r),
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List<Widget>.generate(
+              visits.length,
+              (index) => AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOutCubic,
+                margin: EdgeInsets.symmetric(horizontal: 4.w),
+                width: _currentIndex == index ? 24.w : 8.w,
+                height: 8.h,
                 decoration: BoxDecoration(
-                  color: AppColors.blue500.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.directions_walk_rounded,
-                    color: AppColors.blue500, size: 20.sp),
-              ),
-              SizedBox(width: 12.w),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      visit.target.type.label,
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      visit.target.displayName,
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 16.sp,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                  color: _currentIndex == index
+                      ? AppColors.blue500
+                      : AppColors.border,
+                  borderRadius: BorderRadius.circular(4.r),
                 ),
               ),
-              Container(
-                width: 12.w,
-                height: 12.h,
-                decoration: const BoxDecoration(
-                  color: AppColors.blue500,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ],
-          ),
-          if (canRecord) ...<Widget>[
-            SizedBox(height: 16.h),
-            CustomButton(
-              onPressed: () => showModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (_) => StopVisitSheet(visit: visit),
-              ),
-              label: 'Complete Visit ->',
-              backgroundColor: AppColors.red500,
             ),
-          ],
+          ),
         ],
-      ),
+      ],
     );
   }
 }
@@ -312,7 +364,13 @@ class _StartVisitButtonState extends ConsumerState<_StartVisitButton> {
       SnackbarUtils.showSuccess(context, 'Visit started.');
     } on VisitOutOfRangeException catch (e) {
       if (!mounted) return;
-      SnackbarUtils.showWarning(context, e.message);
+      await VisitOutOfRangeDialog.show(
+        context,
+        distanceMeters: e.distanceMeters,
+        radiusMeters: e.radiusMeters,
+        targetName: e.targetName,
+        targetAddress: target.address,
+      );
     } on UnplannedVisitConflictException catch (e) {
       if (!mounted) return;
       ref.invalidate(unplannedVisitsTodayProvider);
@@ -331,7 +389,6 @@ class _StartVisitButtonState extends ConsumerState<_StartVisitButton> {
       onPressed: _start,
       isLoading: _isLoading,
       label: 'Start New Visit',
-      leadingIcon: Icons.add_location_alt_outlined,
     );
   }
 }
@@ -350,8 +407,7 @@ class _EmptyToday extends StatelessWidget {
       ),
       child: Column(
         children: <Widget>[
-          Icon(Icons.pin_drop_outlined,
-              color: AppColors.textHint, size: 48.sp),
+          Icon(Icons.pin_drop_outlined, color: AppColors.textHint, size: 48.sp),
           SizedBox(height: 16.h),
           Text(
             'No visits recorded today',
@@ -362,6 +418,55 @@ class _EmptyToday extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Shimmer placeholders shown while today's status loads.
+class _HomeSkeleton extends StatelessWidget {
+  const _HomeSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Skeletonizer(
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 32.h),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Bone(
+              width: double.infinity,
+              height: 64.h,
+              borderRadius: BorderRadius.circular(16.r),
+            ),
+            SizedBox(height: 16.h),
+            Bone(
+              width: double.infinity,
+              height: 56.h,
+              borderRadius: BorderRadius.circular(16.r),
+            ),
+            SizedBox(height: 32.h),
+            Bone(
+              width: 140.w,
+              height: 16.h,
+              borderRadius: BorderRadius.circular(4.r),
+            ),
+            SizedBox(height: 16.h),
+            Bone(
+              width: double.infinity,
+              height: 184.h,
+              borderRadius: BorderRadius.circular(16.r),
+            ),
+            SizedBox(height: 24.h),
+            Bone(
+              width: double.infinity,
+              height: 180.h,
+              borderRadius: BorderRadius.circular(16.r),
+            ),
+          ],
+        ),
       ),
     );
   }

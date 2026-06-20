@@ -1,5 +1,6 @@
 import 'package:sales_sphere_erp/features/unplanned_visits/domain/unplanned_visit.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/domain/unplanned_visit_exceptions.dart';
+import 'package:sales_sphere_erp/features/unplanned_visits/domain/unplanned_visits_monthly_report.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/domain/unplanned_visits_today.dart';
 
 /// Contract for unplanned-visit reads + writes. The concrete
@@ -12,6 +13,15 @@ abstract class UnplannedVisitRepository {
 
   /// `GET /unplanned-visits/:id`.
   Future<UnplannedVisit> getById(String id);
+
+  /// The month's visits + summary, powering the home summary card and the
+  /// history page.
+  ///
+  /// The backend endpoint (`GET /unplanned-visits/my-monthly-report`) is not
+  /// live yet; the impl assembles this from `status/today` for the current
+  /// month and returns an empty report for other months. Swap to the real
+  /// endpoint here once it ships.
+  Future<UnplannedVisitsMonthlyReport> getMonthlyReport(int year, int month);
 
   /// `POST /unplanned-visits/start`. Creates a visit (`in_progress`) to the
   /// given target. Coordinates are optional (a missing fix sends nulls); the

@@ -63,6 +63,7 @@ import 'package:sales_sphere_erp/features/tour_plans/presentation/pages/add_tour
 import 'package:sales_sphere_erp/features/tour_plans/presentation/pages/edit_tour_plan_detail_page.dart';
 import 'package:sales_sphere_erp/features/tour_plans/presentation/pages/tour_plans_list_page.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/presentation/pages/unplanned_visit_detail_page.dart';
+import 'package:sales_sphere_erp/features/unplanned_visits/presentation/pages/unplanned_visits_history_page.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/presentation/pages/unplanned_visits_home_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -365,10 +366,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const UnplannedVisitsHomePage(),
       ),
       GoRoute(
+        path: Routes.unplannedVisitsHistory,
+        name: Routes.unplannedVisitsHistoryName,
+        builder: (_, __) => const UnplannedVisitsHistoryPage(),
+      ),
+      GoRoute(
         path: Routes.unplannedVisitDetail,
         name: Routes.unplannedVisitDetailName,
-        builder: (context, state) =>
-            UnplannedVisitDetailPage(id: state.pathParameters['id']!),
+        builder: (context, state) => UnplannedVisitDetailPage(
+          id: state.pathParameters['id']!,
+          // `?focus=1` forces a single-visit view (no day grouping), so the
+          // busy-day list can drill into one visit without re-showing the list.
+          focused: state.uri.queryParameters['focus'] == '1',
+        ),
       ),
       // Literal `/attendance/details` MUST be declared before the
       // `:date` route — go_router resolves on declaration order, and

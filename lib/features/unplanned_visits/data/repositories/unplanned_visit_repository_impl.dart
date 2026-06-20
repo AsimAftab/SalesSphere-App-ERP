@@ -7,6 +7,7 @@ import 'package:sales_sphere_erp/features/unplanned_visits/data/unplanned_visits
 import 'package:sales_sphere_erp/features/unplanned_visits/domain/repositories/unplanned_visit_repository.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/domain/unplanned_visit.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/domain/unplanned_visit_exceptions.dart';
+import 'package:sales_sphere_erp/features/unplanned_visits/domain/unplanned_visits_monthly_report.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/domain/unplanned_visits_today.dart';
 
 /// Anti-corruption layer between the wire DTOs and the rest of the app. All
@@ -31,6 +32,28 @@ class UnplannedVisitRepositoryImpl implements UnplannedVisitRepository {
   Future<UnplannedVisit> getById(String id) async {
     final dto = await _api.fetchById(id);
     return _toDomain(dto);
+  }
+
+  @override
+  Future<UnplannedVisitsMonthlyReport> getMonthlyReport(
+    int year,
+    int month,
+  ) async {
+    // TODO(backend): replace with `GET /unplanned-visits/my-monthly-report`
+    // once that endpoint exists. Until then we surface the only history the
+    // server can give us — the rep's visits for *today* — so the summary and
+    // history UI are real and demoable. Past/future months come back empty.
+    final now = DateTime.now();
+    final isCurrentMonth = year == now.year && month == now.month;
+    final visits = isCurrentMonth
+        ? (await getTodayStatus()).visits
+        : const <UnplannedVisit>[];
+    return UnplannedVisitsMonthlyReport(
+      year: year,
+      month: month,
+      records: visits,
+      summary: UnplannedVisitsMonthlySummary.fromVisits(visits),
+    );
   }
 
   @override

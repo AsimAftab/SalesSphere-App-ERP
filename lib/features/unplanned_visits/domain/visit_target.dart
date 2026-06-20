@@ -4,9 +4,10 @@
 enum VisitTargetType { customer, prospect, site }
 
 extension VisitTargetTypeX on VisitTargetType {
-  /// Human label for chips/headers.
+  /// Human label for chips/headers. `customer` reads as `Party` — the mobile
+  /// app speaks "party" for customers (matches the beat-plan stop badge).
   String get label => switch (this) {
-    VisitTargetType.customer => 'Customer',
+    VisitTargetType.customer => 'Party',
     VisitTargetType.prospect => 'Prospect',
     VisitTargetType.site => 'Site',
   };
