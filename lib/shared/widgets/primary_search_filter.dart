@@ -112,8 +112,15 @@ class _PrimarySearchFilterState<T> extends State<PrimarySearchFilter<T>> {
       box.size.bottomRight(Offset.zero),
       ancestor: overlay,
     );
+    // Anchor the menu to the bar's RIGHT edge on every screen size.
+    // `showMenu` picks the horizontal side by comparing the rect's left
+    // vs right margin; a full-width bar makes those near-equal, so
+    // sub-pixel `.w` rounding differences across devices were flipping
+    // the menu between left- and right-alignment. Forcing `left` to be
+    // strictly larger than `right` keeps it right-aligned deterministically
+    // (the menu's right edge lines up with the bar's right edge).
     final position = RelativeRect.fromLTRB(
-      topLeft.dx,
+      bottomRight.dx,
       topLeft.dy,
       overlay.size.width - bottomRight.dx,
       overlay.size.height - bottomRight.dy,

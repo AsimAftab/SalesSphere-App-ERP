@@ -23,6 +23,7 @@ import 'package:sales_sphere_erp/features/tracking/service/tracking_service.dart
 import 'package:sales_sphere_erp/shared/utils/maps_launcher.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
+import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_badge.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
@@ -564,22 +565,12 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
   Widget _emptyStops() {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 48.h),
-      child: Center(
-        child: Column(
-          children: <Widget>[
-            Icon(Icons.route_rounded, size: 48.sp,
-                color: AppColors.primary.withValues(alpha: 0.5)),
-            SizedBox(height: 16.h),
-            Text(
-              _selectedTab == 'All' ? 'No route stops' : 'Nothing here',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
+      child: EmptyStateView(
+        icon: Icons.route_rounded,
+        title: _selectedTab == 'All' ? 'No route stops' : 'Nothing here',
+        message: _selectedTab == 'All'
+            ? 'Stops on this beat plan will appear here.'
+            : 'No stops in this status.',
       ),
     );
   }

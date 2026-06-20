@@ -10,6 +10,7 @@ import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/parties/domain/party.dart';
 import 'package:sales_sphere_erp/features/parties/presentation/providers/parties_providers.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
+import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 import 'package:skeletonizer/skeletonizer.dart';
@@ -596,17 +597,12 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 32.w),
-        child: Text(
-          searching
-              ? 'No parties match your search.'
-              : 'No parties yet. Tap "Add Party" to get started.',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
-        ),
-      ),
+    return EmptyStateView(
+      icon: Icons.people_outline,
+      title: searching ? 'No matches' : 'No parties yet',
+      message: searching
+          ? 'No parties match your search.'
+          : 'Tap "Add Party" to get started.',
     );
   }
 }

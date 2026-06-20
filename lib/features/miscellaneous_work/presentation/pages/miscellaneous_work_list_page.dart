@@ -11,6 +11,7 @@ import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/miscellaneous_work/domain/miscellaneous_work.dart';
 import 'package:sales_sphere_erp/features/miscellaneous_work/presentation/providers/miscellaneous_work_providers.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
+import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 import 'package:skeletonizer/skeletonizer.dart';
@@ -546,17 +547,12 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 32.w),
-        child: Text(
-          hasActiveFilter
-              ? 'No work items match your search.'
-              : 'No work logged yet — tap "Add Work" to log your first task.',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
-        ),
-      ),
+    return EmptyStateView(
+      icon: Icons.work_outline,
+      title: hasActiveFilter ? 'No matches' : 'No work logged yet',
+      message: hasActiveFilter
+          ? 'No work items match your search.'
+          : 'Tap "Add Work" to log your first task.',
     );
   }
 }

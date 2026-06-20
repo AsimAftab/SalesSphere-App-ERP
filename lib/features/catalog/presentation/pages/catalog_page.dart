@@ -10,6 +10,7 @@ import 'package:sales_sphere_erp/features/catalog/presentation/providers/catalog
 import 'package:sales_sphere_erp/features/catalog/presentation/widgets/category_chip.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/widgets/category_visuals.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/widgets/product_card.dart';
+import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
@@ -265,38 +266,12 @@ class _EmptyProducts extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 32.w),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Icon(
-              Icons.inventory_2_outlined,
-              size: 48.sp,
-              color: AppColors.secondary,
-            ),
-            SizedBox(height: 14.h),
-            Text(
-              'No products found',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            SizedBox(height: 4.h),
-            Text(
-              hasQuery
-                  ? 'Try a different search or category.'
-                  : 'Products will appear here.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14.sp, color: AppColors.textHint),
-            ),
-          ],
-        ),
-      ),
+    return EmptyStateView(
+      icon: Icons.inventory_2_outlined,
+      title: 'No products found',
+      message: hasQuery
+          ? 'Try a different search or category.'
+          : 'Products will appear here.',
     );
   }
 }

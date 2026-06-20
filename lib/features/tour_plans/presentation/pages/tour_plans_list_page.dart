@@ -10,6 +10,7 @@ import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/tour_plans/domain/tour_plan.dart';
 import 'package:sales_sphere_erp/features/tour_plans/presentation/providers/tour_plans_providers.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
+import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_search_filter.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/refreshable_list.dart';
@@ -374,17 +375,12 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 32.w),
-        child: Text(
-          hasActiveFilter
-              ? 'No tour plans match the current filters.'
-              : 'No tour plans yet — tap "Add Tour Plan" to submit one.',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
-        ),
-      ),
+    return EmptyStateView(
+      icon: Icons.map_outlined,
+      title: hasActiveFilter ? 'No matches' : 'No tour plans yet',
+      message: hasActiveFilter
+          ? 'No tour plans match the current filters.'
+          : 'Tap "Add Tour Plan" to submit one.',
     );
   }
 }

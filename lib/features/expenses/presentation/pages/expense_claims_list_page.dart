@@ -11,6 +11,7 @@ import 'package:sales_sphere_erp/features/expenses/domain/expense_category.dart'
 import 'package:sales_sphere_erp/features/expenses/domain/expense_claim.dart';
 import 'package:sales_sphere_erp/features/expenses/presentation/providers/expenses_providers.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
+import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_search_filter.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_badge.dart';
@@ -366,7 +367,7 @@ class _ClaimCard extends StatelessWidget {
                     Text(
                       _currency.format(claim.amount),
                       style: TextStyle(
-                        color: AppColors.green500,
+                        color: AppColors.textPrimary,
                         fontSize: 16.sp,
                         fontWeight: FontWeight.w700,
                       ),
@@ -416,17 +417,12 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 32.w),
-        child: Text(
-          hasActiveFilter
-              ? 'No expense claims match the current filters.'
-              : 'No expense claims yet — tap "Add Expense" to log your first one.',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 14.sp),
-        ),
-      ),
+    return EmptyStateView(
+      icon: Icons.receipt_long_outlined,
+      title: hasActiveFilter ? 'No matches' : 'No expense claims yet',
+      message: hasActiveFilter
+          ? 'No expense claims match the current filters.'
+          : 'Tap "Add Expense" to log your first one.',
     );
   }
 }

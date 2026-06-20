@@ -12,6 +12,7 @@ import 'package:sales_sphere_erp/features/invoice/presentation/providers/invoice
 import 'package:sales_sphere_erp/features/invoice/presentation/widgets/invoice_status_visuals.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
+import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_badge.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 import 'package:skeletonizer/skeletonizer.dart';
@@ -265,9 +266,9 @@ class _HistoryList extends StatelessWidget {
   );
 }
 
-/// Friendly empty-tab placeholder: a tinted icon disc over a title and a
-/// one-line hint. Mirrors the builder's "No items added yet" block so the
-/// feature's empty states read as one family.
+/// Friendly empty-tab placeholder: a muted icon over a title and a one-line
+/// hint. Delegates to the shared [EmptyStateView] so the feature's empty
+/// states read as one family with the rest of the app.
 class _EmptyState extends StatelessWidget {
   const _EmptyState({
     required this.icon,
@@ -281,40 +282,7 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        Container(
-          width: 64.r,
-          height: 64.r,
-          decoration: BoxDecoration(
-            color: AppColors.secondary.withValues(alpha: 0.1),
-            shape: BoxShape.circle,
-          ),
-          alignment: Alignment.center,
-          child: Icon(icon, size: 30.sp, color: AppColors.secondary),
-        ),
-        SizedBox(height: 14.h),
-        Text(
-          title,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 16.sp,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        SizedBox(height: 4.h),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 32.w),
-          child: Text(
-            message,
-            textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.textHint, fontSize: 14.sp),
-          ),
-        ),
-      ],
-    );
+    return EmptyStateView(icon: icon, title: title, message: message);
   }
 }
 

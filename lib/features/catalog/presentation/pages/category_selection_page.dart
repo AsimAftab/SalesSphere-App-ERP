@@ -8,6 +8,7 @@ import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/providers/catalog_providers.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/widgets/category_visuals.dart';
+import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
@@ -39,6 +40,11 @@ class _CategorySelectionPageState extends ConsumerState<CategorySelectionPage> {
     } else {
       context.go(Routes.catalog);
     }
+  }
+
+  Future<void> _refresh() async {
+    ref.invalidate(catalogCategoriesProvider);
+    await Future<void>.delayed(const Duration(milliseconds: 600));
   }
 
   void _pick(String? categoryId) {
@@ -105,35 +111,41 @@ class _CategorySelectionPageState extends ConsumerState<CategorySelectionPage> {
                   Expanded(
                     child: filtered.isEmpty
                         ? _EmptyCategories(query: _query.trim())
-                        : GridView.builder(
-                            padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 24.h),
-                            gridDelegate:
-                                SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  crossAxisSpacing: 16.w,
-                                  mainAxisSpacing: 16.h,
-                                ),
-                            // +1 for the leading "All Products" tile.
-                            itemCount: filtered.length + 1,
-                            itemBuilder: (context, index) {
-                              if (index == 0) {
+                        : RefreshIndicator(
+                            onRefresh: _refresh,
+                            color: AppColors.primary,
+                            backgroundColor: AppColors.surface,
+                            child: GridView.builder(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 24.h),
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 2,
+                                    crossAxisSpacing: 16.w,
+                                    mainAxisSpacing: 16.h,
+                                  ),
+                              // +1 for the leading "All Products" tile.
+                              itemCount: filtered.length + 1,
+                              itemBuilder: (context, index) {
+                                if (index == 0) {
+                                  return _CategoryTile(
+                                    name: 'All Products',
+                                    icon: Icons.apps,
+                                    accent: AppColors.secondary,
+                                    onTap: () => _pick(null),
+                                  );
+                                }
+                                final cat = filtered[index - 1];
+                                final vis = categoryVisuals(cat.name);
                                 return _CategoryTile(
-                                  name: 'All Products',
-                                  icon: Icons.apps,
-                                  accent: AppColors.secondary,
-                                  onTap: () => _pick(null),
+                                  name: cat.name,
+                                  icon: vis.icon,
+                                  accent: vis.accent,
+                                  itemCount: cat.itemCount,
+                                  onTap: () => _pick(cat.id),
                                 );
-                              }
-                              final cat = filtered[index - 1];
-                              final vis = categoryVisuals(cat.name);
-                              return _CategoryTile(
-                                name: cat.name,
-                                icon: vis.icon,
-                                accent: vis.accent,
-                                itemCount: cat.itemCount,
-                                onTap: () => _pick(cat.id),
-                              );
-                            },
+                              },
+                            ),
                           ),
                   ),
                 ],
@@ -158,7 +170,11 @@ class _Header extends StatelessWidget {
       child: Row(
         children: <Widget>[
           IconButton(
-            icon: Icon(Icons.arrow_back, color: AppColors.textdark, size: 20.sp),
+            icon: Icon(
+              Icons.arrow_back,
+              color: AppColors.textdark,
+              size: 20.sp,
+            ),
             onPressed: onBack,
             tooltip: 'Back',
           ),
@@ -280,36 +296,10 @@ class _EmptyCategories extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 32.w),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Icon(
-              Icons.search_off_rounded,
-              size: 48.sp,
-              color: AppColors.secondary,
-            ),
-            SizedBox(height: 14.h),
-            Text(
-              'No categories found',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            SizedBox(height: 4.h),
-            Text(
-              'No categories match "$query".',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14.sp, color: AppColors.textHint),
-            ),
-          ],
-        ),
-      ),
+    return EmptyStateView(
+      icon: Icons.search_off_rounded,
+      title: 'No categories found',
+      message: 'No categories match "$query".',
     );
   }
 }
