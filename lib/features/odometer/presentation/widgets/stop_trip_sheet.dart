@@ -17,6 +17,7 @@ import 'package:sales_sphere_erp/features/odometer/presentation/providers/odomet
 import 'package:sales_sphere_erp/shared/utils/error_messages.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
+import 'package:sales_sphere_erp/shared/widgets/primary_image_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 
 class StopTripSheet extends ConsumerStatefulWidget {
@@ -375,28 +376,32 @@ class _StartImagePreview extends StatelessWidget {
         ),
       );
     }
-    return CachedNetworkImage(
-      imageUrl: url!,
-      height: 140.h,
-      width: double.infinity,
-      fit: BoxFit.cover,
-      placeholder: (_, __) => Container(
+    return GestureDetector(
+      onTap: () =>
+          showPrimaryImagePreview(context, CachedNetworkImageProvider(url!)),
+      child: CachedNetworkImage(
+        imageUrl: url!,
         height: 140.h,
-        color: AppColors.background,
-        child: const Center(
-          child: SizedBox(
-            width: 22,
-            height: 22,
-            child: CircularProgressIndicator(strokeWidth: 2),
+        width: double.infinity,
+        fit: BoxFit.cover,
+        placeholder: (_, __) => Container(
+          height: 140.h,
+          color: AppColors.background,
+          child: const Center(
+            child: SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
           ),
         ),
-      ),
-      errorWidget: (_, __, ___) => Container(
-        height: 140.h,
-        color: AppColors.background,
-        child: Center(
-          child: Icon(Icons.broken_image_rounded,
-              color: AppColors.textHint, size: 24.sp),
+        errorWidget: (_, __, ___) => Container(
+          height: 140.h,
+          color: AppColors.background,
+          child: Center(
+            child: Icon(Icons.broken_image_rounded,
+                color: AppColors.textHint, size: 24.sp),
+          ),
         ),
       ),
     );

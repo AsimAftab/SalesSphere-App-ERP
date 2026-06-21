@@ -3,8 +3,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/geo_distance.dart';
 import '../../../../shared/widgets/custom_button.dart';
+import '../../../../shared/widgets/visit_detail_field.dart';
 
-class RouteStopCard extends StatelessWidget {
+class RouteStopCard extends StatefulWidget {
   final String name;
   final String ownerName;
   final String type;
@@ -62,14 +63,24 @@ class RouteStopCard extends StatelessWidget {
   });
 
   @override
+  State<RouteStopCard> createState() => _RouteStopCardState();
+}
+
+class _RouteStopCardState extends State<RouteStopCard> {
+  /// Whether the captured-at-stop details (description / follow-up / photo) are
+  /// expanded. Collapsed by default so a long route stays compact.
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
-    final String initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
-    final isVisited = status.toLowerCase() == 'visited';
-    final isPending = status.toLowerCase() == 'pending';
-    
+    final String initial =
+        widget.name.isNotEmpty ? widget.name[0].toUpperCase() : '?';
+    final isVisited = widget.status.toLowerCase() == 'visited';
+    final isPending = widget.status.toLowerCase() == 'pending';
+
     Color statusColor;
     IconData statusIcon;
-    
+
     if (isVisited) {
       statusColor = AppColors.success;
       statusIcon = Icons.task_alt_rounded;
@@ -80,11 +91,11 @@ class RouteStopCard extends StatelessWidget {
       statusColor = AppColors.error;
       statusIcon = Icons.block_rounded;
     }
-    
+
     Color typeColor;
-    if (type.toLowerCase() == 'prospect') {
+    if (widget.type.toLowerCase() == 'prospect') {
       typeColor = Colors.orange;
-    } else if (type.toLowerCase() == 'site') {
+    } else if (widget.type.toLowerCase() == 'site') {
       typeColor = AppColors.success;
     } else {
       typeColor = const Color(0xFF197ADC); // Bright blue
@@ -107,7 +118,11 @@ class RouteStopCard extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onTap,
+          // Tapping a visited card toggles its captured details; other states
+          // fall back to the supplied callback.
+          onTap: isVisited
+              ? () => setState(() => _expanded = !_expanded)
+              : widget.onTap,
           borderRadius: BorderRadius.circular(20.r),
           child: Padding(
             padding: EdgeInsets.all(16.w),
@@ -141,7 +156,7 @@ class RouteStopCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(6.r),
                           ),
                           child: Text(
-                            type,
+                            widget.type,
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 10.sp,
@@ -153,7 +168,7 @@ class RouteStopCard extends StatelessWidget {
                       ],
                     ),
                     SizedBox(width: 16.w),
-                    
+
                     // Details
                     Expanded(
                       child: Column(
@@ -169,7 +184,7 @@ class RouteStopCard extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      name,
+                                      widget.name,
                                       style: TextStyle(
                                         fontSize: 16.sp,
                                         fontWeight: FontWeight.w700,
@@ -181,7 +196,7 @@ class RouteStopCard extends StatelessWidget {
                                     ),
                                     SizedBox(height: 2.h),
                                     Text(
-                                      ownerName,
+                                      widget.ownerName,
                                       style: TextStyle(
                                         fontSize: 14.sp,
                                         color: AppColors.textSecondary,
@@ -209,7 +224,7 @@ class RouteStopCard extends StatelessWidget {
                             ],
                           ),
                           SizedBox(height: 8.h),
-                          
+
                           // Address
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -222,7 +237,7 @@ class RouteStopCard extends StatelessWidget {
                               SizedBox(width: 4.w),
                               Expanded(
                                 child: Text(
-                                  address,
+                                  widget.address,
                                   style: TextStyle(
                                     fontSize: 12.sp,
                                     color: AppColors.textSecondary,
@@ -240,11 +255,9 @@ class RouteStopCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                
 
-                
                 SizedBox(height: 16.h),
-                
+
                 // Bottom Buttons
                 Row(
                   children: [
@@ -254,7 +267,7 @@ class RouteStopCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12.r),
                         child: InkWell(
                           borderRadius: BorderRadius.circular(12.r),
-                          onTap: onOpenMap,
+                          onTap: widget.onOpenMap,
                           child: Container(
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
@@ -288,7 +301,7 @@ class RouteStopCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12.r),
                         child: InkWell(
                           borderRadius: BorderRadius.circular(12.r),
-                          onTap: onOpenDirections,
+                          onTap: widget.onOpenDirections,
                           child: Container(
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
@@ -317,31 +330,31 @@ class RouteStopCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                
+
                 if (isPending) ...[
                   SizedBox(height: 16.h),
-                  if (!isStarted) _buildGeofenceBanner(),
-                  if (isStarted)
+                  if (!widget.isStarted) _buildGeofenceBanner(),
+                  if (widget.isStarted)
                     CustomButton(
                       label: 'Stop',
-                      onPressed: onStop,
+                      onPressed: widget.onStop,
                       backgroundColor: AppColors.error,
                     )
                   else
                     CustomButton(
                       label: 'Start',
-                      onPressed: canCheckIn ? onStart : null,
-                      isDisabled: !canCheckIn,
+                      onPressed: widget.canCheckIn ? widget.onStart : null,
+                      isDisabled: !widget.canCheckIn,
                       type: ButtonType.primary,
                     ),
                   SizedBox(height: 12.h),
-                  if (!isStarted)
+                  if (!widget.isStarted)
                     Material(
                     color: AppColors.error.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12.r),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(12.r),
-                      onTap: onSkip,
+                      onTap: widget.onSkip,
                       child: Container(
                         alignment: Alignment.center,
                         padding: EdgeInsets.symmetric(vertical: 12.h),
@@ -360,7 +373,7 @@ class RouteStopCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                ] else if (status.toLowerCase() == 'skipped') ...[
+                ] else if (widget.status.toLowerCase() == 'skipped') ...[
                   SizedBox(height: 16.h),
                   Container(
                     padding: EdgeInsets.symmetric(vertical: 12.h),
@@ -378,7 +391,7 @@ class RouteStopCard extends StatelessWidget {
                           Icon(Icons.block_rounded, size: 16.sp, color: AppColors.error),
                           SizedBox(width: 8.w),
                           Text(
-                            'Skipped${(endTime ?? startTime) != null ? ' at ${endTime ?? startTime}' : ''}',
+                            'Skipped${(widget.endTime ?? widget.startTime) != null ? ' at ${widget.endTime ?? widget.startTime}' : ''}',
                             style: TextStyle(
                               color: AppColors.error,
                               fontSize: 14.sp,
@@ -389,7 +402,7 @@ class RouteStopCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                ] else if (startTime != null && endTime != null) ...[
+                ] else if (widget.startTime != null && widget.endTime != null) ...[
                   SizedBox(height: 16.h),
                   Container(
                     padding: EdgeInsets.symmetric(vertical: 12.h),
@@ -400,89 +413,78 @@ class RouteStopCard extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        _buildStatColumn('Started', startTime!, Icons.play_circle_outline_rounded, AppColors.textSecondary),
+                        _buildStatColumn('Started', widget.startTime!, Icons.play_circle_outline_rounded, AppColors.textSecondary),
                         Container(width: 1.w, height: 32.h, color: AppColors.border),
-                        _buildStatColumn('Ended', endTime!, Icons.stop_circle_outlined, AppColors.textSecondary),
-                        if (timeSpent != null) ...[
+                        _buildStatColumn('Ended', widget.endTime!, Icons.stop_circle_outlined, AppColors.textSecondary),
+                        if (widget.timeSpent != null) ...[
                           Container(width: 1.w, height: 32.h, color: AppColors.border),
-                          _buildStatColumn('Time Spent', timeSpent!, Icons.timer_outlined, AppColors.primary, valueColor: AppColors.primary),
+                          _buildStatColumn('Time Spent', widget.timeSpent!, Icons.timer_outlined, AppColors.primary, valueColor: AppColors.primary),
                         ]
                       ],
                     ),
                   ),
                 ],
-                if (isVisited && _hasVisitExtras) ...[
-                  if (photoUrl != null) ...[
-                    SizedBox(height: 12.h),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12.r),
-                      child: Image.network(
-                        photoUrl!,
-                        height: 160.h,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        loadingBuilder: (context, child, progress) =>
-                            progress == null
-                                ? child
-                                : Container(
-                                    height: 160.h,
-                                    alignment: Alignment.center,
-                                    color: AppColors.surface,
-                                    child: const CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  ),
-                        errorBuilder: (context, _, __) => Container(
-                          height: 160.h,
-                          alignment: Alignment.center,
-                          color: AppColors.surface,
-                          child: Icon(
-                            Icons.broken_image_outlined,
-                            color: AppColors.textSecondary,
-                            size: 28.sp,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                  if (notes != null && notes!.trim().isNotEmpty) ...[
-                    SizedBox(height: 12.h),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(Icons.sticky_note_2_outlined,
-                            size: 16.sp, color: AppColors.textSecondary),
-                        SizedBox(width: 8.w),
-                        Expanded(
-                          child: Text(
-                            notes!.trim(),
+
+                // Captured-at-stop details (visited stops only): collapsed by
+                // default behind a toggle, expanded into the same captioned
+                // Description / Follow-up / photo blocks the visit detail page uses.
+                if (isVisited) ...[
+                  SizedBox(height: 12.h),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(8.r),
+                    onTap: () => setState(() => _expanded = !_expanded),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 6.h),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            _expanded ? 'Show less' : 'Show details',
                             style: TextStyle(
-                              fontSize: 14.sp,
-                              color: AppColors.textPrimary,
-                              height: 1.4,
+                              color: AppColors.textSecondary,
+                              fontSize: 13.sp,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  if (followUp != null) ...[
-                    SizedBox(height: 10.h),
-                    Row(
-                      children: [
-                        Icon(Icons.event_repeat_rounded,
-                            size: 16.sp, color: AppColors.primary),
-                        SizedBox(width: 8.w),
-                        Text(
-                          'Follow-up: $followUp',
-                          style: TextStyle(
-                            fontSize: 14.sp,
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w600,
+                          SizedBox(width: 4.w),
+                          Icon(
+                            _expanded
+                                ? Icons.keyboard_arrow_up_rounded
+                                : Icons.keyboard_arrow_down_rounded,
+                            size: 20.sp,
+                            color: AppColors.textSecondary,
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
+                  ),
+                  if (_expanded) ...[
+                    SizedBox(height: 4.h),
+                    visitDetailDivider(),
+                    SizedBox(height: 14.h),
+                    VisitDetailField(
+                      icon: Icons.sticky_note_2_outlined,
+                      label: 'Description',
+                      value: (widget.notes != null &&
+                              widget.notes!.trim().isNotEmpty)
+                          ? widget.notes!.trim()
+                          : null,
+                      emptyText: 'No description added',
+                    ),
+                    SizedBox(height: 14.h),
+                    visitDetailDivider(),
+                    SizedBox(height: 14.h),
+                    VisitDetailField(
+                      icon: Icons.event_repeat_rounded,
+                      label: 'Follow-up Date',
+                      value: widget.followUp,
+                      emptyText: 'No follow-up scheduled',
+                      valueColor: AppColors.primary,
+                    ),
+                    SizedBox(height: 14.h),
+                    visitDetailDivider(),
+                    SizedBox(height: 14.h),
+                    VisitDetailPhoto(url: widget.photoUrl),
                   ],
                 ],
               ],
@@ -493,33 +495,28 @@ class RouteStopCard extends StatelessWidget {
     );
   }
 
-  bool get _hasVisitExtras =>
-      photoUrl != null ||
-      (notes != null && notes!.trim().isNotEmpty) ||
-      followUp != null;
-
   /// Geofence status shown above the Start button for a pending stop:
   /// green "within range" when the rep is close enough to check in, amber
   /// "move closer" with the distance when out of range, or a neutral
   /// "waiting for your location" when we don't have a position yet. Renders
   /// nothing in non-geofenced contexts (no measurement + check-in allowed).
   Widget _buildGeofenceBanner() {
-    final hasProximity = proximityMeters != null;
-    if (canCheckIn && !hasProximity) return const SizedBox.shrink();
+    final hasProximity = widget.proximityMeters != null;
+    if (widget.canCheckIn && !hasProximity) return const SizedBox.shrink();
 
     final Color color;
     final IconData icon;
     final String text;
-    if (canCheckIn) {
+    if (widget.canCheckIn) {
       color = AppColors.success;
       icon = Icons.where_to_vote_rounded;
       text = 'Within range — you can check in'
-          '${hasProximity ? ' (${formatDistanceMeters(proximityMeters!)})' : ''}';
+          '${hasProximity ? ' (${formatDistanceMeters(widget.proximityMeters!)})' : ''}';
     } else if (hasProximity) {
       color = AppColors.warning;
       icon = Icons.location_searching_rounded;
       text = 'Move closer to check in — '
-          '${formatDistanceMeters(proximityMeters!)} away';
+          '${formatDistanceMeters(widget.proximityMeters!)} away';
     } else {
       color = AppColors.textSecondary;
       icon = Icons.gps_not_fixed_rounded;
@@ -574,4 +571,3 @@ class RouteStopCard extends StatelessWidget {
     );
   }
 }
-

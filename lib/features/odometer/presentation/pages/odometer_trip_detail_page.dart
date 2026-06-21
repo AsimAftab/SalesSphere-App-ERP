@@ -15,6 +15,7 @@ import 'package:sales_sphere_erp/features/odometer/presentation/providers/odomet
 import 'package:sales_sphere_erp/features/odometer/presentation/widgets/trip_card.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
+import 'package:sales_sphere_erp/shared/widgets/primary_image_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/section_card.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 import 'package:skeletonizer/skeletonizer.dart';
@@ -800,7 +801,8 @@ class _ZoomableImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => _showViewer(context),
+      onTap: () =>
+          showPrimaryImagePreview(context, CachedNetworkImageProvider(url)),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(10.r),
         child: CachedNetworkImage(
@@ -830,34 +832,6 @@ class _ZoomableImage extends StatelessWidget {
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  void _showViewer(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.black,
-        insetPadding: EdgeInsets.all(12.w),
-        child: Stack(
-          children: [
-            InteractiveViewer(
-              maxScale: 4,
-              child: Center(
-                child: CachedNetworkImage(imageUrl: url, fit: BoxFit.contain),
-              ),
-            ),
-            Positioned(
-              top: 4,
-              right: 4,
-              child: IconButton(
-                icon: const Icon(Icons.close_rounded, color: Colors.white),
-                onPressed: () => Navigator.of(ctx).pop(),
-              ),
-            ),
-          ],
         ),
       ),
     );
