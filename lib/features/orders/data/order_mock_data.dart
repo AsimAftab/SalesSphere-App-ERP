@@ -101,6 +101,50 @@ OrderLineItem _seedLine(
 /// max existing suffix).
 final kMockOrderHistory = <Order>[
   Order(
+    id: 'inv_1008',
+    number: 'ORD-2026-0008',
+    kind: OrderKind.order,
+    status: OrderStatus.completed,
+    party: kMockOrderParties[4],
+    deliveryDate: DateTime(2026, 6, 20),
+    items: <OrderLineItem>[
+      _seedLine('p_cpvc_cement', quantity: 10),
+      _seedLine('p_paint_exterior', quantity: 4),
+    ],
+    overallDiscountPercent: 0,
+    tax: kTaxOptions[1],
+    createdAt: DateTime(2026, 6, 20, 9, 30),
+  ),
+  Order(
+    id: 'inv_1007',
+    number: 'ORD-2026-0007',
+    kind: OrderKind.order,
+    status: OrderStatus.completed,
+    party: kMockOrderParties[2],
+    deliveryDate: DateTime(2026, 6, 19),
+    items: <OrderLineItem>[
+      _seedLine('p_san_toilet', quantity: 5),
+    ],
+    overallDiscountPercent: 0,
+    tax: kTaxOptions[1],
+    createdAt: DateTime(2026, 6, 19, 14),
+  ),
+  Order(
+    id: 'inv_1006',
+    number: 'ORD-2026-0006',
+    kind: OrderKind.order,
+    status: OrderStatus.completed,
+    party: kMockOrderParties[0],
+    deliveryDate: DateTime(2026, 6, 18),
+    items: <OrderLineItem>[
+      _seedLine('p_marble_carrara', quantity: 4),
+      _seedLine('p_san_mixer', quantity: 3),
+    ],
+    overallDiscountPercent: 0,
+    tax: kTaxOptions[1],
+    createdAt: DateTime(2026, 6, 18, 10, 30),
+  ),
+  Order(
     id: 'inv_1005',
     number: 'ORD-2026-0005',
     kind: OrderKind.order,

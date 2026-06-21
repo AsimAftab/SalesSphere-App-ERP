@@ -213,9 +213,16 @@ class _CheckInOutButtonState extends ConsumerState<CheckInOutButton> {
     final hasCheckIn = record?.hasCheckIn ?? false;
     final hasCheckOut = record?.hasCheckOut ?? false;
 
-    if (hasCheckOut) {
-      // Hidden once fully checked out; keep the slot so the calendar doesn't
-      // jump up.
+    // A record with no check-in timestamp was marked administratively (e.g. a
+    // manager marked the rep present from the web because they couldn't check
+    // in on time). A self check-in always stamps `checkInAt`, so a record
+    // without one is a manual mark — there's no self-service action left and
+    // the server would reject a check-in anyway, so hide the button.
+    final markedWithoutCheckIn = record != null && !hasCheckIn && !hasCheckOut;
+
+    if (hasCheckOut || markedWithoutCheckIn) {
+      // Hidden once fully checked out or when attendance was marked for the
+      // rep; keep the slot so the calendar doesn't jump up.
       return const Visibility(
         visible: false,
         maintainSize: true,

@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
-import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
 /// Hub screen surfaced from the bottom-nav "Field Ops" tab. Groups the
@@ -97,7 +96,7 @@ class FieldOpsPage extends StatelessWidget {
       title: 'Collection',
       subtitle: 'Record payments collected from parties',
       iconColor: AppColors.yellow500,
-      onTap: () => SnackbarUtils.showInfo(context, 'Collection — coming soon.'),
+      onTap: () => context.push(Routes.collections),
     ),
     _TileSpec(
       icon: Icons.event_note_outlined,
