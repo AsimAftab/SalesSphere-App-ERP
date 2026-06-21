@@ -1,42 +1,42 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:sales_sphere_erp/features/catalog/domain/product.dart';
-import 'package:sales_sphere_erp/features/invoice/data/invoice_mock_data.dart';
-import 'package:sales_sphere_erp/features/invoice/domain/invoice.dart';
-import 'package:sales_sphere_erp/features/invoice/domain/invoice_draft_data.dart';
-import 'package:sales_sphere_erp/features/invoice/domain/invoice_line_item.dart';
-import 'package:sales_sphere_erp/features/invoice/domain/invoice_organization.dart';
-import 'package:sales_sphere_erp/features/invoice/domain/invoice_party.dart';
-import 'package:sales_sphere_erp/features/invoice/domain/tax_option.dart';
+import 'package:sales_sphere_erp/features/orders/data/order_mock_data.dart';
+import 'package:sales_sphere_erp/features/orders/domain/order.dart';
+import 'package:sales_sphere_erp/features/orders/domain/order_draft_data.dart';
+import 'package:sales_sphere_erp/features/orders/domain/order_line_item.dart';
+import 'package:sales_sphere_erp/features/orders/domain/order_organization.dart';
+import 'package:sales_sphere_erp/features/orders/domain/order_party.dart';
+import 'package:sales_sphere_erp/features/orders/domain/tax_option.dart';
 
-part 'invoice_providers.g.dart';
+part 'order_providers.g.dart';
 
 /// Parties offered in the searchable "Select party" sheet. Synchronous —
 /// no API/drift yet (mock-only). Swap for a repository read when the
-/// invoice feature is wired to the backend.
+/// order feature is wired to the backend.
 @riverpod
-List<InvoiceParty> invoiceParties(Ref ref) => kMockInvoiceParties;
+List<OrderParty> orderParties(Ref ref) => kMockOrderParties;
 
-/// Tax lines offered in the invoice's tax picker.
+/// Tax lines offered in the order's tax picker.
 @riverpod
 List<TaxOption> taxOptions(Ref ref) => kTaxOptions;
 
-/// The selling organisation rendered as the "From" party on the invoice
+/// The selling organisation rendered as the "From" party on the order
 /// detail page. Mock-only — swap for the authenticated tenant's profile
 /// when the backend lands.
 @riverpod
-InvoiceOrganization invoiceOrganization(Ref ref) => kMockInvoiceOrganization;
+OrderOrganization orderOrganization(Ref ref) => kMockOrderOrganization;
 
-/// The live invoice-builder draft. `keepAlive` so it survives navigation
+/// The live order-builder draft. `keepAlive` so it survives navigation
 /// reliably (the Add-Item catalog round-trip, the History push). It is
 /// reset to empty after a successful create, and when the user leaves the
-/// `/invoice` zone for another tab (handled by the router redirect in
+/// `/order` zone for another tab (handled by the router redirect in
 /// `app_router.dart`).
 @Riverpod(keepAlive: true)
-class InvoiceDraft extends _$InvoiceDraft {
+class OrderDraft extends _$OrderDraft {
   @override
-  InvoiceDraftData build() => InvoiceDraftData.initial(kDefaultTaxOption);
+  OrderDraftData build() => OrderDraftData.initial(kDefaultTaxOption);
 
-  void selectParty(InvoiceParty party) => state = state.copyWith(party: party);
+  void selectParty(OrderParty party) => state = state.copyWith(party: party);
 
   void clearParty() => state = state.copyWith(clearParty: true);
 
@@ -50,21 +50,21 @@ class InvoiceDraft extends _$InvoiceDraft {
     final existing = <String>{for (final line in state.items) line.productId};
     final additions = products
         .where((p) => !existing.contains(p.id))
-        .map(InvoiceLineItem.fromProduct)
+        .map(OrderLineItem.fromProduct)
         .toList(growable: false);
     if (additions.isEmpty) return;
     state = state.copyWith(
-      items: <InvoiceLineItem>[...state.items, ...additions],
+      items: <OrderLineItem>[...state.items, ...additions],
     );
   }
 
   /// Merge a catalog cart (productId → quantity) into the draft. New
   /// products become lines at the cart quantity (capped to stock);
-  /// products already on the invoice are left untouched (edit their
+  /// products already on the order are left untouched (edit their
   /// quantity on the line instead).
   void addFromCart(Map<String, int> cart, List<Product> products) {
     final existing = <String>{for (final line in state.items) line.productId};
-    final additions = <InvoiceLineItem>[];
+    final additions = <OrderLineItem>[];
     for (final entry in cart.entries) {
       if (existing.contains(entry.key)) continue;
       Product? product;
@@ -76,12 +76,12 @@ class InvoiceDraft extends _$InvoiceDraft {
       }
       if (product == null || product.stock <= 0) continue;
       additions.add(
-        InvoiceLineItem.fromProduct(product, quantity: entry.value),
+        OrderLineItem.fromProduct(product, quantity: entry.value),
       );
     }
     if (additions.isEmpty) return;
     state = state.copyWith(
-      items: <InvoiceLineItem>[...state.items, ...additions],
+      items: <OrderLineItem>[...state.items, ...additions],
     );
   }
 
@@ -104,7 +104,7 @@ class InvoiceDraft extends _$InvoiceDraft {
   );
 
   /// Sets the base price implied by a discount off the listed price —
-  /// the inverse of [InvoiceLineItem.discountPercent]. Keeps base price
+  /// the inverse of [OrderLineItem.discountPercent]. Keeps base price
   /// and discount as two views of the same value.
   void updateDiscountPercent(String productId, double discountPercent) =>
       _patch(productId, (line) {
@@ -117,50 +117,50 @@ class InvoiceDraft extends _$InvoiceDraft {
 
   void setTax(TaxOption tax) => state = state.copyWith(tax: tax);
 
-  void reset() => state = InvoiceDraftData.initial(kDefaultTaxOption);
+  void reset() => state = OrderDraftData.initial(kDefaultTaxOption);
 
   void _patch(
     String productId,
-    InvoiceLineItem Function(InvoiceLineItem) update,
+    OrderLineItem Function(OrderLineItem) update,
   ) {
     final index = state.items.indexWhere((line) => line.productId == productId);
     if (index == -1) return;
-    final next = <InvoiceLineItem>[...state.items];
+    final next = <OrderLineItem>[...state.items];
     next[index] = update(next[index]);
     state = state.copyWith(items: next);
   }
 }
 
-/// In-memory list of saved invoices + estimates, seeded from the mock
+/// In-memory list of saved orders + estimates, seeded from the mock
 /// corpus. The history screen watches this; the controller prepends new
 /// records after a successful create.
 ///
 /// Async so the history screen has a real loading window to paint a
 /// skeleton against (mirrors `ExpenseClaimsList`). `keepAlive` so created
 /// records persist after leaving the page — swap `build` for a
-/// `repo.getInvoices()` call when a backend lands.
+/// `repo.getOrders()` call when a backend lands.
 @Riverpod(keepAlive: true)
-class InvoiceHistory extends _$InvoiceHistory {
+class OrderHistory extends _$OrderHistory {
   @override
-  Future<List<Invoice>> build() async {
+  Future<List<Order>> build() async {
     await Future<void>.delayed(const Duration(milliseconds: 600));
-    return List<Invoice>.from(kMockInvoiceHistory);
+    return List<Order>.from(kMockOrderHistory);
   }
 
-  /// Insert [invoice] at the head of the list. Called by the controller
+  /// Insert [order] at the head of the list. Called by the controller
   /// after a successful create.
-  void prependLocal(Invoice invoice) {
-    final current = state.value ?? const <Invoice>[];
-    if (current.any((i) => i.id == invoice.id)) return;
-    state = AsyncValue<List<Invoice>>.data(<Invoice>[invoice, ...current]);
+  void prependLocal(Order order) {
+    final current = state.value ?? const <Order>[];
+    if (current.any((i) => i.id == order.id)) return;
+    state = AsyncValue<List<Order>>.data(<Order>[order, ...current]);
   }
 
   /// Drop the record with [id] from the list. Backs the estimate delete
-  /// action (and the convert-to-invoice flow, which removes the source
-  /// estimate after creating the invoice).
+  /// action (and the convert-to-order flow, which removes the source
+  /// estimate after creating the order).
   void removeLocal(String id) {
-    final current = state.value ?? const <Invoice>[];
-    state = AsyncValue<List<Invoice>>.data(
+    final current = state.value ?? const <Order>[];
+    state = AsyncValue<List<Order>>.data(
       current.where((i) => i.id != id).toList(growable: false),
     );
   }
@@ -169,10 +169,10 @@ class InvoiceHistory extends _$InvoiceHistory {
   /// state so the list paints the skeleton again, simulates a round-trip,
   /// then re-emits the current list (locally-created rows are preserved).
   Future<void> refresh() async {
-    final current = state.value ?? const <Invoice>[];
-    state = const AsyncValue<List<Invoice>>.loading();
+    final current = state.value ?? const <Order>[];
+    state = const AsyncValue<List<Order>>.loading();
     await Future<void>.delayed(const Duration(milliseconds: 600));
-    state = AsyncValue<List<Invoice>>.data(<Invoice>[...current]);
+    state = AsyncValue<List<Order>>.data(<Order>[...current]);
   }
 }
 
@@ -180,10 +180,10 @@ class InvoiceHistory extends _$InvoiceHistory {
 /// when the list hasn't resolved yet or the id isn't present (the detail
 /// page passes the record via `extra` to avoid the former).
 @riverpod
-Invoice? invoiceById(Ref ref, String id) {
-  final all = ref.watch(invoiceHistoryProvider).value ?? const <Invoice>[];
-  for (final invoice in all) {
-    if (invoice.id == id) return invoice;
+Order? orderById(Ref ref, String id) {
+  final all = ref.watch(orderHistoryProvider).value ?? const <Order>[];
+  for (final order in all) {
+    if (order.id == id) return order;
   }
   return null;
 }

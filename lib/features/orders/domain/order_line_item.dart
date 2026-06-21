@@ -2,9 +2,9 @@ import 'package:flutter/foundation.dart';
 
 import 'package:sales_sphere_erp/features/catalog/domain/product.dart';
 
-/// A single product line on an invoice / estimate. Created from a catalog
+/// A single product line on an order / estimate. Created from a catalog
 /// [Product] when picked, then the quantity and base (selling) price are
-/// edited on the invoice builder.
+/// edited on the order builder.
 ///
 /// [basePrice] is the single source of truth for the unit price.
 /// [discountPercent] is **derived** — the markdown of [basePrice] from
@@ -12,8 +12,8 @@ import 'package:sales_sphere_erp/features/catalog/domain/product.dart';
 /// discount are two views of the same value (see the draft notifier).
 /// The line total therefore is simply `quantity * basePrice`.
 @immutable
-class InvoiceLineItem {
-  const InvoiceLineItem({
+class OrderLineItem {
+  const OrderLineItem({
     required this.productId,
     required this.name,
     required this.listedPrice,
@@ -24,12 +24,12 @@ class InvoiceLineItem {
   });
 
   /// Builds a line from a catalog product, capturing its on-hand stock so
-  /// the invoice can cap the quantity. Base price seeds from the listed
+  /// the order can cap the quantity. Base price seeds from the listed
   /// price (i.e. no discount yet).
-  factory InvoiceLineItem.fromProduct(Product product, {int quantity = 1}) {
+  factory OrderLineItem.fromProduct(Product product, {int quantity = 1}) {
     final stock = product.stock;
     final qty = quantity < 1 ? 1 : (stock > 0 && quantity > stock ? stock : quantity);
-    return InvoiceLineItem(
+    return OrderLineItem(
       productId: product.id,
       name: product.name,
       imageUrl: product.imageUrl,
@@ -75,8 +75,8 @@ class InvoiceLineItem {
   /// Line total at the (discounted) base price.
   double get subtotal => quantity * basePrice;
 
-  InvoiceLineItem copyWith({int? quantity, double? basePrice}) {
-    return InvoiceLineItem(
+  OrderLineItem copyWith({int? quantity, double? basePrice}) {
+    return OrderLineItem(
       productId: productId,
       name: name,
       imageUrl: imageUrl,

@@ -21,11 +21,11 @@ import 'package:sales_sphere_erp/features/expenses/presentation/pages/add_expens
 import 'package:sales_sphere_erp/features/expenses/presentation/pages/edit_expense_claim_detail_page.dart';
 import 'package:sales_sphere_erp/features/expenses/presentation/pages/expense_claims_list_page.dart';
 import 'package:sales_sphere_erp/features/home/presentation/pages/home_page.dart';
-import 'package:sales_sphere_erp/features/invoice/domain/invoice.dart';
-import 'package:sales_sphere_erp/features/invoice/presentation/pages/invoice_detail_page.dart';
-import 'package:sales_sphere_erp/features/invoice/presentation/pages/invoice_history_page.dart';
-import 'package:sales_sphere_erp/features/invoice/presentation/pages/invoice_page.dart';
-import 'package:sales_sphere_erp/features/invoice/presentation/providers/invoice_providers.dart';
+import 'package:sales_sphere_erp/features/orders/domain/order.dart';
+import 'package:sales_sphere_erp/features/orders/presentation/pages/order_detail_page.dart';
+import 'package:sales_sphere_erp/features/orders/presentation/pages/order_history_page.dart';
+import 'package:sales_sphere_erp/features/orders/presentation/pages/order_page.dart';
+import 'package:sales_sphere_erp/features/orders/presentation/providers/order_providers.dart';
 import 'package:sales_sphere_erp/features/leaves/domain/leave.dart';
 import 'package:sales_sphere_erp/features/leaves/presentation/pages/add_leave_page.dart';
 import 'package:sales_sphere_erp/features/leaves/presentation/pages/edit_leave_detail_page.dart';
@@ -75,17 +75,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final refresh = RouterRefreshNotifier(ref);
   ref.onDispose(refresh.dispose);
 
-  // Tracks the previous location so we can reset the invoice draft when
-  // the user leaves the `/invoice` zone (e.g. switches tabs). Navigating
+  // Tracks the previous location so we can reset the order draft when
+  // the user leaves the `/order` zone (e.g. switches tabs). Navigating
   // within the zone (the Add-Item catalog, history) keeps the draft.
   String? lastLocation;
 
-  // The invoice draft is kept for a 5-minute grace period after the user
-  // leaves the `/invoice` zone, so a quick detour to another tab doesn't
-  // discard a half-built invoice. Re-entering the zone before the timer
+  // The order draft is kept for a 5-minute grace period after the user
+  // leaves the `/order` zone, so a quick detour to another tab doesn't
+  // discard a half-built order. Re-entering the zone before the timer
   // fires cancels the reset.
-  Timer? invoiceDraftResetTimer;
-  ref.onDispose(() => invoiceDraftResetTimer?.cancel());
+  Timer? orderDraftResetTimer;
+  ref.onDispose(() => orderDraftResetTimer?.cancel());
 
   return GoRouter(
     initialLocation: Routes.splash,
@@ -95,22 +95,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final auth = ref.read(authStateProvider);
       final loc = state.matchedLocation;
 
-      final inInvoiceZone = loc.startsWith(Routes.invoice);
-      final leftInvoiceZone =
-          (lastLocation?.startsWith(Routes.invoice) ?? false) &&
-          !inInvoiceZone;
-      if (leftInvoiceZone) {
+      final inOrderZone = loc.startsWith(Routes.order);
+      final leftOrderZone =
+          (lastLocation?.startsWith(Routes.order) ?? false) &&
+          !inOrderZone;
+      if (leftOrderZone) {
         // Don't reset immediately — schedule it 5 minutes out so brief
         // detours keep the draft. A re-entry (below) cancels it.
-        invoiceDraftResetTimer?.cancel();
-        invoiceDraftResetTimer = Timer(
+        orderDraftResetTimer?.cancel();
+        orderDraftResetTimer = Timer(
           const Duration(minutes: 5),
-          () => ref.read(invoiceDraftProvider.notifier).reset(),
+          () => ref.read(orderDraftProvider.notifier).reset(),
         );
-      } else if (inInvoiceZone) {
+      } else if (inOrderZone) {
         // Back in the zone within the grace period — keep the draft.
-        invoiceDraftResetTimer?.cancel();
-        invoiceDraftResetTimer = null;
+        orderDraftResetTimer?.cancel();
+        orderDraftResetTimer = null;
       }
       lastLocation = loc;
 
@@ -164,9 +164,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const CatalogPage(),
           ),
           GoRoute(
-            path: Routes.invoice,
-            name: Routes.invoiceName,
-            builder: (_, __) => const InvoicePage(),
+            path: Routes.order,
+            name: Routes.orderName,
+            builder: (_, __) => const OrderPage(),
           ),
           GoRoute(
             path: Routes.fieldOps,
@@ -192,28 +192,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: Routes.catalogCategoriesName,
         builder: (_, __) => const CategorySelectionPage(),
       ),
-      // Invoice history (tabs), pushed full-screen over the shell from the
-      // invoice builder.
+      // Order history (tabs), pushed full-screen over the shell from the
+      // order builder.
       GoRoute(
-        path: Routes.invoiceHistory,
-        name: Routes.invoiceHistoryName,
-        builder: (context, state) => InvoiceHistoryPage(
+        path: Routes.orderHistory,
+        name: Routes.orderHistoryName,
+        builder: (context, state) => OrderHistoryPage(
           initialTab: state.extra is int ? state.extra! as int : 0,
         ),
       ),
-      // Read-only invoice / estimate detail, pushed full-screen over the
-      // shell from a history card. Stays within the `/invoice` zone so the
+      // Read-only order / estimate detail, pushed full-screen over the
+      // shell from a history card. Stays within the `/order` zone so the
       // draft isn't reset. `extra` carries the record for instant paint;
       // the page falls back to the store for cold opens / deep links.
       GoRoute(
-        path: Routes.invoiceDetail,
-        name: Routes.invoiceDetailName,
+        path: Routes.orderDetail,
+        name: Routes.orderDetailName,
         builder: (context, state) {
           final id = state.pathParameters['id']!;
           final extra = state.extra;
-          return InvoiceDetailPage(
+          return OrderDetailPage(
             id: id,
-            initial: extra is Invoice ? extra : null,
+            initial: extra is Order ? extra : null,
           );
         },
       ),

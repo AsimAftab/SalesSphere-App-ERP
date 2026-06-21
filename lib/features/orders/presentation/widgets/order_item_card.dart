@@ -5,29 +5,29 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/widgets/product_image.dart';
-import 'package:sales_sphere_erp/features/invoice/domain/invoice_line_item.dart';
-import 'package:sales_sphere_erp/features/invoice/presentation/providers/invoice_providers.dart';
+import 'package:sales_sphere_erp/features/orders/domain/order_line_item.dart';
+import 'package:sales_sphere_erp/features/orders/presentation/providers/order_providers.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/section_card.dart';
 
 final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 0);
 
-/// Editable invoice line: product thumbnail, name + listed price (struck
+/// Editable order line: product thumbnail, name + listed price (struck
 /// through when discounted), a delete button, a quantity stepper, the
 /// linked base price / discount fields, and the live subtotal. Editing
 /// base price updates the discount field and vice-versa (the discount is
-/// the markdown off the listed price). Edits flow into the [InvoiceDraft]
+/// the markdown off the listed price). Edits flow into the [OrderDraft]
 /// notifier; the subtotal and the page summary rebuild off the draft.
-class InvoiceItemCard extends ConsumerStatefulWidget {
-  const InvoiceItemCard({required this.line, super.key});
+class OrderItemCard extends ConsumerStatefulWidget {
+  const OrderItemCard({required this.line, super.key});
 
-  final InvoiceLineItem line;
+  final OrderLineItem line;
 
   @override
-  ConsumerState<InvoiceItemCard> createState() => _InvoiceItemCardState();
+  ConsumerState<OrderItemCard> createState() => _OrderItemCardState();
 }
 
-class _InvoiceItemCardState extends ConsumerState<InvoiceItemCard> {
+class _OrderItemCardState extends ConsumerState<OrderItemCard> {
   late final TextEditingController _quantityController;
   late final TextEditingController _basePriceController;
   late final TextEditingController _discountController;
@@ -79,7 +79,7 @@ class _InvoiceItemCardState extends ConsumerState<InvoiceItemCard> {
     });
   }
 
-  InvoiceDraft get _draft => ref.read(invoiceDraftProvider.notifier);
+  OrderDraft get _draft => ref.read(orderDraftProvider.notifier);
 
   @override
   Widget build(BuildContext context) {

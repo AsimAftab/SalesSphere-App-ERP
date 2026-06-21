@@ -10,16 +10,17 @@ import 'package:intl/intl.dart';
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/providers/catalog_providers.dart';
-import 'package:sales_sphere_erp/features/invoice/domain/invoice.dart';
-import 'package:sales_sphere_erp/features/invoice/domain/invoice_draft_data.dart';
-import 'package:sales_sphere_erp/features/invoice/domain/invoice_party.dart';
-import 'package:sales_sphere_erp/features/invoice/presentation/controllers/invoice_controller.dart';
-import 'package:sales_sphere_erp/features/invoice/presentation/providers/invoice_providers.dart';
-import 'package:sales_sphere_erp/features/invoice/presentation/widgets/invoice_item_card.dart';
+import 'package:sales_sphere_erp/features/orders/domain/order.dart';
+import 'package:sales_sphere_erp/features/orders/domain/order_draft_data.dart';
+import 'package:sales_sphere_erp/features/orders/domain/order_party.dart';
+import 'package:sales_sphere_erp/features/orders/presentation/controllers/order_controller.dart';
+import 'package:sales_sphere_erp/features/orders/presentation/providers/order_providers.dart';
+import 'package:sales_sphere_erp/features/orders/presentation/widgets/order_item_card.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_date_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_option_picker.dart';
+import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
 import 'package:sales_sphere_erp/shared/widgets/party_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/section_card.dart';
@@ -27,18 +28,18 @@ import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
 final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 0);
 
-/// Invoice builder — the Invoice tab's landing page. Pick a party (its
+/// Order builder — the Order tab's landing page. Pick a party (its
 /// owner auto-fills), set a delivery date, add catalog items, tune the
-/// base price / discount + tax, then create an invoice or estimate.
-/// Watches [invoiceDraftProvider]; all maths is derived from the draft.
-class InvoicePage extends ConsumerStatefulWidget {
-  const InvoicePage({super.key});
+/// base price / discount + tax, then create an order or estimate.
+/// Watches [orderDraftProvider]; all maths is derived from the draft.
+class OrderPage extends ConsumerStatefulWidget {
+  const OrderPage({super.key});
 
   @override
-  ConsumerState<InvoicePage> createState() => _InvoicePageState();
+  ConsumerState<OrderPage> createState() => _OrderPageState();
 }
 
-class _InvoicePageState extends ConsumerState<InvoicePage> {
+class _OrderPageState extends ConsumerState<OrderPage> {
   final _ownerController = TextEditingController();
   final _deliveryDateController = TextEditingController();
   final _overallDiscountController = TextEditingController();
@@ -47,7 +48,7 @@ class _InvoicePageState extends ConsumerState<InvoicePage> {
   @override
   void initState() {
     super.initState();
-    final draft = ref.read(invoiceDraftProvider);
+    final draft = ref.read(orderDraftProvider);
     _ownerController.text = draft.party?.ownerName ?? '';
     if (draft.deliveryDate != null) {
       _deliveryDateController.text = DateFormat(
@@ -58,7 +59,7 @@ class _InvoicePageState extends ConsumerState<InvoicePage> {
       _overallDiscountController.text = _num(draft.overallDiscountPercent);
     }
     // Pull anything staged in the catalog cart into the draft. Covers the
-    // "browse the catalog tab, then open the invoice" flow (this page is
+    // "browse the catalog tab, then open the order" flow (this page is
     // recreated whenever the tab is shown). Deferred so we don't mutate a
     // provider during init.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -66,13 +67,13 @@ class _InvoicePageState extends ConsumerState<InvoicePage> {
     });
   }
 
-  /// Moves any catalog-cart products into the invoice draft, then empties
+  /// Moves any catalog-cart products into the order draft, then empties
   /// the cart. Safe to call repeatedly — already-added products are kept.
   void _mergeCartIntoDraft() {
     final cart = ref.read(cartProvider);
     if (cart.isEmpty) return;
     ref
-        .read(invoiceDraftProvider.notifier)
+        .read(orderDraftProvider.notifier)
         .addFromCart(cart, ref.read(catalogProductsProvider));
     ref.read(cartProvider.notifier).clear();
   }
@@ -105,30 +106,30 @@ class _InvoicePageState extends ConsumerState<InvoicePage> {
     });
   }
 
-  Future<void> _create(InvoiceKind kind) async {
-    final draft = ref.read(invoiceDraftProvider);
+  Future<void> _create(OrderKind kind) async {
+    final draft = ref.read(orderDraftProvider);
     if (draft.isEmpty) {
       SnackbarUtils.showError(context, 'Add at least one item first.');
       return;
     }
-    // A party is required for both invoices and estimates. The expected
-    // delivery date is required only for invoices.
+    // A party is required for both orders and estimates. The expected
+    // delivery date is required only for orders.
     if (draft.party == null) {
       SnackbarUtils.showError(context, 'Select a party first.');
       return;
     }
-    if (kind == InvoiceKind.invoice && draft.deliveryDate == null) {
+    if (kind == OrderKind.order && draft.deliveryDate == null) {
       SnackbarUtils.showError(
         context,
-        'Set an expected delivery date to create an invoice.',
+        'Set an expected delivery date to create an order.',
       );
       return;
     }
 
     setState(() => _submitting = true);
-    final controller = ref.read(invoiceControllerProvider.notifier);
-    final created = kind == InvoiceKind.invoice
-        ? await controller.createInvoice()
+    final controller = ref.read(orderControllerProvider.notifier);
+    final created = kind == OrderKind.order
+        ? await controller.createOrder()
         : await controller.createEstimate();
     if (!mounted) return;
     setState(() => _submitting = false);
@@ -139,14 +140,14 @@ class _InvoicePageState extends ConsumerState<InvoicePage> {
 
     SnackbarUtils.showSuccess(
       context,
-      '${invoiceKindLabel(kind)} ${created.number} created.',
+      '${orderKindLabel(kind)} ${created.number} created.',
     );
-    unawaited(context.push(Routes.invoiceHistory, extra: kind.index));
+    unawaited(context.push(Routes.orderHistory, extra: kind.index));
   }
 
   @override
   Widget build(BuildContext context) {
-    final draft = ref.watch(invoiceDraftProvider);
+    final draft = ref.watch(orderDraftProvider);
     _syncOwner(draft.party?.ownerName ?? '');
 
     return DarkStatusBar(
@@ -163,7 +164,7 @@ class _InvoicePageState extends ConsumerState<InvoicePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              _Header(onHistory: () => context.push(Routes.invoiceHistory)),
+              _Header(onHistory: () => context.push(Routes.orderHistory)),
               SizedBox(height: 4.h),
               Expanded(
                 child: SingleChildScrollView(
@@ -191,34 +192,52 @@ class _InvoicePageState extends ConsumerState<InvoicePage> {
                       ),
                       SizedBox(height: 10.h),
                       _ItemsSection(draft: draft),
-                      SizedBox(height: 20.h),
-                      const _SectionHeader(
-                        icon: Icons.receipt_outlined,
-                        title: 'Summary',
-                      ),
-                      SizedBox(height: 10.h),
-                      _SummaryCard(
-                        draft: draft,
-                        overallDiscountController: _overallDiscountController,
-                      ),
+                      // Summary is meaningless without items — keep it hidden
+                      // until the first product is added.
+                      if (!draft.isEmpty) ...<Widget>[
+                        SizedBox(height: 20.h),
+                        const _SectionHeader(
+                          icon: Icons.receipt_outlined,
+                          title: 'Summary',
+                        ),
+                        SizedBox(height: 10.h),
+                        _SummaryCard(
+                          draft: draft,
+                          overallDiscountController: _overallDiscountController,
+                        ),
+                      ],
                       SizedBox(height: 20.h),
                       PrimaryButton(
-                        label: 'Create Invoice',
+                        label: 'Create Order',
                         leadingIcon: Icons.check_circle_outline,
                         isLoading: _submitting,
+                        // Nothing to create without items — keep both actions
+                        // disabled until the first product is added.
+                        isDisabled: draft.isEmpty,
                         onPressed: _submitting
                             ? null
-                            : () => _create(InvoiceKind.invoice),
+                            : () => _create(OrderKind.order),
                       ),
                       SizedBox(height: 12.h),
-                      OutlinedCustomButton(
-                        label: 'Create Estimate',
-                        leadingIcon: Icons.description_outlined,
-                        isLoading: _submitting,
-                        onPressed: _submitting
-                            ? null
-                            : () => _create(InvoiceKind.estimate),
-                      ),
+                      // While empty, render the estimate action as a disabled
+                      // filled button so its disabled state matches the Create
+                      // Order button exactly. Once items exist it returns to
+                      // its normal outlined style.
+                      if (draft.isEmpty)
+                        const PrimaryButton(
+                          label: 'Create Estimate',
+                          leadingIcon: Icons.description_outlined,
+                          isDisabled: true,
+                        )
+                      else
+                        OutlinedCustomButton(
+                          label: 'Create Estimate',
+                          leadingIcon: Icons.description_outlined,
+                          isLoading: _submitting,
+                          onPressed: _submitting
+                              ? null
+                              : () => _create(OrderKind.estimate),
+                        ),
                     ],
                   ),
                 ),
@@ -248,7 +267,7 @@ class _Header extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 Text(
-                  'New Invoice',
+                  'New Order',
                   style: TextStyle(
                     color: AppColors.primary,
                     fontSize: 24.sp,
@@ -257,7 +276,7 @@ class _Header extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Build an invoice or estimate',
+                  'Build an order or estimate',
                   style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 14.sp,
@@ -268,7 +287,7 @@ class _Header extends StatelessWidget {
           ),
           IconButton(
             icon: Icon(Icons.history, color: AppColors.primary, size: 24.sp),
-            tooltip: 'Invoice history',
+            tooltip: 'Order history',
             onPressed: onHistory,
           ),
         ],
@@ -332,17 +351,17 @@ class _PartyDetailCard extends ConsumerWidget {
     required this.deliveryDateController,
   });
 
-  final InvoiceDraftData draft;
+  final OrderDraftData draft;
   final TextEditingController ownerController;
   final TextEditingController deliveryDateController;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final notifier = ref.read(invoiceDraftProvider.notifier);
+    final notifier = ref.read(orderDraftProvider.notifier);
     final now = DateTime.now();
     return SectionCard(
       children: <Widget>[
-        PartyPickerField<InvoiceParty>(
+        PartyPickerField<OrderParty>(
           value: draft.party,
           onChanged: (party) {
             if (party == null) {
@@ -351,7 +370,7 @@ class _PartyDetailCard extends ConsumerWidget {
               notifier.selectParty(party);
             }
           },
-          items: ref.watch(invoicePartiesProvider),
+          items: ref.watch(orderPartiesProvider),
           titleOf: (p) => p.name,
           subtitleOf: (p) => '${p.ownerName} · ${p.address}',
           searchTextOf: (p) => '${p.name} ${p.ownerName} ${p.address}',
@@ -390,7 +409,7 @@ class _PartyDetailCard extends ConsumerWidget {
 class _ItemsSection extends StatelessWidget {
   const _ItemsSection({required this.draft});
 
-  final InvoiceDraftData draft;
+  final OrderDraftData draft;
 
   @override
   Widget build(BuildContext context) {
@@ -399,7 +418,7 @@ class _ItemsSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         for (final line in draft.items) ...<Widget>[
-          InvoiceItemCard(key: ValueKey<String>(line.productId), line: line),
+          OrderItemCard(key: ValueKey<String>(line.productId), line: line),
           SizedBox(height: 12.h),
         ],
       ],
@@ -412,47 +431,18 @@ class _EmptyItems extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(vertical: 32.h, horizontal: 24.w),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: AppColors.border, width: 1.5),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Container(
-            width: 56.r,
-            height: 56.r,
-            decoration: BoxDecoration(
-              color: AppColors.secondary.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.add_shopping_cart_outlined,
-              size: 28.sp,
-              color: AppColors.secondary,
-            ),
-          ),
-          SizedBox(height: 12.h),
-          Text(
-            'No items added yet',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 16.sp,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          SizedBox(height: 4.h),
-          Text(
-            'Tap the "Add Item" button to pick products from the catalog.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.textHint, fontSize: 14.sp),
-          ),
-        ],
-      ),
+    // Shared empty-state treatment (muted icon + title + message in a white
+    // card), matching the unplanned-visits and odometer home pages.
+    return SectionCard(
+      padding: EdgeInsets.symmetric(vertical: 28.h, horizontal: 24.w),
+      children: const <Widget>[
+        EmptyStateView(
+          icon: Icons.add_shopping_cart_outlined,
+          title: 'No items added yet',
+          message: 'Tap the "Add Item" button to pick products '
+              'from the catalog.',
+        ),
+      ],
     );
   }
 }
@@ -463,7 +453,7 @@ class _SummaryCard extends ConsumerWidget {
     required this.overallDiscountController,
   });
 
-  final InvoiceDraftData draft;
+  final OrderDraftData draft;
   final TextEditingController overallDiscountController;
 
   double get _totalSavings {
@@ -476,7 +466,7 @@ class _SummaryCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final notifier = ref.read(invoiceDraftProvider.notifier);
+    final notifier = ref.read(orderDraftProvider.notifier);
     final taxes = ref.watch(taxOptionsProvider);
     final totalUnits = draft.items.fold<int>(0, (sum, i) => sum + i.quantity);
 

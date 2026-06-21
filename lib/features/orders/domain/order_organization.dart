@@ -1,12 +1,12 @@
 import 'package:flutter/foundation.dart';
 
 /// The selling organisation (the app owner's own company) shown as the
-/// "From" party on an invoice / estimate. While invoice is mock-only this
+/// "From" party on an order / estimate. While order is mock-only this
 /// is a single hard-coded record; swap for the authenticated tenant's
 /// profile when the backend lands.
 @immutable
-class InvoiceOrganization {
-  const InvoiceOrganization({
+class OrderOrganization {
+  const OrderOrganization({
     required this.name,
     required this.panVat,
     required this.phone,

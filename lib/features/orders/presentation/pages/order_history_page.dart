@@ -6,10 +6,10 @@ import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
-import 'package:sales_sphere_erp/features/invoice/domain/invoice.dart';
-import 'package:sales_sphere_erp/features/invoice/presentation/controllers/invoice_controller.dart';
-import 'package:sales_sphere_erp/features/invoice/presentation/providers/invoice_providers.dart';
-import 'package:sales_sphere_erp/features/invoice/presentation/widgets/invoice_status_visuals.dart';
+import 'package:sales_sphere_erp/features/orders/domain/order.dart';
+import 'package:sales_sphere_erp/features/orders/presentation/controllers/order_controller.dart';
+import 'package:sales_sphere_erp/features/orders/presentation/providers/order_providers.dart';
+import 'package:sales_sphere_erp/features/orders/presentation/widgets/order_status_visuals.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
@@ -19,21 +19,21 @@ import 'package:skeletonizer/skeletonizer.dart';
 
 final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 0);
 
-/// History of saved invoices + estimates, split across two tabs. Each
+/// History of saved orders + estimates, split across two tabs. Each
 /// card shows the document number, status, party, totals and dates, with
 /// actions to download a PDF (stub) or open the detail page.
-class InvoiceHistoryPage extends ConsumerStatefulWidget {
-  const InvoiceHistoryPage({this.initialTab = 0, super.key});
+class OrderHistoryPage extends ConsumerStatefulWidget {
+  const OrderHistoryPage({this.initialTab = 0, super.key});
 
-  /// 0 = Invoices, 1 = Estimates. Set by the builder when it opens this
+  /// 0 = Orders, 1 = Estimates. Set by the builder when it opens this
   /// page right after a create, so the matching tab is shown first.
   final int initialTab;
 
   @override
-  ConsumerState<InvoiceHistoryPage> createState() => _InvoiceHistoryPageState();
+  ConsumerState<OrderHistoryPage> createState() => _OrderHistoryPageState();
 }
 
-class _InvoiceHistoryPageState extends ConsumerState<InvoiceHistoryPage>
+class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
@@ -57,22 +57,22 @@ class _InvoiceHistoryPageState extends ConsumerState<InvoiceHistoryPage>
     if (context.canPop()) {
       context.pop();
     } else {
-      context.go(Routes.invoice);
+      context.go(Routes.order);
     }
   }
 
   /// Tab label with a trailing count once data has loaded, e.g.
-  /// "Invoices (5)". Hides the count while the list is empty/loading.
+  /// "Orders (5)". Hides the count while the list is empty/loading.
   String _tabLabel(String base, int count) =>
       count > 0 ? '$base ($count)' : base;
 
   @override
   Widget build(BuildContext context) {
-    final historyAsync = ref.watch(invoiceHistoryProvider);
-    final all = historyAsync.value ?? const <Invoice>[];
-    final invoiceCount = all.where((i) => i.kind == InvoiceKind.invoice).length;
+    final historyAsync = ref.watch(orderHistoryProvider);
+    final all = historyAsync.value ?? const <Order>[];
+    final orderCount = all.where((i) => i.kind == OrderKind.order).length;
     final estimateCount = all
-        .where((i) => i.kind == InvoiceKind.estimate)
+        .where((i) => i.kind == OrderKind.estimate)
         .length;
 
     return DarkStatusBar(
@@ -113,7 +113,7 @@ class _InvoiceHistoryPageState extends ConsumerState<InvoiceHistoryPage>
                         size: 22.sp,
                       ),
                       onPressed: () =>
-                          ref.read(invoiceHistoryProvider.notifier).refresh(),
+                          ref.read(orderHistoryProvider.notifier).refresh(),
                       tooltip: 'Refresh',
                     ),
                   ],
@@ -132,7 +132,7 @@ class _InvoiceHistoryPageState extends ConsumerState<InvoiceHistoryPage>
                   fontWeight: FontWeight.w600,
                 ),
                 tabs: <Widget>[
-                  Tab(text: _tabLabel('Invoices', invoiceCount)),
+                  Tab(text: _tabLabel('Orders', orderCount)),
                   Tab(text: _tabLabel('Estimates', estimateCount)),
                 ],
               ),
@@ -142,15 +142,15 @@ class _InvoiceHistoryPageState extends ConsumerState<InvoiceHistoryPage>
                   children: <Widget>[
                     _HistoryList(
                       async: historyAsync,
-                      kind: InvoiceKind.invoice,
+                      kind: OrderKind.order,
                       onRefresh: () =>
-                          ref.read(invoiceHistoryProvider.notifier).refresh(),
+                          ref.read(orderHistoryProvider.notifier).refresh(),
                     ),
                     _HistoryList(
                       async: historyAsync,
-                      kind: InvoiceKind.estimate,
+                      kind: OrderKind.estimate,
                       onRefresh: () =>
-                          ref.read(invoiceHistoryProvider.notifier).refresh(),
+                          ref.read(orderHistoryProvider.notifier).refresh(),
                     ),
                   ],
                 ),
@@ -170,8 +170,8 @@ class _HistoryList extends StatelessWidget {
     required this.onRefresh,
   });
 
-  final AsyncValue<List<Invoice>> async;
-  final InvoiceKind kind;
+  final AsyncValue<List<Order>> async;
+  final OrderKind kind;
   final Future<void> Function() onRefresh;
 
   @override
@@ -195,7 +195,7 @@ class _HistoryList extends StatelessWidget {
             padding: padding,
             itemCount: 4,
             separatorBuilder: (_, __) => SizedBox(height: 12.h),
-            itemBuilder: (_, __) => const _InvoiceCardSkeleton(),
+            itemBuilder: (_, __) => const _OrderCardSkeleton(),
           ),
         ),
       );
@@ -226,14 +226,14 @@ class _HistoryList extends StatelessWidget {
           padding: EdgeInsets.fromLTRB(20.w, 72.h, 20.w, 28.h),
           children: <Widget>[
             _EmptyState(
-              icon: kind == InvoiceKind.invoice
+              icon: kind == OrderKind.order
                   ? Icons.receipt_long_outlined
                   : Icons.description_outlined,
-              title: kind == InvoiceKind.invoice
-                  ? 'No invoices yet'
+              title: kind == OrderKind.order
+                  ? 'No orders yet'
                   : 'No estimates yet',
-              message: kind == InvoiceKind.invoice
-                  ? 'Invoices you create will appear here.'
+              message: kind == OrderKind.order
+                  ? 'Orders you create will appear here.'
                   : 'Estimates you create will appear here.',
             ),
           ],
@@ -249,7 +249,7 @@ class _HistoryList extends StatelessWidget {
         padding: padding,
         itemCount: items.length,
         separatorBuilder: (_, __) => SizedBox(height: 12.h),
-        itemBuilder: (context, index) => _InvoiceCard(invoice: items[index]),
+        itemBuilder: (context, index) => _OrderCard(order: items[index]),
       ),
     );
   }
@@ -288,8 +288,8 @@ class _EmptyState extends StatelessWidget {
 
 /// Stub PDF export — the real generator lands with the backend. For now
 /// it just acknowledges the action.
-void _downloadPdf(BuildContext context, Invoice invoice) {
-  SnackbarUtils.showSuccess(context, 'Preparing ${invoice.number}.pdf…');
+void _downloadPdf(BuildContext context, Order order) {
+  SnackbarUtils.showSuccess(context, 'Preparing ${order.number}.pdf…');
 }
 
 final _dateFmt = DateFormat('dd MMM yyyy');
@@ -297,26 +297,26 @@ final _dateFmt = DateFormat('dd MMM yyyy');
 /// Rich history card: a leading document tile + number/status header, the
 /// party, a totals/dates strip and Download PDF / View Detail actions.
 /// Estimates additionally expose a delete affordance (they're disposable).
-class _InvoiceCard extends ConsumerWidget {
-  const _InvoiceCard({required this.invoice});
+class _OrderCard extends ConsumerWidget {
+  const _OrderCard({required this.order});
 
-  final Invoice invoice;
+  final Order order;
 
-  bool get _isEstimate => invoice.kind == InvoiceKind.estimate;
+  bool get _isEstimate => order.kind == OrderKind.estimate;
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => _DeleteEstimateDialog(number: invoice.number),
+      builder: (ctx) => _DeleteEstimateDialog(number: order.number),
     );
     if (confirmed != true || !context.mounted) return;
-    ref.read(invoiceControllerProvider.notifier).deleteEstimate(invoice.id);
-    SnackbarUtils.showSuccess(context, '${invoice.number} deleted.');
+    ref.read(orderControllerProvider.notifier).deleteEstimate(order.id);
+    SnackbarUtils.showSuccess(context, '${order.number} deleted.');
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final badgeColor = invoiceBadgeColor(invoice);
+    final badgeColor = orderBadgeColor(order);
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -334,8 +334,8 @@ class _InvoiceCard extends ConsumerWidget {
         borderRadius: BorderRadius.circular(16.r),
         child: InkWell(
           onTap: () => context.push(
-            Routes.invoiceDetailPath(invoice.id),
-            extra: invoice,
+            Routes.orderDetailPath(order.id),
+            extra: order,
           ),
           borderRadius: BorderRadius.circular(16.r),
           child: Padding(
@@ -369,7 +369,7 @@ class _InvoiceCard extends ConsumerWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
                       Text(
-                        invoice.number,
+                        order.number,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -379,7 +379,7 @@ class _InvoiceCard extends ConsumerWidget {
                         ),
                       ),
                       Text(
-                        invoiceKindLabel(invoice.kind),
+                        orderKindLabel(order.kind),
                         style: TextStyle(
                           color: AppColors.textHint,
                           fontSize: 12.sp,
@@ -390,12 +390,15 @@ class _InvoiceCard extends ConsumerWidget {
                   ),
                 ),
                 SizedBox(width: 8.w),
-                StatusBadge(
-                  label: invoiceBadgeLabel(invoice),
-                  color: badgeColor,
-                ),
-                if (_isEstimate) ...<Widget>[
-                  SizedBox(width: 2.w),
+                // Estimates are self-evident from the kind label, so they skip
+                // the redundant "Estimate" badge — the delete action takes its
+                // place. Orders show their fulfilment-status badge.
+                if (!_isEstimate)
+                  StatusBadge(
+                    label: orderBadgeLabel(order),
+                    color: badgeColor,
+                  )
+                else
                   SizedBox(
                     width: 34.w,
                     height: 34.w,
@@ -411,7 +414,6 @@ class _InvoiceCard extends ConsumerWidget {
                       onPressed: () => _confirmDelete(context, ref),
                     ),
                   ),
-                ],
               ],
             ),
             SizedBox(height: 10.h),
@@ -425,7 +427,7 @@ class _InvoiceCard extends ConsumerWidget {
                 SizedBox(width: 6.w),
                 Expanded(
                   child: Text(
-                    invoice.party?.name ?? 'No party',
+                    order.party?.name ?? 'No party',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -450,7 +452,7 @@ class _InvoiceCard extends ConsumerWidget {
                   Expanded(
                     child: _Meta(
                       label: 'Amount',
-                      value: _currency.format(invoice.grandTotal),
+                      value: _currency.format(order.grandTotal),
                       valueColor: AppColors.textPrimary,
                       valueWeight: FontWeight.w700,
                     ),
@@ -458,17 +460,19 @@ class _InvoiceCard extends ConsumerWidget {
                   Expanded(
                     child: _Meta(
                       label: 'Created',
-                      value: _dateFmt.format(invoice.createdAt),
+                      value: _dateFmt.format(order.createdAt),
                     ),
                   ),
-                  Expanded(
-                    child: _Meta(
-                      label: 'Delivery',
-                      value: invoice.deliveryDate == null
-                          ? '—'
-                          : _dateFmt.format(invoice.deliveryDate!),
+                  // Estimates have no delivery date — only orders carry one.
+                  if (!_isEstimate)
+                    Expanded(
+                      child: _Meta(
+                        label: 'Delivery',
+                        value: order.deliveryDate == null
+                            ? '—'
+                            : _dateFmt.format(order.deliveryDate!),
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -488,23 +492,23 @@ class _InvoiceCard extends ConsumerWidget {
                     borderColor: AppColors.primary,
                     customIconSize: 16.sp,
                     customPadding: EdgeInsets.symmetric(horizontal: 8.w),
-                    onPressed: () => _downloadPdf(context, invoice),
+                    onPressed: () => _downloadPdf(context, order),
                   ),
                 ),
                 SizedBox(width: 12.w),
-                // Filled "View Details" — blue for invoices, teal for
+                // Filled "View Details" — blue for orders, teal for
                 // estimates (matching the estimate badge).
                 Expanded(
                   child: CustomButton(
                     label: 'View Details',
                     size: ButtonSize.small,
                     leadingIcon: Icons.visibility_outlined,
-                    backgroundColor: invoiceKindColor(invoice.kind),
+                    backgroundColor: orderKindColor(order.kind),
                     customIconSize: 16.sp,
                     customPadding: EdgeInsets.symmetric(horizontal: 8.w),
                     onPressed: () => context.push(
-                      Routes.invoiceDetailPath(invoice.id),
-                      extra: invoice,
+                      Routes.orderDetailPath(order.id),
+                      extra: order,
                     ),
                   ),
                 ),
@@ -648,12 +652,12 @@ class _Meta extends StatelessWidget {
 }
 
 /// Loading placeholder painted under [Skeletonizer]. Built from explicit
-/// [Bone] shapes rather than a real `_InvoiceCard`, because the card's
+/// [Bone] shapes rather than a real `_OrderCard`, because the card's
 /// Material action buttons don't skeletonise cleanly (only the outlined
 /// button's border shows). This mirrors the card's layout so the skeleton
 /// reads as the same component.
-class _InvoiceCardSkeleton extends StatelessWidget {
-  const _InvoiceCardSkeleton();
+class _OrderCardSkeleton extends StatelessWidget {
+  const _OrderCardSkeleton();
 
   @override
   Widget build(BuildContext context) {

@@ -19,9 +19,9 @@ import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 /// client-side (local `_query`); the category filter is the shared
 /// [selectedCategoryProvider]; cards drive the in-memory cart.
 ///
-/// The invoice builder's "Add Item" button switches to this tab; products
-/// added to the cart here are merged into the invoice draft when the user
-/// returns to the Invoice tab (see `InvoicePage` initState).
+/// The order builder's "Add Item" button switches to this tab; products
+/// added to the cart here are merged into the order draft when the user
+/// returns to the Order tab (see `OrderPage` initState).
 class CatalogPage extends ConsumerStatefulWidget {
   const CatalogPage({super.key});
 
@@ -78,7 +78,7 @@ class _CatalogPageState extends ConsumerState<CatalogPage> {
               Padding(
                 padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
                 child: Text(
-                  'Catalog',
+                  'Product Catalog',
                   style: TextStyle(
                     color: AppColors.primary,
                     fontSize: 24.sp,
