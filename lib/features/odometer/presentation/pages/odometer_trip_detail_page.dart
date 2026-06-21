@@ -1,5 +1,4 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -24,8 +23,8 @@ import 'package:url_launcher/url_launcher.dart';
 /// Detail view for a day's odometer trips. Reached with a single trip id —
 /// the first trip of a day (from the history day card) or a specific trip
 /// (from the home carousel). It resolves that trip's calendar day, loads
-/// the day's sibling trips, and shows one tab per trip, so a day with
-/// several trips reads as a single entry with a tab switcher.
+/// the day's sibling trips, and lists them as cards, so a day with several
+/// trips reads as a single entry with a scannable trip list.
 class OdometerTripDetailPage extends ConsumerWidget {
   const OdometerTripDetailPage({
     required this.tripId,
@@ -35,8 +34,8 @@ class OdometerTripDetailPage extends ConsumerWidget {
 
   final String tripId;
 
-  /// When true, show only this trip's detail — no day grouping, tabs or list.
-  /// The busy-day list drills in with this set so it doesn't re-show the list.
+  /// When true, show only this trip's detail — no day grouping or list.
+  /// The day list drills in with this set so it doesn't re-show the list.
   final bool focused;
 
   @override
@@ -58,12 +57,12 @@ class OdometerTripDetailPage extends ConsumerWidget {
       data: (trip) {
         if (focused) {
           // Single-trip view — skip sibling resolution entirely.
-          return _DayDetail(dayTrips: <OdometerTrip>[trip], initialId: trip.id);
+          return _DayDetail(dayTrips: <OdometerTrip>[trip]);
         }
         final day = trip.date;
         if (day == null) {
           // No calendar day → can't resolve siblings; show this trip alone.
-          return _DayDetail(dayTrips: <OdometerTrip>[trip], initialId: trip.id);
+          return _DayDetail(dayTrips: <OdometerTrip>[trip]);
         }
         // Siblings come from the trip's OWN month (possibly a past month).
         // While that report resolves we already have the trip itself, so we
@@ -75,7 +74,7 @@ class OdometerTripDetailPage extends ConsumerWidget {
         final dayTrips = report == null
             ? <OdometerTrip>[trip]
             : _siblingsFor(trip, report);
-        return _DayDetail(dayTrips: dayTrips, initialId: trip.id);
+        return _DayDetail(dayTrips: dayTrips);
       },
     );
   }
@@ -276,91 +275,18 @@ class _CardSkeleton extends StatelessWidget {
   }
 }
 
-/// A day's trips. With a handful (≤ `tabThreshold`) they read as a tab
-/// switcher; busy days with more switch to a vertical scrolling list (a tab bar
-/// stops scaling past a few), opening at the top.
-class _DayDetail extends StatefulWidget {
-  const _DayDetail({required this.dayTrips, required this.initialId});
+/// A day's trips, always shown as a vertical list of trip cards — tapping one
+/// drills into that trip's full detail via the focused route. A day with a
+/// single trip skips the list and shows that trip's detail directly.
+class _DayDetail extends StatelessWidget {
+  const _DayDetail({required this.dayTrips});
 
   final List<OdometerTrip> dayTrips;
 
-  /// The trip the page was opened on — drives the initial tab.
-  final String initialId;
-
-  /// Above this many trips per day, tabs give way to a vertical list.
-  static const int tabThreshold = 4;
-
-  @override
-  State<_DayDetail> createState() => _DayDetailState();
-}
-
-class _DayDetailState extends State<_DayDetail>
-    with SingleTickerProviderStateMixin {
-  TabController? _controller;
-  List<String> _ids = const <String>[];
-
-  bool get _useTabs {
-    final n = widget.dayTrips.length;
-    return n > 1 && n <= _DayDetail.tabThreshold;
-  }
-
-  bool get _useList => widget.dayTrips.length > _DayDetail.tabThreshold;
-
-  @override
-  void initState() {
-    super.initState();
-    if (_useTabs) _syncController();
-  }
-
-  @override
-  void didUpdateWidget(_DayDetail oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (_useTabs) {
-      _syncController();
-    } else {
-      _controller?.dispose();
-      _controller = null;
-      _ids = const <String>[];
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller?.dispose();
-    super.dispose();
-  }
-
-  /// (Re)builds the controller only when the trip-id list changes, keeping
-  /// the currently-selected trip selected where possible.
-  void _syncController() {
-    final newIds = widget.dayTrips.map((t) => t.id).toList(growable: false);
-    if (_controller != null && listEquals(newIds, _ids)) return;
-
-    int target;
-    if (_controller == null) {
-      target = newIds.indexOf(widget.initialId);
-    } else {
-      final i = _controller!.index;
-      final currentId = (i >= 0 && i < _ids.length)
-          ? _ids[i]
-          : widget.initialId;
-      target = newIds.indexOf(currentId);
-      if (target < 0) target = i.clamp(0, newIds.length - 1);
-    }
-    if (target < 0) target = 0;
-
-    _controller?.dispose();
-    _controller = TabController(
-      length: newIds.length,
-      vsync: this,
-      initialIndex: target.clamp(0, newIds.length - 1),
-    );
-    _ids = newIds;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final trips = widget.dayTrips;
+    final trips = dayTrips;
+    final asList = trips.length > 1;
 
     return DarkStatusBar(
       child: Scaffold(
@@ -372,26 +298,7 @@ class _DayDetailState extends State<_DayDetail>
               child: Column(
                 children: <Widget>[
                   const _PageHeader(title: 'Trip Details'),
-                  if (_useTabs) ...<Widget>[
-                    SizedBox(height: 4.h),
-                    TabBar(
-                      controller: _controller,
-                      labelColor: AppColors.primary,
-                      unselectedLabelColor: AppColors.textSecondary,
-                      indicatorColor: AppColors.secondary,
-                      indicatorWeight: 3,
-                      indicatorSize: TabBarIndicatorSize.tab,
-                      labelStyle: TextStyle(
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      tabs: <Widget>[
-                        for (final t in trips)
-                          Tab(text: 'Trip ${t.tripNumber}'),
-                      ],
-                    ),
-                  ],
-                  if (_useList)
+                  if (asList)
                     _DayDateHeader(
                       date:
                           trips.first.date ??
@@ -399,7 +306,7 @@ class _DayDetailState extends State<_DayDetail>
                           trips.first.createdAt,
                       count: trips.length,
                     ),
-                  Expanded(child: _buildBody(trips)),
+                  Expanded(child: _buildBody(trips, asList: asList)),
                 ],
               ),
             ),
@@ -409,38 +316,28 @@ class _DayDetailState extends State<_DayDetail>
     );
   }
 
-  Widget _buildBody(List<OdometerTrip> trips) {
-    if (_useTabs) {
-      return TabBarView(
-        controller: _controller,
-        children: <Widget>[
-          for (final t in trips) _TripDetailBody(trip: t),
-        ],
-      );
-    }
-    if (_useList) {
-      // Busy day → a scannable list of trip cards, opening at the top. Tapping
-      // one drills into that trip's full detail via the focused route.
-      return ListView.builder(
-        padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 28.h),
-        itemCount: trips.length,
-        itemBuilder: (context, i) {
-          final t = trips[i];
-          return Padding(
-            padding: EdgeInsets.only(bottom: 14.h),
-            child: OdometerTripCard(
-              trip: t,
-              onTap: () => context.pushNamed(
-                Routes.odometerTripDetailName,
-                pathParameters: <String, String>{'id': t.id},
-                queryParameters: <String, String>{'focus': '1'},
-              ),
+  Widget _buildBody(List<OdometerTrip> trips, {required bool asList}) {
+    if (!asList) return _TripDetailBody(trip: trips.first);
+    // A scannable list of trip cards, opening at the top. Tapping one drills
+    // into that trip's full detail via the focused route.
+    return ListView.builder(
+      padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 28.h),
+      itemCount: trips.length,
+      itemBuilder: (context, i) {
+        final t = trips[i];
+        return Padding(
+          padding: EdgeInsets.only(bottom: 14.h),
+          child: OdometerTripCard(
+            trip: t,
+            onTap: () => context.pushNamed(
+              Routes.odometerTripDetailName,
+              pathParameters: <String, String>{'id': t.id},
+              queryParameters: <String, String>{'focus': '1'},
             ),
-          );
-        },
-      );
-    }
-    return _TripDetailBody(trip: trips.first);
+          ),
+        );
+      },
+    );
   }
 }
 
