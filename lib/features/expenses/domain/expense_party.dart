@@ -1,10 +1,11 @@
 import 'package:flutter/foundation.dart';
 
 /// Lightweight party reference used by the optional "Select party"
-/// picker on the expense-claim form. The real parties feature is
-/// backend-backed; while the expense feature is mock-only it carries
-/// its own slim party shape so the picker doesn't depend on the live
-/// parties data layer.
+/// picker on the expense-claim form. A claim's optional `partyId` is a
+/// real Customer id; on read the backend embeds `party { id, companyName }`
+/// for the label, which the repository maps into this slim shape (the
+/// [address] is only populated when the option comes from the live
+/// customers list feeding the picker — it's empty for a hydrated claim).
 ///
 /// Equality is by [id] so a selected option can be matched back to its
 /// list entry inside the picker regardless of instance identity.

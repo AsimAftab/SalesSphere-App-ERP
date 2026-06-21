@@ -1,8 +1,7 @@
-import 'package:sales_sphere_erp/features/expenses/domain/expense_category.dart';
 import 'package:sales_sphere_erp/features/expenses/domain/expense_party.dart';
 
-/// Workflow status of an expense claim. The approver moves a claim
-/// from `pending` to `approved` or `rejected`. Drives whether the
+/// Workflow status of an expense claim. The approver (web side) moves a
+/// claim from `pending` to `approved` or `rejected`. Drives whether the
 /// detail page opens editable or read-only — only `pending` claims are
 /// user-mutable.
 enum ExpenseClaimStatus { pending, approved, rejected }
@@ -14,10 +13,10 @@ String expenseClaimStatusLabel(ExpenseClaimStatus s) => switch (s) {
   ExpenseClaimStatus.rejected => 'Rejected',
 };
 
-/// UI-facing expense-claim model. Decoupled from any wire DTO so a
-/// future backend rename doesn't ripple into widgets. Carries the same
-/// approval workflow shape as `TourPlan` (status + optional rejection
-/// reason) so the two features read as the same family.
+/// UI-facing expense-claim model. Decoupled from the wire DTO so a
+/// backend rename doesn't ripple into widgets. Carries the same approval
+/// workflow shape as `Leave` / `TourPlan` (status + optional rejection
+/// reason) so the features read as the same family.
 class ExpenseClaim {
   const ExpenseClaim({
     required this.id,
@@ -40,31 +39,36 @@ class ExpenseClaim {
   /// with the `Rs` prefix.
   final double amount;
 
-  /// The day the expense was incurred (date-only in intent).
+  /// The day the expense was incurred (date-only in intent; rebuilt at
+  /// local midnight from the wire's UTC-midnight org-TZ day).
   final DateTime date;
 
-  final ExpenseCategory category;
+  /// The category catalogue **name** (e.g. `"Travel"`). An org-managed
+  /// list fetched from `/expense-claim-categories`; the icon / accent are
+  /// a local lookup keyed off this name.
+  final String category;
 
   /// Approval workflow state. New claims start `pending`; the approver
-  /// moves them to approved / rejected, and approved claims can be
-  /// marked completed.
+  /// moves them to approved / rejected.
   final ExpenseClaimStatus status;
 
-  /// Optional party the expense is associated with (e.g. a client
-  /// visit). `null` when the claim isn't tied to a party.
+  /// Optional Customer the expense is associated with. `null` when the
+  /// claim isn't tied to a party.
   final ExpenseParty? party;
 
   /// Optional free-text note describing the expense.
   final String description;
 
-  /// Up to two attached receipt image paths (gallery picks). Empty
-  /// when none have been added.
+  /// Up to two attached receipt image paths — **local** gallery picks
+  /// staged on the add/edit form. Always empty for a claim hydrated from
+  /// the API; the edit page fetches existing receipts via the images
+  /// endpoint and renders them as network thumbnails.
   final List<String> imagePaths;
 
   /// Reason for rejection (only present when [status] is rejected).
   final String? rejectionReason;
 
-  /// When the claim row was created locally. Drives the list ordering.
+  /// When the claim was created (server-assigned). Drives list ordering.
   final DateTime createdAt;
 
   /// Convenience copy used by the edit flow to produce an updated row.
@@ -72,7 +76,7 @@ class ExpenseClaim {
     String? title,
     double? amount,
     DateTime? date,
-    ExpenseCategory? category,
+    String? category,
     ExpenseClaimStatus? status,
     ExpenseParty? party,
     bool clearParty = false,

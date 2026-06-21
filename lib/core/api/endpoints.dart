@@ -109,6 +109,14 @@ class Endpoints {
 
   // ── Expense claims ────────────────────────────────────────────────────────
   static const expenseClaims = '/expense-claims';
+  static const expenseClaimsMyRequests = '/expense-claims/my-requests';
+  static String expenseClaimById(String id) => '/expense-claims/$id';
+  static String expenseClaimImages(String id) => '/expense-claims/$id/images';
+  static String expenseClaimImageSlot(String id, int slot) =>
+      '/expense-claims/$id/images/$slot';
+
+  // ── Expense-claim category catalogue (org-managed picker list) ────────────
+  static const expenseClaimCategories = '/expense-claim-categories';
 
   // ── Miscellaneous work ────────────────────────────────────────────────────
   static const miscellaneousWork = '/miscellaneous-work';

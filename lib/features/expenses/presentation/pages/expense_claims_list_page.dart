@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -7,7 +9,6 @@ import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
-import 'package:sales_sphere_erp/features/expenses/domain/expense_category.dart';
 import 'package:sales_sphere_erp/features/expenses/domain/expense_claim.dart';
 import 'package:sales_sphere_erp/features/expenses/presentation/providers/expenses_providers.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
@@ -21,9 +22,17 @@ import 'package:skeletonizer/skeletonizer.dart';
 /// `Rs 1,240` style formatter for claim amounts.
 final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 0);
 
-/// Per-status badge colour. Mirrors the tour-plan / leaves modules so
-/// the status pill reads as the same family — pending amber, approved
-/// green, rejected red.
+/// Pixel buffer above `maxScrollExtent` at which we kick off the next page.
+/// 300px ≈ a couple of card heights — gives the network call a head start
+/// before the user actually hits the bottom.
+const double _kLoadMoreTriggerPx = 300;
+
+/// Search debounce. 300ms is the codebase's sweet spot (matches parties).
+const Duration _kSearchDebounce = Duration(milliseconds: 300);
+
+/// Per-status badge colour. Mirrors the tour-plan / leaves modules so the
+/// status pill reads as the same family — pending amber, approved green,
+/// rejected red.
 Color _statusColor(ExpenseClaimStatus s) => switch (s) {
   ExpenseClaimStatus.pending => AppColors.warning,
   ExpenseClaimStatus.approved => AppColors.green500,
@@ -41,16 +50,63 @@ class ExpenseClaimsListPage extends ConsumerStatefulWidget {
 class _ExpenseClaimsListPageState
     extends ConsumerState<ExpenseClaimsListPage> {
   final _searchController = TextEditingController();
-  String _query = '';
+  final _scrollController = ScrollController();
+  Timer? _searchDebounce;
+  bool _hasUserAdvanced = false;
 
-  /// `null` means "All" — no status filter applied. Otherwise the list
-  /// narrows to claims whose [ExpenseClaim.status] matches.
-  ExpenseClaimStatus? _statusFilter;
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    if (pos.pixels < pos.maxScrollExtent - _kLoadMoreTriggerPx) return;
+    final state = ref.read(expenseClaimsListProvider).value;
+    if (state == null || !state.hasMore || state.isLoadingMore) return;
+    _hasUserAdvanced = true;
+    ref.read(expenseClaimsListProvider.notifier).loadMore();
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() {});
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(_kSearchDebounce, () {
+      if (!mounted) return;
+      _hasUserAdvanced = false;
+      ref.read(expenseClaimsListProvider.notifier).setSearch(value);
+    });
+  }
+
+  void _clearSearch() {
+    _searchDebounce?.cancel();
+    _searchController.clear();
+    setState(() {});
+    _hasUserAdvanced = false;
+    ref.read(expenseClaimsListProvider.notifier).setSearch('');
+    FocusManager.instance.primaryFocus?.unfocus();
+  }
+
+  Future<void> _onRefresh() async {
+    _hasUserAdvanced = false;
+    await ref.read(expenseClaimsListProvider.notifier).refresh();
+  }
+
+  void _onStatusFilterChanged(ExpenseClaimStatus? next) {
+    _hasUserAdvanced = false;
+    ref.read(expenseClaimsListProvider.notifier).setStatusFilter(next);
   }
 
   void _back() {
@@ -61,24 +117,10 @@ class _ExpenseClaimsListPageState
     }
   }
 
-  /// Apply the in-page search query + status filter against the loaded
-  /// claims.
-  List<ExpenseClaim> _applyFilters(List<ExpenseClaim> source) {
-    final q = _query.trim().toLowerCase();
-    return source.where((c) {
-      if (_statusFilter != null && c.status != _statusFilter) return false;
-      if (q.isEmpty) return true;
-      return c.title.toLowerCase().contains(q) ||
-          c.category.label.toLowerCase().contains(q);
-    }).toList(growable: false);
-  }
-
-  bool get _hasActiveFilter =>
-      _query.trim().isNotEmpty || _statusFilter != null;
-
   @override
   Widget build(BuildContext context) {
-    final claimsAsync = ref.watch(expenseClaimsListProvider);
+    final listAsync = ref.watch(expenseClaimsListProvider);
+    final selectedFilter = listAsync.value?.statusFilter;
 
     return DarkStatusBar(
       child: Scaffold(
@@ -110,8 +152,8 @@ class _ExpenseClaimsListPageState
                       controller: _searchController,
                       hintText: 'Search',
                       prefixIcon: Icons.search,
-                      onChanged: (v) => setState(() => _query = v),
-                      suffixWidget: _query.isEmpty
+                      onChanged: _onSearchChanged,
+                      suffixWidget: _searchController.text.isEmpty
                           ? null
                           : IconButton(
                               icon: Icon(
@@ -119,11 +161,7 @@ class _ExpenseClaimsListPageState
                                 size: 20.sp,
                                 color: AppColors.textSecondary,
                               ),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() => _query = '');
-                                FocusManager.instance.primaryFocus?.unfocus();
-                              },
+                              onPressed: _clearSearch,
                               tooltip: 'Clear search',
                             ),
                     ),
@@ -132,9 +170,8 @@ class _ExpenseClaimsListPageState
                   Padding(
                     padding: EdgeInsets.symmetric(horizontal: 20.w),
                     child: PrimarySearchFilter<ExpenseClaimStatus?>(
-                      selected: _statusFilter,
-                      onChanged: (next) =>
-                          setState(() => _statusFilter = next),
+                      selected: selectedFilter,
+                      onChanged: _onStatusFilterChanged,
                       options: const <SearchFilterOption<ExpenseClaimStatus?>>[
                         SearchFilterOption<ExpenseClaimStatus?>(
                           value: null,
@@ -178,7 +215,17 @@ class _ExpenseClaimsListPageState
                     ),
                   ),
                   SizedBox(height: 12.h),
-                  Expanded(child: _buildBody(claimsAsync)),
+                  Expanded(
+                    child: _ClaimsBody(
+                      listAsync: listAsync,
+                      scrollController: _scrollController,
+                      hasUserAdvanced: _hasUserAdvanced,
+                      onRefresh: _onRefresh,
+                      onRetryLoadMore: () => ref
+                          .read(expenseClaimsListProvider.notifier)
+                          .loadMore(),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -187,73 +234,79 @@ class _ExpenseClaimsListPageState
       ),
     );
   }
+}
 
-  Widget _buildBody(AsyncValue<List<ExpenseClaim>> claimsAsync) {
+class _ClaimsBody extends StatelessWidget {
+  const _ClaimsBody({
+    required this.listAsync,
+    required this.scrollController,
+    required this.hasUserAdvanced,
+    required this.onRefresh,
+    required this.onRetryLoadMore,
+  });
+
+  final AsyncValue<ExpenseClaimsListState> listAsync;
+  final ScrollController scrollController;
+  final bool hasUserAdvanced;
+  final Future<void> Function() onRefresh;
+  final VoidCallback onRetryLoadMore;
+
+  @override
+  Widget build(BuildContext context) {
     final padding = EdgeInsets.fromLTRB(20.w, 0, 20.w, 140.h);
 
     Widget wrapRefresh(Widget child) => RefreshIndicator(
-          onRefresh: () =>
-              ref.read(expenseClaimsListProvider.notifier).refresh(),
+          onRefresh: onRefresh,
           color: AppColors.primary,
           backgroundColor: AppColors.surface,
           child: child,
         );
 
-    // First load — paint a skeleton list. Pull-to-refresh is still
+    // Initial load — paint a skeleton list. Pull-to-refresh is still
     // available so a stuck initial fetch can be retried.
-    if (claimsAsync.isLoading && !claimsAsync.hasValue) {
+    if (listAsync.isLoading && !listAsync.hasValue) {
+      return wrapRefresh(_SkeletonList(padding: padding));
+    }
+
+    if (listAsync.hasError && !listAsync.hasValue) {
       return wrapRefresh(
-        Skeletonizer(
-          child: ListView.separated(
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: ClampingScrollPhysics(),
-            ),
-            padding: padding,
-            itemCount: 5,
-            separatorBuilder: (_, __) => SizedBox(height: 12.h),
-            itemBuilder: (_, __) =>
-                _ClaimCard(claim: _placeholderClaim, onTap: () {}),
-          ),
-        ),
+        _SingleScroll(padding: padding, child: const _ErrorState()),
       );
     }
 
-    if (claimsAsync.hasError && !claimsAsync.hasValue) {
-      return wrapRefresh(
-        ListView(
-          physics: const AlwaysScrollableScrollPhysics(
-            parent: ClampingScrollPhysics(),
-          ),
-          padding: EdgeInsets.fromLTRB(20.w, 80.h, 20.w, 140.h),
-          children: const <Widget>[_ErrorState()],
-        ),
-      );
-    }
+    final state = listAsync.requireValue;
+    final items = state.items;
+    final hasActiveFilter =
+        state.searchQuery.isNotEmpty || state.statusFilter != null;
 
-    final items = _applyFilters(claimsAsync.requireValue);
     if (items.isEmpty) {
       return wrapRefresh(
-        ListView(
-          physics: const AlwaysScrollableScrollPhysics(
-            parent: ClampingScrollPhysics(),
-          ),
-          padding: EdgeInsets.fromLTRB(20.w, 80.h, 20.w, 140.h),
-          children: <Widget>[
-            _EmptyState(hasActiveFilter: _hasActiveFilter),
-          ],
+        _SingleScroll(
+          padding: padding,
+          child: _EmptyState(hasActiveFilter: hasActiveFilter),
         ),
       );
     }
 
     return wrapRefresh(
       ListView.separated(
+        controller: scrollController,
         physics: const AlwaysScrollableScrollPhysics(
           parent: ClampingScrollPhysics(),
         ),
         padding: padding,
-        itemCount: items.length,
+        itemCount: items.length + 1,
         separatorBuilder: (_, __) => SizedBox(height: 12.h),
         itemBuilder: (context, index) {
+          if (index == items.length) {
+            return _LoadMoreFooter(
+              hasMore: state.hasMore,
+              isLoadingMore: state.isLoadingMore,
+              loadMoreError: state.loadMoreError,
+              hasUserAdvanced: hasUserAdvanced,
+              onRetry: onRetryLoadMore,
+            );
+          }
           final claim = items[index];
           return _ClaimCard(
             claim: claim,
@@ -263,6 +316,124 @@ class _ExpenseClaimsListPageState
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _SkeletonList extends StatelessWidget {
+  const _SkeletonList({required this.padding});
+
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return Skeletonizer(
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: ClampingScrollPhysics(),
+        ),
+        padding: padding,
+        itemCount: 5,
+        separatorBuilder: (_, __) => SizedBox(height: 12.h),
+        itemBuilder: (_, __) => _ClaimCard(claim: _placeholderClaim, onTap: () {}),
+      ),
+    );
+  }
+}
+
+class _SingleScroll extends StatelessWidget {
+  const _SingleScroll({required this.child, required this.padding});
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: ClampingScrollPhysics(),
+      ),
+      padding: padding,
+      children: <Widget>[SizedBox(height: 80.h), child],
+    );
+  }
+}
+
+class _LoadMoreFooter extends StatelessWidget {
+  const _LoadMoreFooter({
+    required this.hasMore,
+    required this.isLoadingMore,
+    required this.loadMoreError,
+    required this.hasUserAdvanced,
+    required this.onRetry,
+  });
+
+  final bool hasMore;
+  final bool isLoadingMore;
+  final Object? loadMoreError;
+  final bool hasUserAdvanced;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (loadMoreError != null) {
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 16.h),
+        child: InkWell(
+          onTap: onRetry,
+          borderRadius: BorderRadius.circular(12.r),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Icon(Icons.refresh, color: AppColors.primary, size: 18.sp),
+                SizedBox(width: 8.w),
+                Text(
+                  "Couldn't load more — tap to retry",
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    if (isLoadingMore) {
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 20.h),
+        child: Center(
+          child: SizedBox(
+            width: 22.r,
+            height: 22.r,
+            child: const CircularProgressIndicator(
+              strokeWidth: 2.5,
+              color: AppColors.primary,
+            ),
+          ),
+        ),
+      );
+    }
+    if (hasMore) {
+      // Quietly idle — the scroll listener will trigger loadMore.
+      return SizedBox(height: 8.h);
+    }
+    // No more pages. Only surface the explicit copy after the user has
+    // actually advanced past page 1; otherwise it screams "you're done"
+    // on every short list, which feels noisy.
+    if (!hasUserAdvanced) return SizedBox(height: 8.h);
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 16.h),
+      child: Center(
+        child: Text(
+          "You've reached the end",
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 12.sp),
+        ),
       ),
     );
   }
@@ -304,9 +475,9 @@ class _AppBar extends StatelessWidget {
   }
 }
 
-/// Minimal claim row — the important facts only: what it was for
-/// (title), how much (amount), when (date) and where it sits in the
-/// approval flow (status badge).
+/// Minimal claim row — the important facts only: what it was for (title),
+/// how much (amount), when (date) and where it sits in the approval flow
+/// (status badge).
 class _ClaimCard extends StatelessWidget {
   const _ClaimCard({required this.claim, required this.onTap});
 
@@ -405,7 +576,7 @@ final _placeholderClaim = ExpenseClaim(
   title: 'Loading expense title',
   amount: 1000,
   date: DateTime(2026),
-  category: ExpenseCategory.travel,
+  category: 'Travel',
   status: ExpenseClaimStatus.pending,
   createdAt: DateTime(2026),
 );

@@ -8,7 +8,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
-import 'package:sales_sphere_erp/features/expenses/domain/expense_category.dart';
+import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
+import 'package:sales_sphere_erp/features/expenses/data/dto/expense_claim_image_ref.dart';
 import 'package:sales_sphere_erp/features/expenses/domain/expense_claim.dart';
 import 'package:sales_sphere_erp/features/expenses/domain/expense_party.dart';
 import 'package:sales_sphere_erp/features/expenses/presentation/controllers/expenses_controller.dart';
@@ -58,29 +59,50 @@ class _EditExpenseClaimDetailPageState
 
   static const _maxImages = 2;
 
-  ExpenseCategory? _category;
+  String? _category;
   ExpenseParty? _party;
   DateTime? _date;
   ExpenseClaimStatus _status = ExpenseClaimStatus.pending;
   DateTime? _createdAt;
   String? _rejectionReason;
+
+  /// Local file paths picked in this edit session — uploaded to free
+  /// slots in `_save`.
   final List<String> _imagePaths = <String>[];
+
+  /// Server-side receipts at the moment we render. Mutated as the user
+  /// removes thumbnails; `_originalExistingImages` is the snapshot used
+  /// by cancel to restore.
+  List<ExpenseClaimImageRef> _existingImages = const <ExpenseClaimImageRef>[];
+  List<ExpenseClaimImageRef> _originalExistingImages =
+      const <ExpenseClaimImageRef>[];
+
+  /// Slot numbers (1-indexed) queued for deletion in this edit session.
+  /// Drained in `_save` before uploading new locals so the freed slots
+  /// become available targets.
+  final Set<int> _slotsToDelete = <int>{};
 
   bool _editing = false;
   bool _saving = false;
   bool _notFound = false;
 
-  /// Only pending claims are user-mutable. Once the approver has
-  /// decided (approved / rejected) the claim locks to read-only and the
-  /// edit affordance is hidden entirely.
+  /// Only pending claims are user-mutable. Once the approver has decided
+  /// (approved / rejected) the claim locks to read-only and the edit
+  /// affordance is hidden entirely.
   bool get _isMutable => _status == ExpenseClaimStatus.pending;
+
+  int get _totalAttachedImages => _imagePaths.length + _existingImages.length;
 
   @override
   void initState() {
     super.initState();
-    final claim = widget.initial ?? ref.read(expenseClaimByIdProvider(widget.id));
+    final claim =
+        widget.initial ?? ref.read(expenseClaimByIdProvider(widget.id));
     if (claim != null) {
       _populate(claim);
+      // Fields populate synchronously, but the receipts still need a
+      // fetch — kick it off after first frame so the picker fills in.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _hydrateImages());
     } else {
       _notFound = true;
     }
@@ -106,19 +128,36 @@ class _EditExpenseClaimDetailPageState
     _status = c.status;
     _createdAt = c.createdAt;
     _rejectionReason = c.rejectionReason;
+    _descriptionController.text = c.description;
     _createdAtController.text =
-        DateFormat('dd MMM yyyy, hh:mm a').format(c.createdAt);
-    _imagePaths
-      ..clear()
-      ..addAll(c.imagePaths);
+        DateFormat('dd MMM yyyy, hh:mm a').format(c.createdAt.toLocal());
+    _imagePaths.clear();
   }
 
-  /// Renders the stored amount without a trailing `.0` for whole
-  /// numbers so the edit field shows `850`, not `850.0`.
-  String _trimAmount(double amount) =>
-      amount == amount.roundToDouble()
-          ? amount.toInt().toString()
-          : amount.toString();
+  /// Fetch the receipts so the picker shows server-side images. Failures
+  /// are swallowed — an empty picker is graceful degradation.
+  Future<void> _hydrateImages() async {
+    try {
+      final images =
+          await ref.read(expenseRepositoryProvider).listImages(widget.id);
+      if (!mounted) return;
+      setState(() {
+        _existingImages = images;
+        _originalExistingImages = List<ExpenseClaimImageRef>.unmodifiable(
+          images,
+        );
+      });
+    } on Object catch (_) {
+      // Not fatal — picker stays empty on the network image side and the
+      // user can still pick new locals.
+    }
+  }
+
+  /// Renders the stored amount without a trailing `.0` for whole numbers
+  /// so the edit field shows `850`, not `850.0`.
+  String _trimAmount(double amount) => amount == amount.roundToDouble()
+      ? amount.toInt().toString()
+      : amount.toString();
 
   void _toggleEdit() {
     if (!_isMutable) return;
@@ -130,11 +169,18 @@ class _EditExpenseClaimDetailPageState
         ref.read(expenseClaimByIdProvider(widget.id)) ?? widget.initial;
     if (saved != null) _populate(saved);
     FocusManager.instance.primaryFocus?.unfocus();
-    setState(() => _editing = false);
+    setState(() {
+      _editing = false;
+      // Roll back receipt edits: restore the server-side gallery, drop
+      // any queued deletions and any local picks.
+      _existingImages = List<ExpenseClaimImageRef>.from(_originalExistingImages);
+      _slotsToDelete.clear();
+      _imagePaths.clear();
+    });
   }
 
   Future<void> _pickImage() async {
-    if (!_editing || _imagePaths.length >= _maxImages) return;
+    if (!_editing || _totalAttachedImages >= _maxImages) return;
     try {
       final picker = ImagePicker();
       final file = await picker.pickImage(
@@ -152,6 +198,18 @@ class _EditExpenseClaimDetailPageState
   void _removeImageAt(int index) {
     if (!_editing) return;
     setState(() => _imagePaths.removeAt(index));
+  }
+
+  /// Queue the existing receipt at [index] for deletion. Removed from the
+  /// picker immediately; the actual DELETE fires on save.
+  void _removeExistingImageAt(int index) {
+    if (!_editing) return;
+    setState(() {
+      final removed = _existingImages[index];
+      _existingImages = List<ExpenseClaimImageRef>.from(_existingImages)
+        ..removeAt(index);
+      _slotsToDelete.add(removed.slot);
+    });
   }
 
   String? _validateAmount(String? value) {
@@ -184,22 +242,102 @@ class _EditExpenseClaimDetailPageState
         status: _status,
         party: _party,
         description: _descriptionController.text.trim(),
-        imagePaths: List<String>.unmodifiable(_imagePaths),
+        // imagePaths is left at its default (empty) — local picks are
+        // uploaded separately via _syncImageChanges; the PATCH body
+        // doesn't carry filesystem paths.
         rejectionReason: _rejectionReason,
         createdAt: _createdAt ?? DateTime.now(),
       );
       await ref.read(expensesControllerProvider.notifier).updateClaim(updated);
+      final imageResult = await _syncImageChanges();
       if (!mounted) return;
       setState(() {
         _saving = false;
         _editing = false;
+        _imagePaths.clear();
+        _slotsToDelete.clear();
       });
-      SnackbarUtils.showSuccess(context, 'Expense claim updated.');
+      // Re-fetch the now-current gallery to refresh the picker's network
+      // thumbnails (new slot URLs + the original snapshot).
+      await _hydrateImages();
+      if (!mounted) return;
+      if (imageResult.uploadFailures > 0 || imageResult.deleteFailures > 0) {
+        SnackbarUtils.showError(context, _formatImageSyncWarning(imageResult));
+      } else {
+        SnackbarUtils.showSuccess(context, 'Expense claim updated.');
+      }
     } on Exception catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
       SnackbarUtils.showError(context, 'Could not save. Please try again.');
     }
+  }
+
+  /// Drains [_slotsToDelete] first (frees up slots), then uploads each new
+  /// local file into the next free slot. Returns per-bucket failure counts
+  /// + the first backend error message, so [_save] can show a snackbar
+  /// that says *why* something failed. The claim PATCH already succeeded
+  /// by the time this runs, so failures are non-fatal — the user can retry
+  /// the missing slot on a subsequent edit.
+  Future<({int uploadFailures, int deleteFailures, String? firstError})>
+      _syncImageChanges() async {
+    if (_slotsToDelete.isEmpty && _imagePaths.isEmpty) {
+      return (uploadFailures: 0, deleteFailures: 0, firstError: null);
+    }
+    final repo = ref.read(expenseRepositoryProvider);
+    var deleteFailures = 0;
+    String? firstError;
+    for (final slot in _slotsToDelete) {
+      try {
+        await repo.removeImage(claimId: widget.id, slot: slot);
+      } on Object catch (e) {
+        deleteFailures++;
+        firstError ??= extractBackendErrorMessage(e) ?? 'Delete failed';
+      }
+    }
+    final keptSlots = _existingImages.map((e) => e.slot).toSet();
+    final freeSlots = <int>[
+      for (var s = 1; s <= _maxImages; s++)
+        if (!keptSlots.contains(s)) s,
+    ];
+    var uploadFailures = 0;
+    for (var i = 0; i < _imagePaths.length && i < freeSlots.length; i++) {
+      try {
+        await repo.uploadImage(
+          claimId: widget.id,
+          filePath: _imagePaths[i],
+          slot: freeSlots[i],
+        );
+      } on Object catch (e) {
+        uploadFailures++;
+        firstError ??= extractBackendErrorMessage(e) ?? 'Upload failed';
+      }
+    }
+    return (
+      uploadFailures: uploadFailures,
+      deleteFailures: deleteFailures,
+      firstError: firstError,
+    );
+  }
+
+  String _formatImageSyncWarning(
+    ({int uploadFailures, int deleteFailures, String? firstError}) r,
+  ) {
+    final parts = <String>[];
+    if (r.uploadFailures > 0) {
+      parts.add(
+        "${r.uploadFailures} receipt${r.uploadFailures == 1 ? '' : 's'} "
+        "didn't upload",
+      );
+    }
+    if (r.deleteFailures > 0) {
+      parts.add(
+        "${r.deleteFailures} receipt${r.deleteFailures == 1 ? '' : 's'} "
+        "couldn't be removed",
+      );
+    }
+    final summary = 'Saved with issues: ${parts.join(', ')}';
+    return r.firstError == null ? '$summary.' : '$summary — ${r.firstError}.';
   }
 
   void _back() {
@@ -319,12 +457,16 @@ class _EditExpenseClaimDetailPageState
                                 SizedBox(height: 12.h),
                                 PrimaryTextField(
                                   controller: _descriptionController,
-                                  label: 'Description (Optional)',
+                                  label: 'Description',
                                   hintText: 'Add any details',
                                   prefixIcon: Icons.notes_outlined,
                                   minLines: 1,
                                   maxLines: 6,
                                   enabled: _editing,
+                                  validator: (v) => Validators.requiredField(
+                                    v,
+                                    'Description',
+                                  ),
                                 ),
                                 SizedBox(height: 12.h),
                                 PrimaryTextField(
@@ -347,7 +489,7 @@ class _EditExpenseClaimDetailPageState
                                     ),
                                     const Spacer(),
                                     Text(
-                                      '${_imagePaths.length}/$_maxImages',
+                                      '$_totalAttachedImages/$_maxImages',
                                       style: TextStyle(
                                         color: AppColors.textSecondary,
                                         fontSize: 12.sp,
@@ -359,6 +501,10 @@ class _EditExpenseClaimDetailPageState
                                 SizedBox(height: 10.h),
                                 PrimaryImagePicker(
                                   imagePaths: _imagePaths,
+                                  networkImageUrls: _existingImages
+                                      .map((e) => e.url)
+                                      .toList(growable: false),
+                                  onRemoveNetwork: _removeExistingImageAt,
                                   maxImages: _maxImages,
                                   enabled: _editing,
                                   showLabel: false,
