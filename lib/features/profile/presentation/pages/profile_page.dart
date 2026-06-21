@@ -248,6 +248,7 @@ class _ProfileContent extends StatelessWidget {
           _AvatarHeader(
             fullName: fullName,
             role: role,
+            organization: membership?.organization.name,
             avatarPath: avatarPath,
             avatarUrl: membership?.avatarUrl,
             onChangeAvatar: onChangeAvatar,
@@ -267,6 +268,16 @@ class _ProfileContent extends StatelessWidget {
                 value: _formatGender(membership?.gender),
               ),
               _InfoRowData(
+                icon: Icons.cake_outlined,
+                label: 'Date of Birth',
+                value: _formatDate(membership?.dateOfBirth),
+              ),
+              _InfoRowData(
+                icon: Icons.perm_contact_calendar_outlined,
+                label: 'Age',
+                value: _formatAge(membership?.dateOfBirth),
+              ),
+              _InfoRowData(
                 icon: Icons.phone_outlined,
                 label: 'Phone Number',
                 value: _orNotSpecified(membership?.phone),
@@ -277,9 +288,14 @@ class _ProfileContent extends StatelessWidget {
                 value: profile?.user.email ?? 'Not specified',
               ),
               _InfoRowData(
-                icon: Icons.perm_contact_calendar_outlined,
-                label: 'Age',
-                value: _formatAge(membership?.dateOfBirth),
+                icon: Icons.verified_user_outlined,
+                label: 'Email Verified',
+                value: emailVerified ? 'Yes' : 'No',
+              ),
+              _InfoRowData(
+                icon: Icons.location_on_outlined,
+                label: 'Address',
+                value: _orNotSpecified(membership?.address),
               ),
               _InfoRowData(
                 icon: Icons.flag_outlined,
@@ -290,21 +306,6 @@ class _ProfileContent extends StatelessWidget {
                 icon: Icons.receipt_long_outlined,
                 label: 'PAN Number',
                 value: _orNotSpecified(membership?.panNumber),
-              ),
-              _InfoRowData(
-                icon: Icons.location_on_outlined,
-                label: 'Address',
-                value: _orNotSpecified(membership?.address),
-              ),
-              _InfoRowData(
-                icon: Icons.cake_outlined,
-                label: 'Date of Birth',
-                value: _formatDate(membership?.dateOfBirth),
-              ),
-              _InfoRowData(
-                icon: Icons.calendar_today_outlined,
-                label: 'Date Joined',
-                value: _formatDate(membership?.dateJoined),
               ),
               _InfoRowData(
                 icon: Icons.work_outline,
@@ -326,9 +327,9 @@ class _ProfileContent extends StatelessWidget {
                     : 'Not specified',
               ),
               _InfoRowData(
-                icon: Icons.verified_user_outlined,
-                label: 'Email Verified',
-                value: emailVerified ? 'Yes' : 'No',
+                icon: Icons.calendar_today_outlined,
+                label: 'Date Joined',
+                value: _formatDate(membership?.dateJoined),
               ),
             ],
           ),
@@ -342,6 +343,7 @@ class _AvatarHeader extends StatelessWidget {
   const _AvatarHeader({
     required this.fullName,
     required this.role,
+    required this.organization,
     required this.avatarPath,
     required this.avatarUrl,
     required this.onChangeAvatar,
@@ -349,6 +351,7 @@ class _AvatarHeader extends StatelessWidget {
 
   final String fullName;
   final String role;
+  final String? organization;
   final String? avatarPath;
   final String? avatarUrl;
   final VoidCallback onChangeAvatar;
@@ -369,22 +372,22 @@ class _AvatarHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Row(
       children: <Widget>[
         Stack(
           clipBehavior: Clip.none,
           children: <Widget>[
             Container(
-              width: 112.r,
-              height: 112.r,
+              width: 72.r,
+              height: 72.r,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: AppColors.textOrange, width: 3.w),
+                border: Border.all(color: AppColors.textOrange, width: 2.w),
                 boxShadow: <BoxShadow>[
                   BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.18),
-                    blurRadius: 22,
-                    offset: const Offset(0, 10),
+                    color: AppColors.primary.withValues(alpha: 0.12),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
@@ -417,46 +420,64 @@ class _AvatarHeader extends StatelessWidget {
             ),
             Positioned(
               right: -2.w,
-              bottom: 8.h,
+              bottom: -2.h,
               child: InkWell(
                 onTap: onChangeAvatar,
                 customBorder: const CircleBorder(),
                 child: Container(
-                  width: 40.r,
-                  height: 40.r,
+                  width: 28.r,
+                  height: 28.r,
                   decoration: BoxDecoration(
                     color: AppColors.info,
                     shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.surface, width: 3.w),
+                    border: Border.all(color: AppColors.surface, width: 2.5.w),
                   ),
                   child: Icon(
                     Icons.camera_alt_rounded,
                     color: AppColors.textWhite,
-                    size: 20.sp,
+                    size: 15.sp,
                   ),
                 ),
               ),
             ),
           ],
         ),
-        SizedBox(height: 20.h),
-        Text(
-          fullName,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 22.sp,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        SizedBox(height: 6.h),
-        Text(
-          role,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 14.sp,
-            fontWeight: FontWeight.w400,
+        SizedBox(width: 16.w),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                fullName,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 19.sp,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              SizedBox(height: 6.h),
+              Text(
+                role,
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (organization != null &&
+                  organization!.trim().isNotEmpty) ...<Widget>[
+                SizedBox(height: 6.h),
+                Text(
+                  organization!.trim(),
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ],

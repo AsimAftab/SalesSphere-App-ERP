@@ -3,10 +3,11 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 
-/// Live tracking status + controls. Driven by the background service's pushed
-/// state (duration, distance, queued-ping count, connection) with Pause/Resume
-/// + Stop controls that mirror the persistent notification.
-class TrackingStatusCard extends StatelessWidget {
+/// Live, display-only tracking status pushed from the background location
+/// service — elapsed duration, distance, queued-ping count, connection state
+/// and battery. Tracking is system-controlled, so the card has no user
+/// controls; the live dot pulses gently while streaming.
+class TrackingStatusCard extends StatefulWidget {
   const TrackingStatusCard({
     required this.duration,
     required this.distanceKm,
@@ -27,10 +28,71 @@ class TrackingStatusCard extends StatelessWidget {
   final int? batteryLevel;
 
   @override
+  State<TrackingStatusCard> createState() => _TrackingStatusCardState();
+}
+
+class _TrackingStatusCardState extends State<TrackingStatusCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+
+  /// Actively streaming — the only state that pulses.
+  bool get _isLive => !widget.isPaused && widget.isConnected;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    if (_isLive) _pulse.repeat(reverse: true);
+  }
+
+  @override
+  void didUpdateWidget(TrackingStatusCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_isLive && !_pulse.isAnimating) {
+      _pulse.repeat(reverse: true);
+    } else if (!_isLive && _pulse.isAnimating) {
+      _pulse
+        ..stop()
+        ..value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final accent = isPaused
+    final accent = widget.isPaused
         ? AppColors.warning
-        : (isConnected ? AppColors.success : AppColors.warning);
+        : (widget.isConnected ? AppColors.success : AppColors.warning);
+
+    final IconData statusIcon;
+    final String pillLabel;
+    final String title;
+    final String subtitle;
+    if (widget.isPaused) {
+      statusIcon = Icons.pause_rounded;
+      pillLabel = 'PAUSED';
+      title = 'Tracking paused';
+      subtitle = 'Location updates are paused';
+    } else if (widget.isConnected) {
+      statusIcon = Icons.satellite_alt_rounded;
+      pillLabel = 'LIVE';
+      title = 'Tracking active';
+      subtitle = 'Streaming your location in real time';
+    } else {
+      statusIcon = Icons.sync_problem_rounded;
+      pillLabel = 'OFFLINE';
+      title = 'Tracking active';
+      subtitle = 'Offline — buffering until reconnected';
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -48,31 +110,26 @@ class TrackingStatusCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: EdgeInsets.fromLTRB(24.w, 24.h, 24.w, 16.h),
+            padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 16.h),
             child: Row(
               children: [
+                // Leading status icon-chip.
                 Container(
-                  width: 8.w,
-                  height: 8.w,
+                  width: 40.r,
+                  height: 40.r,
                   decoration: BoxDecoration(
-                    color: accent,
+                    color: accent.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: accent.withValues(alpha: 0.4),
-                        blurRadius: 4.r,
-                        spreadRadius: 2.r,
-                      ),
-                    ],
                   ),
+                  child: Icon(statusIcon, color: accent, size: 20.sp),
                 ),
-                SizedBox(width: 8.w),
+                SizedBox(width: 12.w),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        isPaused ? 'Tracking paused' : 'Tracking active',
+                        title,
                         style: TextStyle(
                           fontSize: 16.sp,
                           fontWeight: FontWeight.w700,
@@ -81,11 +138,7 @@ class TrackingStatusCard extends StatelessWidget {
                       ),
                       SizedBox(height: 2.h),
                       Text(
-                        isPaused
-                            ? 'Location updates are paused'
-                            : (isConnected
-                                ? 'Streaming your location in real time'
-                                : 'Offline — buffering until reconnected'),
+                        subtitle,
                         style: TextStyle(
                           fontSize: 12.sp,
                           color: AppColors.textSecondary,
@@ -97,70 +150,63 @@ class TrackingStatusCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                Icon(
-                  isConnected
-                      ? Icons.satellite_alt_rounded
-                      : Icons.sync_problem_rounded,
-                  color: accent,
-                  size: 20.sp,
-                ),
+                SizedBox(width: 12.w),
+                _StatusPill(label: pillLabel, accent: accent, pulse: _pulse, isLive: _isLive),
               ],
             ),
           ),
           Container(
             color: accent.withValues(alpha: 0.12),
-            padding: EdgeInsets.fromLTRB(24.w, 20.h, 24.w, 20.h),
-            child: Column(
-              children: [
-                Container(
-                  padding: EdgeInsets.symmetric(vertical: 18.h),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(16.r),
+            padding: EdgeInsets.fromLTRB(20.w, 18.h, 20.w, 18.h),
+            child: Container(
+              padding: EdgeInsets.symmetric(vertical: 16.h),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(16.r),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _metric(
+                      'Duration',
+                      widget.duration,
+                      Icons.timer_outlined,
+                      AppColors.primary,
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _metric(
-                          'Duration',
-                          duration,
-                          Icons.timer_outlined,
-                          AppColors.primary,
-                        ),
-                      ),
-                      _divider(),
-                      Expanded(
-                        child: _metric(
-                          'Distance',
-                          '${distanceKm.toStringAsFixed(2)} km',
-                          Icons.route_outlined,
-                          AppColors.secondary,
-                        ),
-                      ),
-                      _divider(),
-                      Expanded(
-                        child: _metric(
-                          'Queued',
-                          '$queuedCount',
-                          Icons.cloud_upload_outlined,
-                          queuedCount > 0 ? AppColors.warning : AppColors.success,
-                        ),
-                      ),
-                      if (batteryLevel != null) ...[
-                        _divider(),
-                        Expanded(
-                          child: _metric(
-                            'Battery',
-                            '$batteryLevel%',
-                            _batteryIcon(batteryLevel!),
-                            _batteryColor(batteryLevel!),
-                          ),
-                        ),
-                      ],
-                    ],
+                  _divider(),
+                  Expanded(
+                    child: _metric(
+                      'Distance',
+                      '${widget.distanceKm.toStringAsFixed(2)} km',
+                      Icons.route_outlined,
+                      AppColors.secondary,
+                    ),
                   ),
-                ),
-              ],
+                  _divider(),
+                  Expanded(
+                    child: _metric(
+                      'Queued',
+                      '${widget.queuedCount}',
+                      Icons.cloud_upload_outlined,
+                      widget.queuedCount > 0
+                          ? AppColors.warning
+                          : AppColors.success,
+                    ),
+                  ),
+                  if (widget.batteryLevel != null) ...[
+                    _divider(),
+                    Expanded(
+                      child: _metric(
+                        'Battery',
+                        '${widget.batteryLevel}%',
+                        _batteryIcon(widget.batteryLevel!),
+                        _batteryColor(widget.batteryLevel!),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
         ],
@@ -170,7 +216,7 @@ class TrackingStatusCard extends StatelessWidget {
 
   Widget _divider() => Container(
         width: 1,
-        height: 48.h,
+        height: 56.h,
         color: AppColors.border.withValues(alpha: 0.5),
       );
 
@@ -192,7 +238,15 @@ class TrackingStatusCard extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18.sp, color: color),
+          Container(
+            width: 32.r,
+            height: 32.r,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 16.sp, color: color),
+          ),
           SizedBox(height: 8.h),
           FittedBox(
             fit: BoxFit.scaleDown,
@@ -218,6 +272,69 @@ class TrackingStatusCard extends StatelessWidget {
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Accent status pill (LIVE / PAUSED / OFFLINE) with a leading dot that pulses
+/// a soft glow while live.
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({
+    required this.label,
+    required this.accent,
+    required this.pulse,
+    required this.isLive,
+  });
+
+  final String label;
+  final Color accent;
+  final Animation<double> pulse;
+  final bool isLive;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(40.r),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedBuilder(
+            animation: pulse,
+            builder: (context, _) {
+              final t = isLive ? pulse.value : 0.0;
+              return Container(
+                width: 8.w,
+                height: 8.w,
+                decoration: BoxDecoration(
+                  color: accent,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.2 + 0.4 * t),
+                      blurRadius: 2.r + 4.r * t,
+                      spreadRadius: 1.r + 3.r * t,
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          SizedBox(width: 6.w),
+          Text(
+            label,
+            style: TextStyle(
+              color: accent,
+              fontSize: 11.sp,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.3,
+            ),
           ),
         ],
       ),

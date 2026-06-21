@@ -15,6 +15,7 @@ import 'package:sales_sphere_erp/features/beat_plan/presentation/visit_progress_
 import 'package:sales_sphere_erp/features/beat_plan/presentation/widgets/end_visit_sheet.dart';
 import 'package:sales_sphere_erp/features/beat_plan/presentation/widgets/route_progress_card.dart';
 import 'package:sales_sphere_erp/features/beat_plan/presentation/widgets/route_stop_card.dart';
+import 'package:sales_sphere_erp/features/beat_plan/presentation/widgets/skip_stop_confirmation_dialog.dart';
 import 'package:sales_sphere_erp/features/beat_plan/presentation/widgets/tracking_status_card.dart';
 import 'package:sales_sphere_erp/features/tracking/domain/tracking_live_state.dart';
 import 'package:sales_sphere_erp/features/tracking/domain/usecases/start_tracking_usecase.dart';
@@ -82,7 +83,7 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
         body: SafeArea(
           child: Column(
             children: <Widget>[
-              _header(context, live.isFor(widget.id)),
+              _header(context, live),
               SizedBox(height: 12.h),
               Expanded(
                 child: planAsync.when(
@@ -106,7 +107,22 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
     );
   }
 
-  Widget _header(BuildContext context, bool tracking) {
+  Widget _header(BuildContext context, TrackingLiveState live) {
+    final tracking = live.isFor(widget.id);
+    // Mirror the TrackingStatusCard's state so the header badge stays in sync:
+    // green "Live" while streaming, amber "Paused"/"Offline" otherwise.
+    final String trackingLabel;
+    final Color trackingColor;
+    if (live.isPaused) {
+      trackingLabel = 'Paused';
+      trackingColor = AppColors.warning;
+    } else if (live.connected) {
+      trackingLabel = 'Live';
+      trackingColor = AppColors.success;
+    } else {
+      trackingLabel = 'Offline';
+      trackingColor = AppColors.warning;
+    }
     return Padding(
       padding: EdgeInsets.fromLTRB(12.w, 4.h, 20.w, 0),
       child: Row(
@@ -133,8 +149,8 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
           ),
           if (tracking)
             StatusBadge(
-              label: 'Tracking',
-              color: AppColors.success,
+              label: trackingLabel,
+              color: trackingColor,
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             ),
         ],
@@ -411,6 +427,7 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
         ? null
         : DateFormat('dd MMM yyyy').format(stop.followUpDate!.toLocal());
     return RouteStopCard(
+      key: ValueKey(stop.id),
       name: stop.name ?? 'Unnamed stop',
       ownerName: stop.typeLabel,
       type: stop.typeLabel,
@@ -496,27 +513,11 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
   }
 
   Future<void> _confirmSkip(BeatPlan plan, BeatPlanStop stop) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
-        title: const Text('Skip stop?'),
-        content: Text(
-          'Skip ${stop.name ?? 'this stop'}? This cannot be undone.',
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text('Skip', style: TextStyle(color: AppColors.error)),
-          ),
-        ],
-      ),
+    final confirmed = await showSkipStopConfirmation(
+      context,
+      stopName: stop.name ?? 'this stop',
     );
-    if (confirmed ?? false) {
+    if (confirmed) {
       await _skipStop(plan, stop);
     }
   }
