@@ -8,6 +8,7 @@ import 'package:sales_sphere_erp/core/db/daos/users_dao.dart';
 import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
 import 'package:sales_sphere_erp/features/auth/data/auth_api.dart';
 import 'package:sales_sphere_erp/features/auth/data/dto/auth_user_dto.dart';
+import 'package:sales_sphere_erp/features/auth/data/dto/change_password_request_dto.dart';
 import 'package:sales_sphere_erp/features/auth/data/dto/login_request_dto.dart';
 import 'package:sales_sphere_erp/features/auth/domain/auth_user.dart';
 import 'package:sales_sphere_erp/features/auth/domain/repositories/auth_repository.dart';
@@ -110,6 +111,30 @@ class AuthRepositoryImpl implements AuthRepository {
     }
     await _tokens.clear();
     await _users.deleteAll();
+  }
+
+  @override
+  Future<String> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    try {
+      return await _api.changePassword(
+        ChangePasswordRequestDto(
+          currentPassword: currentPassword,
+          newPassword: newPassword,
+          confirmPassword: confirmPassword,
+        ),
+      );
+    } on DioException catch (e) {
+      // Surface the typed [ApiException] the error interceptor stashed in
+      // DioException.error (carries the backend's "current password is
+      // incorrect" / weak-password copy) instead of a raw dio error.
+      final mapped = e.error;
+      if (mapped is ApiException) throw mapped;
+      rethrow;
+    }
   }
 
   @override
