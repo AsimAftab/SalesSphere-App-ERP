@@ -11,6 +11,22 @@ class UnplannedVisitConflictException implements Exception {
   final String message;
 }
 
+/// `422 NOT_CHECKED_IN`: the backend refuses to start a visit because the rep
+/// hasn't marked attendance for the day. Unlike a stale-view conflict, the rep
+/// can fix this directly — the UI surfaces [message] and offers to jump to the
+/// attendance check-in screen.
+///
+/// A plain `Exception` (not an `ApiException`, which is `sealed`); the UI
+/// catches it explicitly to show the check-in prompt.
+class VisitNotCheckedInException implements Exception {
+  const VisitNotCheckedInException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 /// Client-side geofence gate: the rep is farther than [radiusMeters] from the
 /// selected target, so starting the visit is refused. The server doesn't
 /// enforce this — the app does (matching attendance / beat-plan check-ins).

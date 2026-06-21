@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -7,6 +9,8 @@ import 'package:go_router/go_router.dart';
 import 'package:sales_sphere_erp/core/auth/permissions.dart';
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
+import 'package:sales_sphere_erp/features/attendance/domain/attendance_today_status.dart';
+import 'package:sales_sphere_erp/features/attendance/presentation/providers/attendance_providers.dart';
 import 'package:sales_sphere_erp/features/odometer/domain/odometer_monthly_report.dart';
 import 'package:sales_sphere_erp/features/odometer/domain/odometer_today_status.dart';
 import 'package:sales_sphere_erp/features/odometer/domain/odometer_trip.dart';
@@ -15,6 +19,7 @@ import 'package:sales_sphere_erp/features/odometer/presentation/providers/odomet
 import 'package:sales_sphere_erp/features/odometer/presentation/widgets/start_trip_sheet.dart';
 import 'package:sales_sphere_erp/features/odometer/presentation/widgets/stop_trip_sheet.dart';
 import 'package:sales_sphere_erp/features/odometer/presentation/widgets/trip_card.dart';
+import 'package:sales_sphere_erp/shared/widgets/check_in_required_dialog.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
 import 'package:sales_sphere_erp/shared/widgets/section_card.dart';
@@ -188,15 +193,7 @@ class _Content extends StatelessWidget {
             ],
           ] else if (canRecord) ...[
             SizedBox(height: 24.h),
-            CustomButton(
-              onPressed: () => showModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (_) => const StartTripSheet(),
-              ),
-              label: 'Start New Trip',
-            ),
+            const _StartTripButton(),
           ],
           SizedBox(height: 32.h),
           Row(
@@ -268,6 +265,68 @@ class _Content extends StatelessWidget {
           SizedBox(height: 40.h),
         ],
       ),
+    );
+  }
+}
+
+/// "Start New Trip" with an attendance gate. The backend rejects a trip start
+/// with `422 NOT_CHECKED_IN` when the rep hasn't checked in — but the trip
+/// form asks for a reading + photo first, so submitting only to be rejected
+/// wastes that effort. This resolves today's attendance up front and, when the
+/// rep isn't checked in, prompts them to check in instead of opening the form.
+///
+/// If attendance can't be resolved (offline / error) it opens the form anyway
+/// and lets the server's gate (handled in [StartTripSheet]) be the backstop.
+class _StartTripButton extends ConsumerStatefulWidget {
+  const _StartTripButton();
+
+  @override
+  ConsumerState<_StartTripButton> createState() => _StartTripButtonState();
+}
+
+class _StartTripButtonState extends ConsumerState<_StartTripButton> {
+  bool _checking = false;
+
+  Future<void> _onPressed() async {
+    setState(() => _checking = true);
+    bool checkedIn;
+    try {
+      final status = await ref.read(attendanceTodayStatusProvider.future);
+      checkedIn = status.isCheckedIn;
+    } on Exception {
+      // Couldn't resolve attendance — don't hard-block. Fall through and let
+      // the server's NOT_CHECKED_IN gate (handled in the sheet) decide.
+      checkedIn = true;
+    } finally {
+      if (mounted) setState(() => _checking = false);
+    }
+    if (!mounted) return;
+
+    if (checkedIn) {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => const StartTripSheet(),
+      );
+      return;
+    }
+
+    final goToCheckIn = await CheckInRequiredDialog.show(
+      context,
+      message: 'You must check in before starting a trip.',
+    );
+    if ((goToCheckIn ?? false) && mounted) {
+      unawaited(context.push(Routes.attendance));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomButton(
+      onPressed: _onPressed,
+      isLoading: _checking,
+      label: 'Start New Trip',
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -7,12 +8,14 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/odometer/domain/odometer_exceptions.dart';
 import 'package:sales_sphere_erp/features/odometer/domain/odometer_status.dart';
 import 'package:sales_sphere_erp/features/odometer/presentation/controllers/odometer_controller.dart';
 import 'package:sales_sphere_erp/features/odometer/presentation/providers/odometer_providers.dart';
 import 'package:sales_sphere_erp/shared/utils/error_messages.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
+import 'package:sales_sphere_erp/shared/widgets/check_in_required_dialog.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 
@@ -83,6 +86,20 @@ class _StartTripSheetState extends ConsumerState<StartTripSheet> {
       ref.invalidate(odometerTodayStatusProvider);
       SnackbarUtils.showInfo(context, e.message);
       context.pop();
+    } on OdometerNotCheckedInException catch (e) {
+      // Attendance lapsed between opening this form and submitting (the home
+      // page gates on check-in before opening it). Prompt to check in, then
+      // close the now-unusable form.
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      final goToCheckIn =
+          await CheckInRequiredDialog.show(context, message: e.message);
+      if (!mounted) return;
+      final router = GoRouter.of(context);
+      context.pop();
+      if (goToCheckIn ?? false) {
+        unawaited(router.push(Routes.attendance));
+      }
     } on Exception catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
