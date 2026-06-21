@@ -6,8 +6,9 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
-import 'package:sales_sphere_erp/features/expenses/domain/expense_category.dart';
+import 'package:sales_sphere_erp/features/expenses/domain/expense_claim.dart';
 import 'package:sales_sphere_erp/features/expenses/domain/expense_party.dart';
+import 'package:sales_sphere_erp/features/expenses/domain/repositories/expense_repository.dart';
 import 'package:sales_sphere_erp/features/expenses/presentation/controllers/expenses_controller.dart';
 import 'package:sales_sphere_erp/features/expenses/presentation/providers/expenses_providers.dart';
 import 'package:sales_sphere_erp/features/expenses/presentation/widgets/expense_category_field.dart';
@@ -40,7 +41,7 @@ class _AddExpenseClaimPageState extends ConsumerState<AddExpenseClaimPage> {
 
   static const _maxImages = 2;
 
-  ExpenseCategory? _category;
+  String? _category;
   ExpenseParty? _party;
   DateTime? _date;
   final List<String> _imagePaths = <String>[];
@@ -100,19 +101,34 @@ class _AddExpenseClaimPageState extends ConsumerState<AddExpenseClaimPage> {
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _submitting = true);
     try {
-      await ref
-          .read(expensesControllerProvider.notifier)
-          .addClaim(
-            title: _titleController.text.trim(),
-            amount: double.parse(_amountController.text.trim()),
-            date: date,
-            category: category,
-            party: _party,
-            description: _descriptionController.text.trim(),
-            imagePaths: List<String>.unmodifiable(_imagePaths),
-          );
+      final draft = ExpenseClaim(
+        id: '',
+        // id / createdAt / status are server-assigned — placeholders.
+        title: _titleController.text.trim(),
+        amount: double.parse(_amountController.text.trim()),
+        date: date,
+        category: category,
+        status: ExpenseClaimStatus.pending,
+        party: _party,
+        description: _descriptionController.text.trim(),
+        imagePaths: List<String>.unmodifiable(_imagePaths),
+        createdAt: DateTime.now(),
+      );
+      await ref.read(expensesControllerProvider.notifier).addClaim(draft);
       if (!mounted) return;
       SnackbarUtils.showSuccess(context, 'Expense claim added.');
+      context.pop();
+    } on PartialImageUploadException catch (e) {
+      // Claim was saved; one or more receipts didn't upload. Still pop
+      // back — the user has a row to look at and can re-attach the
+      // missing slots from the edit page.
+      if (!mounted) return;
+      final n = e.failedSlots.length;
+      SnackbarUtils.showError(
+        context,
+        "Expense claim added, but $n receipt${n == 1 ? '' : 's'} didn't "
+        'upload: ${e.firstMessage}',
+      );
       context.pop();
     } on Exception catch (_) {
       if (!mounted) return;
@@ -219,12 +235,14 @@ class _AddExpenseClaimPageState extends ConsumerState<AddExpenseClaimPage> {
                         SizedBox(height: 16.h),
                         PrimaryTextField(
                           controller: _descriptionController,
-                          label: 'Description (Optional)',
+                          label: 'Description',
                           hintText: 'Add any details',
                           prefixIcon: Icons.notes_outlined,
                           minLines: 1,
                           maxLines: 6,
                           textInputAction: TextInputAction.newline,
+                          validator: (v) =>
+                              Validators.requiredField(v, 'Description'),
                         ),
                         SizedBox(height: 20.h),
                         Row(
