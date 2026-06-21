@@ -140,8 +140,8 @@ void main() {
       expect(created.kind, OrderKind.order);
       expect(
         created.number,
-        'ORD-2026-0006',
-      ); // one past the seeded ORD-2026-0005
+        'ORD-2026-0009',
+      ); // one past the seeded max ORD-2026-0008
 
       final history = container.read(orderHistoryProvider).requireValue;
       expect(history.first.id, created.id);

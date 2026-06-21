@@ -15,17 +15,16 @@ import 'package:sales_sphere_erp/features/auth/presentation/pages/login_page.dar
 import 'package:sales_sphere_erp/features/beat_plan/presentation/pages/beat_plan_detail_page.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/pages/catalog_page.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/pages/category_selection_page.dart';
+import 'package:sales_sphere_erp/features/collection/domain/collection.dart';
+import 'package:sales_sphere_erp/features/collection/presentation/pages/add_collection_page.dart';
+import 'package:sales_sphere_erp/features/collection/presentation/pages/collection_list_page.dart';
+import 'package:sales_sphere_erp/features/collection/presentation/pages/edit_collection_detail_page.dart';
 import 'package:sales_sphere_erp/features/customers/presentation/pages/field_ops_page.dart';
 import 'package:sales_sphere_erp/features/expenses/domain/expense_claim.dart';
 import 'package:sales_sphere_erp/features/expenses/presentation/pages/add_expense_claim_page.dart';
 import 'package:sales_sphere_erp/features/expenses/presentation/pages/edit_expense_claim_detail_page.dart';
 import 'package:sales_sphere_erp/features/expenses/presentation/pages/expense_claims_list_page.dart';
 import 'package:sales_sphere_erp/features/home/presentation/pages/home_page.dart';
-import 'package:sales_sphere_erp/features/orders/domain/order.dart';
-import 'package:sales_sphere_erp/features/orders/presentation/pages/order_detail_page.dart';
-import 'package:sales_sphere_erp/features/orders/presentation/pages/order_history_page.dart';
-import 'package:sales_sphere_erp/features/orders/presentation/pages/order_page.dart';
-import 'package:sales_sphere_erp/features/orders/presentation/providers/order_providers.dart';
 import 'package:sales_sphere_erp/features/leaves/domain/leave.dart';
 import 'package:sales_sphere_erp/features/leaves/presentation/pages/add_leave_page.dart';
 import 'package:sales_sphere_erp/features/leaves/presentation/pages/edit_leave_detail_page.dart';
@@ -42,6 +41,11 @@ import 'package:sales_sphere_erp/features/notes/presentation/pages/notes_list_pa
 import 'package:sales_sphere_erp/features/odometer/presentation/pages/odometer_history_page.dart';
 import 'package:sales_sphere_erp/features/odometer/presentation/pages/odometer_home_page.dart';
 import 'package:sales_sphere_erp/features/odometer/presentation/pages/odometer_trip_detail_page.dart';
+import 'package:sales_sphere_erp/features/orders/domain/order.dart';
+import 'package:sales_sphere_erp/features/orders/presentation/pages/order_detail_page.dart';
+import 'package:sales_sphere_erp/features/orders/presentation/pages/order_history_page.dart';
+import 'package:sales_sphere_erp/features/orders/presentation/pages/order_page.dart';
+import 'package:sales_sphere_erp/features/orders/presentation/providers/order_providers.dart';
 import 'package:sales_sphere_erp/features/parties/domain/party.dart';
 import 'package:sales_sphere_erp/features/parties/presentation/pages/add_party_page.dart';
 import 'package:sales_sphere_erp/features/parties/presentation/pages/edit_party_detail_page.dart';
@@ -334,6 +338,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return EditExpenseClaimDetailPage(
             id: id,
             initial: extra is ExpenseClaim ? extra : null,
+          );
+        },
+      ),
+      GoRoute(
+        path: Routes.collections,
+        name: Routes.collectionsName,
+        builder: (_, __) => const CollectionListPage(),
+      ),
+      GoRoute(
+        path: Routes.addCollection,
+        name: Routes.addCollectionName,
+        builder: (_, __) => const AddCollectionPage(),
+      ),
+      GoRoute(
+        path: Routes.collectionDetail,
+        name: Routes.collectionDetailName,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          final extra = state.extra;
+          return EditCollectionDetailPage(
+            id: id,
+            initial: extra is Collection ? extra : null,
           );
         },
       ),
