@@ -13,6 +13,7 @@ import 'package:sales_sphere_erp/features/auth/presentation/controllers/auth_con
 import 'package:sales_sphere_erp/features/profile/domain/entities/profile_entity.dart';
 import 'package:sales_sphere_erp/features/profile/presentation/controllers/profile_controller.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_image_picker.dart';
+import 'package:sales_sphere_erp/shared/widgets/sign_out_confirmation_dialog.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
 /// Profile detail screen reached by pushing from the More tab.
@@ -84,6 +85,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     }
   }
 
+  Future<void> _signOut() async {
+    final confirmed = await showSignOutConfirmation(context);
+    if (!confirmed) return;
+    await ref.read(authControllerProvider.notifier).logout();
+  }
+
   @override
   Widget build(BuildContext context) {
     final profileState = ref.watch(profileControllerProvider);
@@ -98,8 +105,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               _ProfileAppBar(
                 onBack: () =>
                     context.canPop() ? context.pop() : context.go(Routes.more),
-                onLogout: () =>
-                    ref.read(authControllerProvider.notifier).logout(),
+                onLogout: _signOut,
               ),
               Expanded(
                 child: profileState.isLoading && profile == null
@@ -247,26 +253,6 @@ class _ProfileContent extends StatelessWidget {
             onChangeAvatar: onChangeAvatar,
           ),
           SizedBox(height: 24.h),
-          Row(
-            children: <Widget>[
-              const Expanded(
-                child: _SummaryCard(
-                  value: '0%',
-                  label: 'Attendance',
-                  valueColor: AppColors.success,
-                ),
-              ),
-              SizedBox(width: 20.w),
-              const Expanded(
-                child: _SummaryCard(
-                  value: '0',
-                  label: 'Orders',
-                  valueColor: AppColors.tertiary,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 22.h),
           _InfoCard(
             title: 'Personal Information',
             rows: <_InfoRowData>[
@@ -474,60 +460,6 @@ class _AvatarHeader extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({
-    required this.value,
-    required this.label,
-    required this.valueColor,
-  });
-
-  final String value;
-  final String label;
-  final Color valueColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 86.h,
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(18.r),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: AppColors.shadow,
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: valueColor,
-              fontSize: 20.sp,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          SizedBox(height: 8.h),
-          Text(
-            label,
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 12.sp,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

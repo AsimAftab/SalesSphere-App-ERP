@@ -194,14 +194,18 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
                   return;
                 }
 
-                await notifier.submit();
+                final result = await notifier.submit(
+                  currentPassword: _currentPwdCtrl.text,
+                  newPassword: _newPwdCtrl.text,
+                  confirmPassword: _confirmPwdCtrl.text,
+                );
 
-                if (context.mounted) {
-                  SnackbarUtils.showSuccess(
-                    context,
-                    'Password updated successfully!',
-                  );
+                if (!context.mounted) return;
+                if (result.ok) {
+                  SnackbarUtils.showSuccess(context, result.message);
                   context.pop();
+                } else {
+                  SnackbarUtils.showError(context, result.message);
                 }
               },
             ),

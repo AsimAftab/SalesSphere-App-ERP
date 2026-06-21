@@ -134,6 +134,10 @@ class OdometerRepositoryImpl implements OdometerRepository {
               message ?? 'Your odometer status changed. Please refresh.',
               code: code!,
             );
+          case 'NOT_CHECKED_IN':
+            throw OdometerNotCheckedInException(
+              message ?? 'You must check in before starting a trip.',
+            );
         }
       }
     }

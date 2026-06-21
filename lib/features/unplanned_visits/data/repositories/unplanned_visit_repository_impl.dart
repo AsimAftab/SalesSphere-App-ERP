@@ -130,6 +130,10 @@ class UnplannedVisitRepositoryImpl implements UnplannedVisitRepository {
               message ?? 'Your visit status changed. Please refresh.',
               code: code!,
             );
+          case 'NOT_CHECKED_IN':
+            throw VisitNotCheckedInException(
+              message ?? 'You must check in before starting a visit.',
+            );
         }
       }
     }

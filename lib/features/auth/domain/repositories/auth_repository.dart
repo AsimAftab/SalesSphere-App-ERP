@@ -25,6 +25,16 @@ abstract class AuthRepository {
 
   Future<void> logout();
 
+  /// Changes the authenticated user's password. Returns the backend's
+  /// human-readable confirmation message. Other active sessions are
+  /// invalidated server-side; the current session stays valid, so no
+  /// local token churn is needed.
+  Future<String> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmPassword,
+  });
+
   Future<AuthUser?> cachedUser();
 
   Future<bool> hasSession();

@@ -8,6 +8,7 @@ class Endpoints {
   static const refresh = '/auth/refresh';
   static const me = '/auth/me';
   static const session = '/auth/session';
+  static const changePassword = '/auth/change-password';
 
   // ── Customers (parties on the mobile side) ────────────────────────────────
   static const customers = '/customers';

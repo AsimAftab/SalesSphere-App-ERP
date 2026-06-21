@@ -13,3 +13,15 @@ class OdometerConflictException implements Exception {
   @override
   String toString() => 'OdometerConflictException($code): $message';
 }
+
+/// `422 NOT_CHECKED_IN`: the backend refuses to start a trip because the rep
+/// hasn't marked attendance for the day. The rep can fix this directly, so the
+/// UI surfaces [message] and offers to jump to the attendance check-in screen.
+class OdometerNotCheckedInException implements Exception {
+  const OdometerNotCheckedInException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'OdometerNotCheckedInException: $message';
+}

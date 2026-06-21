@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -7,6 +9,8 @@ import 'package:go_router/go_router.dart';
 import 'package:sales_sphere_erp/core/auth/permissions.dart';
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
+import 'package:sales_sphere_erp/features/attendance/domain/attendance_today_status.dart';
+import 'package:sales_sphere_erp/features/attendance/presentation/providers/attendance_providers.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/domain/unplanned_visit.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/domain/unplanned_visit_exceptions.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/domain/unplanned_visits_monthly_report.dart';
@@ -19,6 +23,7 @@ import 'package:sales_sphere_erp/features/unplanned_visits/presentation/widgets/
 import 'package:sales_sphere_erp/features/unplanned_visits/presentation/widgets/visit_target_picker.dart';
 import 'package:sales_sphere_erp/shared/utils/error_messages.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
+import 'package:sales_sphere_erp/shared/widgets/check_in_required_dialog.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
 import 'package:sales_sphere_erp/shared/widgets/section_card.dart';
@@ -366,6 +371,27 @@ class _StartVisitButtonState extends ConsumerState<_StartVisitButton> {
   bool _isLoading = false;
 
   Future<void> _start() async {
+    // Gate on attendance before the target picker — no point choosing a
+    // customer / prospect / site if the server will reject the visit for not
+    // being checked in.
+    setState(() => _isLoading = true);
+    bool checkedIn;
+    try {
+      final status = await ref.read(attendanceTodayStatusProvider.future);
+      checkedIn = status.isCheckedIn;
+    } on Exception {
+      // Couldn't resolve attendance — don't hard-block; the server's
+      // NOT_CHECKED_IN gate (caught below) is the backstop.
+      checkedIn = true;
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+    if (!mounted) return;
+    if (!checkedIn) {
+      await _promptCheckIn('You must check in before starting a visit.');
+      return;
+    }
+
     final target = await showVisitTargetPicker(context);
     if (target == null || !mounted) return;
 
@@ -389,11 +415,24 @@ class _StartVisitButtonState extends ConsumerState<_StartVisitButton> {
       if (!mounted) return;
       ref.invalidate(unplannedVisitsTodayProvider);
       SnackbarUtils.showInfo(context, e.message);
+    } on VisitNotCheckedInException catch (e) {
+      // Server backstop: attendance lapsed between the gate above and the POST.
+      if (!mounted) return;
+      await _promptCheckIn(e.message);
     } on Exception catch (e) {
       if (!mounted) return;
       SnackbarUtils.showError(context, userMessageFor(e));
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// Shows the check-in prompt and, if the rep opts in, routes to attendance.
+  Future<void> _promptCheckIn(String message) async {
+    final goToCheckIn =
+        await CheckInRequiredDialog.show(context, message: message);
+    if ((goToCheckIn ?? false) && mounted) {
+      unawaited(context.push(Routes.attendance));
     }
   }
 
