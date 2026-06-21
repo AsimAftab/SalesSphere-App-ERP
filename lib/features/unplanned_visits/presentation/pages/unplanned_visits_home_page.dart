@@ -21,6 +21,7 @@ import 'package:sales_sphere_erp/shared/utils/error_messages.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
+import 'package:sales_sphere_erp/shared/widgets/section_card.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_badge.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 import 'package:sales_sphere_erp/shared/widgets/summary_stats_card.dart';
@@ -411,13 +412,17 @@ class _EmptyToday extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 24.h),
-      child: const EmptyStateView(
-        icon: Icons.pin_drop_outlined,
-        title: 'No visits today',
-        message: 'Logged visits appear here.',
-      ),
+    // Same empty-state copy, but housed in a white card so it sits in line
+    // with the surrounding cards instead of floating on the background.
+    return SectionCard(
+      padding: EdgeInsets.symmetric(vertical: 28.h, horizontal: 24.w),
+      children: const <Widget>[
+        EmptyStateView(
+          icon: Icons.pin_drop_outlined,
+          title: 'No visits today',
+          message: 'Logged visits appear here.',
+        ),
+      ],
     );
   }
 }

@@ -8,11 +8,11 @@ class Routes {
   static const home = '/home';
   static const catalog = '/catalog';
   static const catalogCategories = '/catalog/categories';
-  static const invoice = '/invoice';
-  static const invoiceHistory = '/invoice/history';
-  static const invoiceDetail = '/invoice/detail/:id';
+  static const order = '/order';
+  static const orderHistory = '/order/history';
+  static const orderDetail = '/order/detail/:id';
 
-  static String invoiceDetailPath(String id) => '/invoice/detail/$id';
+  static String orderDetailPath(String id) => '/order/detail/$id';
 
   static const fieldOps = '/field-ops';
   static const more = '/more';
@@ -96,9 +96,9 @@ class Routes {
   static const homeName = 'home';
   static const catalogName = 'catalog';
   static const catalogCategoriesName = 'catalogCategories';
-  static const invoiceName = 'invoice';
-  static const invoiceHistoryName = 'invoiceHistory';
-  static const invoiceDetailName = 'invoiceDetail';
+  static const orderName = 'order';
+  static const orderHistoryName = 'orderHistory';
+  static const orderDetailName = 'orderDetail';
   static const fieldOpsName = 'fieldOps';
   static const moreName = 'more';
   static const profileName = 'profile';

@@ -7,13 +7,13 @@ import 'package:intl/intl.dart';
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/widgets/product_image.dart';
-import 'package:sales_sphere_erp/features/invoice/domain/invoice.dart';
-import 'package:sales_sphere_erp/features/invoice/domain/invoice_line_item.dart';
-import 'package:sales_sphere_erp/features/invoice/domain/invoice_party.dart';
-import 'package:sales_sphere_erp/features/invoice/presentation/controllers/invoice_controller.dart';
-import 'package:sales_sphere_erp/features/invoice/presentation/providers/invoice_providers.dart';
-import 'package:sales_sphere_erp/features/invoice/presentation/widgets/convert_to_invoice_dialog.dart';
-import 'package:sales_sphere_erp/features/invoice/presentation/widgets/invoice_status_visuals.dart';
+import 'package:sales_sphere_erp/features/orders/domain/order.dart';
+import 'package:sales_sphere_erp/features/orders/domain/order_line_item.dart';
+import 'package:sales_sphere_erp/features/orders/domain/order_party.dart';
+import 'package:sales_sphere_erp/features/orders/presentation/controllers/order_controller.dart';
+import 'package:sales_sphere_erp/features/orders/presentation/providers/order_providers.dart';
+import 'package:sales_sphere_erp/features/orders/presentation/widgets/convert_to_order_dialog.dart';
+import 'package:sales_sphere_erp/features/orders/presentation/widgets/order_status_visuals.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/section_card.dart';
@@ -23,20 +23,20 @@ import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 0);
 final _dateFmt = DateFormat('dd MMM yyyy');
 
-/// Read-only detail view of a saved invoice / estimate. Receives the
+/// Read-only detail view of a saved order / estimate. Receives the
 /// record via `extra` ([initial]) to render instantly; falls back to
-/// [invoiceByIdProvider] when opened cold (e.g. a deep link).
-class InvoiceDetailPage extends ConsumerWidget {
-  const InvoiceDetailPage({required this.id, this.initial, super.key});
+/// [orderByIdProvider] when opened cold (e.g. a deep link).
+class OrderDetailPage extends ConsumerWidget {
+  const OrderDetailPage({required this.id, this.initial, super.key});
 
   final String id;
-  final Invoice? initial;
+  final Order? initial;
 
   void _back(BuildContext context) {
     if (context.canPop()) {
       context.pop();
     } else {
-      context.go(Routes.invoiceHistory);
+      context.go(Routes.orderHistory);
     }
   }
 
@@ -45,15 +45,15 @@ class InvoiceDetailPage extends ConsumerWidget {
     // Prefer the live record from the store so a pull-to-refresh / header
     // refresh reflects updates; [initial] (passed via `extra`) is the
     // instant-paint fallback for cold opens / deep links.
-    final invoice = ref.watch(invoiceByIdProvider(id)) ?? initial;
+    final order = ref.watch(orderByIdProvider(id)) ?? initial;
 
     return DarkStatusBar(
       child: Scaffold(
         backgroundColor: AppColors.background,
         body: SafeArea(
-          child: invoice == null
+          child: order == null
               ? _NotFound(onBack: () => _back(context))
-              : _Body(invoice: invoice, onBack: () => _back(context)),
+              : _Body(order: order, onBack: () => _back(context)),
         ),
       ),
     );
@@ -61,42 +61,42 @@ class InvoiceDetailPage extends ConsumerWidget {
 }
 
 class _Body extends ConsumerWidget {
-  const _Body({required this.invoice, required this.onBack});
+  const _Body({required this.order, required this.onBack});
 
-  final Invoice invoice;
+  final Order order;
   final VoidCallback onBack;
 
-  bool get _isEstimate => invoice.kind == InvoiceKind.estimate;
+  bool get _isEstimate => order.kind == OrderKind.estimate;
 
   void _downloadPdf(BuildContext context) {
-    SnackbarUtils.showSuccess(context, 'Preparing ${invoice.number}.pdf…');
+    SnackbarUtils.showSuccess(context, 'Preparing ${order.number}.pdf…');
   }
 
-  Future<void> _convertToInvoice(BuildContext context, WidgetRef ref) async {
-    final deliveryDate = await ConvertToInvoiceDialog.show(context);
+  Future<void> _convertToOrder(BuildContext context, WidgetRef ref) async {
+    final deliveryDate = await ConvertToOrderDialog.show(context);
     if (deliveryDate == null || !context.mounted) return;
 
     final created = await ref
-        .read(invoiceControllerProvider.notifier)
-        .convertToInvoice(invoice, deliveryDate);
+        .read(orderControllerProvider.notifier)
+        .convertToOrder(order, deliveryDate);
     if (!context.mounted) return;
 
     SnackbarUtils.showSuccess(
       context,
-      '${invoice.number} converted to ${created.number}.',
+      '${order.number} converted to ${created.number}.',
     );
     context.pushReplacement(
-      Routes.invoiceDetailPath(created.id),
+      Routes.orderDetailPath(created.id),
       extra: created,
     );
   }
 
   Future<void> _refresh(WidgetRef ref) =>
-      ref.read(invoiceHistoryProvider.notifier).refresh();
+      ref.read(orderHistoryProvider.notifier).refresh();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final organization = ref.watch(invoiceOrganizationProvider);
+    final organization = ref.watch(orderOrganizationProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -117,7 +117,7 @@ class _Body extends ConsumerWidget {
               SizedBox(width: 8.w),
               Expanded(
                 child: Text(
-                  '${invoiceKindLabel(invoice.kind)} Details',
+                  '${orderKindLabel(order.kind)} Details',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -155,7 +155,7 @@ class _Body extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
                   // ── Summary header (number + status + dates) ────────────
-                  _SummaryHeaderCard(invoice: invoice),
+                  _SummaryHeaderCard(order: order),
                   SizedBox(height: 20.h),
                   // ── From (selling organisation) ──────────────────────────
                   const _SectionHeader(
@@ -183,26 +183,26 @@ class _Body extends ConsumerWidget {
                   _PartyInfoCard(
                     accent: AppColors.secondary,
                     icon: Icons.storefront_rounded,
-                    heading: invoice.party?.name ?? '—',
-                    rows: _billToRows(invoice.party),
+                    heading: order.party?.name ?? '—',
+                    rows: _billToRows(order.party),
                   ),
                   SizedBox(height: 20.h),
                   // ── Items ────────────────────────────────────────────────
                   _SectionHeader(
                     icon: Icons.shopping_bag_outlined,
                     title: 'Items',
-                    trailing: '${invoice.items.length}',
+                    trailing: '${order.items.length}',
                   ),
                   SizedBox(height: 10.h),
                   SectionCard(
                     children: <Widget>[
                       for (
                         var i = 0;
-                        i < invoice.items.length;
+                        i < order.items.length;
                         i++
                       ) ...<Widget>[
                         if (i > 0) _divider(),
-                        _LineRow(line: invoice.items[i]),
+                        _LineRow(line: order.items[i]),
                       ],
                     ],
                   ),
@@ -217,23 +217,23 @@ class _Body extends ConsumerWidget {
                     children: <Widget>[
                       _SummaryRow(
                         label: 'Subtotal',
-                        value: invoice.itemsSubtotal,
+                        value: order.itemsSubtotal,
                       ),
-                      if (invoice.overallDiscountPercent > 0)
+                      if (order.overallDiscountPercent > 0)
                         _SummaryRow(
                           label:
                               'Overall discount '
-                              '(${_pct(invoice.overallDiscountPercent)}%)',
-                          value: -invoice.overallDiscountAmount,
+                              '(${_pct(order.overallDiscountPercent)}%)',
+                          value: -order.overallDiscountAmount,
                         ),
-                      if (invoice.tax.rate > 0) ...<Widget>[
+                      if (order.tax.rate > 0) ...<Widget>[
                         _SummaryRow(
                           label: 'Taxable amount',
-                          value: invoice.taxableBase,
+                          value: order.taxableBase,
                         ),
                         _SummaryRow(
-                          label: invoice.tax.label,
-                          value: invoice.taxAmount,
+                          label: order.tax.label,
+                          value: order.taxAmount,
                         ),
                       ],
                       SizedBox(height: 8.h),
@@ -251,7 +251,7 @@ class _Body extends ConsumerWidget {
                           ),
                           const Spacer(),
                           Text(
-                            _currency.format(invoice.grandTotal),
+                            _currency.format(order.grandTotal),
                             style: TextStyle(
                               color: AppColors.textPrimary,
                               fontSize: 20.sp,
@@ -261,16 +261,16 @@ class _Body extends ConsumerWidget {
                         ],
                       ),
                       SizedBox(height: 6.h),
-                      _TotalCaption(invoice: invoice),
+                      _TotalCaption(order: order),
                     ],
                   ),
                   SizedBox(height: 22.h),
                   // ── Actions ──────────────────────────────────────────────
                   if (_isEstimate) ...<Widget>[
                     PrimaryButton(
-                      label: 'Convert to Invoice',
+                      label: 'Convert to Order',
                       leadingIcon: Icons.swap_horiz_rounded,
-                      onPressed: () => _convertToInvoice(context, ref),
+                      onPressed: () => _convertToOrder(context, ref),
                     ),
                     SizedBox(height: 12.h),
                     OutlinedCustomButton(
@@ -293,7 +293,7 @@ class _Body extends ConsumerWidget {
     );
   }
 
-  static List<_Field> _billToRows(InvoiceParty? party) {
+  static List<_Field> _billToRows(OrderParty? party) {
     if (party == null) return const <_Field>[];
     return <_Field>[
       _Field('Owner', party.ownerName),
@@ -316,14 +316,14 @@ class _Body extends ConsumerWidget {
 /// Replaces the old standalone dates card and gives the page a premium,
 /// at-a-glance top section without a heavy dark hero.
 class _SummaryHeaderCard extends StatelessWidget {
-  const _SummaryHeaderCard({required this.invoice});
+  const _SummaryHeaderCard({required this.order});
 
-  final Invoice invoice;
+  final Order order;
 
   @override
   Widget build(BuildContext context) {
-    final badgeColor = invoiceBadgeColor(invoice);
-    final isEstimate = invoice.kind == InvoiceKind.estimate;
+    final badgeColor = orderBadgeColor(order);
+    final isEstimate = order.kind == OrderKind.estimate;
     return SectionCard(
       children: <Widget>[
         Row(
@@ -351,7 +351,7 @@ class _SummaryHeaderCard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
                   Text(
-                    invoice.number,
+                    order.number,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -362,7 +362,7 @@ class _SummaryHeaderCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    invoiceKindLabel(invoice.kind),
+                    orderKindLabel(order.kind),
                     style: TextStyle(
                       color: AppColors.textHint,
                       fontSize: 12.sp,
@@ -372,8 +372,12 @@ class _SummaryHeaderCard extends StatelessWidget {
                 ],
               ),
             ),
-            SizedBox(width: 8.w),
-            StatusBadge(label: invoiceBadgeLabel(invoice), color: badgeColor),
+            // Estimates are self-evident from the kind label above, so the
+            // "Estimate" badge is redundant; orders keep their status badge.
+            if (!isEstimate) ...<Widget>[
+              SizedBox(width: 8.w),
+              StatusBadge(label: orderBadgeLabel(order), color: badgeColor),
+            ],
           ],
         ),
         const Divider(height: 24, color: AppColors.border),
@@ -383,18 +387,20 @@ class _SummaryHeaderCard extends StatelessWidget {
               child: _HeaderMeta(
                 icon: Icons.event_outlined,
                 label: 'Created',
-                value: _dateFmt.format(invoice.createdAt),
+                value: _dateFmt.format(order.createdAt),
               ),
             ),
-            Expanded(
-              child: _HeaderMeta(
-                icon: Icons.local_shipping_outlined,
-                label: 'Expected delivery',
-                value: invoice.deliveryDate == null
-                    ? '—'
-                    : _dateFmt.format(invoice.deliveryDate!),
+            // Estimates have no delivery date — only orders carry one.
+            if (!isEstimate)
+              Expanded(
+                child: _HeaderMeta(
+                  icon: Icons.local_shipping_outlined,
+                  label: 'Expected delivery',
+                  value: order.deliveryDate == null
+                      ? '—'
+                      : _dateFmt.format(order.deliveryDate!),
+                ),
               ),
-            ),
           ],
         ),
       ],
@@ -604,7 +610,7 @@ class _DetailRow extends StatelessWidget {
 class _LineRow extends StatelessWidget {
   const _LineRow({required this.line});
 
-  final InvoiceLineItem line;
+  final OrderLineItem line;
 
   @override
   Widget build(BuildContext context) {
@@ -816,17 +822,17 @@ class _SummaryRow extends StatelessWidget {
 /// parity with the builder's total chip, so the figures the user tuned
 /// while building carry through to the saved record.
 class _TotalCaption extends StatelessWidget {
-  const _TotalCaption({required this.invoice});
+  const _TotalCaption({required this.order});
 
-  final Invoice invoice;
+  final Order order;
 
   @override
   Widget build(BuildContext context) {
-    final itemCount = invoice.items.length;
-    final unitCount = invoice.items.fold<int>(0, (sum, i) => sum + i.quantity);
+    final itemCount = order.items.length;
+    final unitCount = order.items.fold<int>(0, (sum, i) => sum + i.quantity);
     final savings =
-        invoice.items.fold<double>(0, (sum, i) => sum + i.savings) +
-        invoice.overallDiscountAmount;
+        order.items.fold<double>(0, (sum, i) => sum + i.savings) +
+        order.overallDiscountAmount;
 
     return Row(
       children: <Widget>[

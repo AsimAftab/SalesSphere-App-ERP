@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-/// A selectable tax line applied to the whole invoice. Mock-only: the
+/// A selectable tax line applied to the whole order. Mock-only: the
 /// set of options is hard-coded (`No Tax`, `VAT 13%`); swap for a
 /// settings/repository read when the backend exposes tax configuration.
 ///

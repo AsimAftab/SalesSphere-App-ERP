@@ -29,10 +29,10 @@ class HomeShell extends StatelessWidget {
       route: Routes.catalog,
     ),
     _ShellTab(
-      label: 'Invoice',
+      label: 'Order',
       icon: Icons.receipt_long_outlined,
       activeIcon: Icons.receipt_long,
-      route: Routes.invoice,
+      route: Routes.order,
     ),
     _ShellTab(
       label: 'Field Ops',

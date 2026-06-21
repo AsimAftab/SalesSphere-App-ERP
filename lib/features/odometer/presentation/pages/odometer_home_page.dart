@@ -17,6 +17,7 @@ import 'package:sales_sphere_erp/features/odometer/presentation/widgets/stop_tri
 import 'package:sales_sphere_erp/features/odometer/presentation/widgets/trip_card.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
+import 'package:sales_sphere_erp/shared/widgets/section_card.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_badge.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 import 'package:sales_sphere_erp/shared/widgets/summary_stats_card.dart';
@@ -231,13 +232,18 @@ class _Content extends StatelessWidget {
           ),
           SizedBox(height: 16.h),
           if (ordered.isEmpty)
-            Padding(
-              padding: EdgeInsets.symmetric(vertical: 24.h),
-              child: const EmptyStateView(
-                icon: Icons.directions_car_outlined,
-                title: 'No trips today',
-                message: 'Start a trip to see it here.',
-              ),
+            // Same empty-state copy, but housed in a white card so it sits in
+            // line with the surrounding cards instead of floating on the
+            // background.
+            SectionCard(
+              padding: EdgeInsets.symmetric(vertical: 28.h, horizontal: 24.w),
+              children: const <Widget>[
+                EmptyStateView(
+                  icon: Icons.directions_car_outlined,
+                  title: 'No trips today',
+                  message: 'Start a trip to see it here.',
+                ),
+              ],
             )
           else
             _TripsCarousel(trips: ordered),

@@ -6,23 +6,23 @@ import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_date_picker.dart';
 
 /// Asks for the expected delivery date when converting an estimate into a
-/// committed invoice (invoices require one). Resolves to the picked
+/// committed order (orders require one). Resolves to the picked
 /// [DateTime] on confirm, or `null` on cancel / dismiss.
-class ConvertToInvoiceDialog extends StatefulWidget {
-  const ConvertToInvoiceDialog({super.key});
+class ConvertToOrderDialog extends StatefulWidget {
+  const ConvertToOrderDialog({super.key});
 
   static Future<DateTime?> show(BuildContext context) {
     return showDialog<DateTime>(
       context: context,
-      builder: (_) => const ConvertToInvoiceDialog(),
+      builder: (_) => const ConvertToOrderDialog(),
     );
   }
 
   @override
-  State<ConvertToInvoiceDialog> createState() => _ConvertToInvoiceDialogState();
+  State<ConvertToOrderDialog> createState() => _ConvertToOrderDialogState();
 }
 
-class _ConvertToInvoiceDialogState extends State<ConvertToInvoiceDialog> {
+class _ConvertToOrderDialogState extends State<ConvertToOrderDialog> {
   final _dateController = TextEditingController();
   DateTime? _deliveryDate;
 
@@ -66,7 +66,7 @@ class _ConvertToInvoiceDialogState extends State<ConvertToInvoiceDialog> {
                   ),
                   SizedBox(height: 12.h),
                   Text(
-                    'Convert to Invoice',
+                    'Convert to Order',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: AppColors.primary,
@@ -87,7 +87,7 @@ class _ConvertToInvoiceDialogState extends State<ConvertToInvoiceDialog> {
                 children: <Widget>[
                   Text(
                     'Set the expected delivery date to commit this estimate '
-                    'as an invoice.',
+                    'as an order.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: AppColors.textSecondary,

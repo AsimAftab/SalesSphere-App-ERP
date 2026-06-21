@@ -1,15 +1,15 @@
-import 'package:sales_sphere_erp/features/invoice/domain/invoice_line_item.dart';
-import 'package:sales_sphere_erp/features/invoice/domain/tax_option.dart';
+import 'package:sales_sphere_erp/features/orders/domain/order_line_item.dart';
+import 'package:sales_sphere_erp/features/orders/domain/tax_option.dart';
 
-/// Shared invoice pricing maths. Mixed into both the live
-/// `InvoiceDraftData` and the saved `Invoice` so the breakdown shown in
+/// Shared order pricing maths. Mixed into both the live
+/// `OrderDraftData` and the saved `Order` so the breakdown shown in
 /// the builder, the saved record, and the history rows all agree.
 ///
-/// Flow: per-line discounts are folded into [InvoiceLineItem.subtotal],
+/// Flow: per-line discounts are folded into [OrderLineItem.subtotal],
 /// then an optional overall discount and a tax line apply to the whole
-/// invoice.
-mixin InvoiceTotals {
-  List<InvoiceLineItem> get items;
+/// order.
+mixin OrderTotals {
+  List<OrderLineItem> get items;
   double get overallDiscountPercent;
   TaxOption get tax;
 
@@ -17,7 +17,7 @@ mixin InvoiceTotals {
   double get itemsSubtotal =>
       items.fold(0, (sum, item) => sum + item.subtotal);
 
-  /// Amount removed by the invoice-wide discount.
+  /// Amount removed by the order-wide discount.
   double get overallDiscountAmount =>
       itemsSubtotal * overallDiscountPercent / 100;
 

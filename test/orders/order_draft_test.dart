@@ -1,12 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sales_sphere_erp/features/catalog/domain/product.dart';
-import 'package:sales_sphere_erp/features/invoice/data/invoice_mock_data.dart';
-import 'package:sales_sphere_erp/features/invoice/domain/invoice.dart';
-import 'package:sales_sphere_erp/features/invoice/domain/invoice_line_item.dart';
-import 'package:sales_sphere_erp/features/invoice/domain/tax_option.dart';
-import 'package:sales_sphere_erp/features/invoice/presentation/controllers/invoice_controller.dart';
-import 'package:sales_sphere_erp/features/invoice/presentation/providers/invoice_providers.dart';
+import 'package:sales_sphere_erp/features/orders/data/order_mock_data.dart';
+import 'package:sales_sphere_erp/features/orders/domain/order.dart';
+import 'package:sales_sphere_erp/features/orders/domain/order_line_item.dart';
+import 'package:sales_sphere_erp/features/orders/domain/tax_option.dart';
+import 'package:sales_sphere_erp/features/orders/presentation/controllers/order_controller.dart';
+import 'package:sales_sphere_erp/features/orders/presentation/providers/order_providers.dart';
 
 Product _product(String id, double price) => Product(
       id: id,
@@ -18,9 +18,9 @@ Product _product(String id, double price) => Product(
     );
 
 void main() {
-  group('InvoiceLineItem', () {
+  group('OrderLineItem', () {
     test('subtotal is qty x base price; discount is derived from listed', () {
-      const line = InvoiceLineItem(
+      const line = OrderLineItem(
         productId: 'p1',
         name: 'P1',
         listedPrice: 1000,
@@ -34,7 +34,7 @@ void main() {
     });
 
     test('a markup (base above listed) shows zero discount, zero savings', () {
-      const line = InvoiceLineItem(
+      const line = OrderLineItem(
         productId: 'p1',
         name: 'P1',
         listedPrice: 1000,
@@ -47,17 +47,17 @@ void main() {
     });
   });
 
-  group('InvoiceDraft', () {
+  group('OrderDraft', () {
     test('editing the discount sets the implied base price', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
       // Pin the auto-dispose draft so it survives across reads in the test.
-      container.listen(invoiceDraftProvider, (_, __) {});
-      container.read(invoiceDraftProvider.notifier)
+      container.listen(orderDraftProvider, (_, __) {});
+      container.read(orderDraftProvider.notifier)
         ..addProducts(<Product>[_product('p1', 1000)])
         ..updateDiscountPercent('p1', 20);
 
-      final line = container.read(invoiceDraftProvider).items.single;
+      final line = container.read(orderDraftProvider).items.single;
       expect(line.basePrice, 800); // 1000 * (1 - 0.20)
       expect(line.discountPercent, closeTo(20, 1e-9));
     });
@@ -66,8 +66,8 @@ void main() {
       final container = ProviderContainer();
       addTearDown(container.dispose);
       // Pin the auto-dispose draft so it survives across reads in the test.
-      container.listen(invoiceDraftProvider, (_, __) {});
-      container.read(invoiceDraftProvider.notifier)
+      container.listen(orderDraftProvider, (_, __) {});
+      container.read(orderDraftProvider.notifier)
         ..addProducts(<Product>[_product('p1', 100), _product('p2', 50)])
         ..updateQuantity('p1', 2) // 2 * 100 = 200
         ..updateQuantity('p2', 4) // 4 * 50  = 200
@@ -75,7 +75,7 @@ void main() {
         ..setOverallDiscountPercent(5)
         ..setTax(const TaxOption(id: 'vat13', label: 'VAT 13%', rate: 13));
 
-      final draft = container.read(invoiceDraftProvider);
+      final draft = container.read(orderDraftProvider);
       expect(draft.itemsSubtotal, 380); // 180 + 200
       expect(draft.overallDiscountAmount, 19); // 5% of 380
       expect(draft.taxableBase, 361);
@@ -86,8 +86,8 @@ void main() {
     test('addFromCart caps quantity to stock; updateQuantity stays capped', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
-      container.listen(invoiceDraftProvider, (_, __) {});
-      container.read(invoiceDraftProvider.notifier)
+      container.listen(orderDraftProvider, (_, __) {});
+      container.read(orderDraftProvider.notifier)
         ..addFromCart(<String, int>{'p1': 10}, <Product>[
           const Product(
             id: 'p1',
@@ -100,7 +100,7 @@ void main() {
         ])
         ..updateQuantity('p1', 99);
 
-      final line = container.read(invoiceDraftProvider).items.single;
+      final line = container.read(orderDraftProvider).items.single;
       expect(line.availableStock, 4);
       expect(line.quantity, 4); // capped to stock
     });
@@ -109,41 +109,44 @@ void main() {
       final container = ProviderContainer();
       addTearDown(container.dispose);
       // Pin the auto-dispose draft so it survives across reads in the test.
-      container.listen(invoiceDraftProvider, (_, __) {});
-      container.read(invoiceDraftProvider.notifier)
+      container.listen(orderDraftProvider, (_, __) {});
+      container.read(orderDraftProvider.notifier)
         ..addProducts(<Product>[_product('p1', 100)])
         ..updateQuantity('p1', 5)
         ..addProducts(<Product>[_product('p1', 100)]); // re-add
 
-      final draft = container.read(invoiceDraftProvider);
+      final draft = container.read(orderDraftProvider);
       expect(draft.items, hasLength(1));
       expect(draft.items.single.quantity, 5);
     });
   });
 
-  group('InvoiceController create flow', () {
-    test('createInvoice appends to history and resets the draft', () async {
+  group('OrderController create flow', () {
+    test('createOrder appends to history and resets the draft', () async {
       final container = ProviderContainer();
       addTearDown(container.dispose);
       // Pin the auto-dispose draft so it survives across reads in the test.
-      container.listen(invoiceDraftProvider, (_, __) {});
+      container.listen(orderDraftProvider, (_, __) {});
 
-      await container.read(invoiceHistoryProvider.future);
+      await container.read(orderHistoryProvider.future);
       container
-          .read(invoiceDraftProvider.notifier)
+          .read(orderDraftProvider.notifier)
           .addProducts(<Product>[_product('p1', 100)]);
 
       final created = await container
-          .read(invoiceControllerProvider.notifier)
-          .createInvoice();
+          .read(orderControllerProvider.notifier)
+          .createOrder();
 
-      expect(created.kind, InvoiceKind.invoice);
-      expect(created.number, 'INV-1003'); // one past seeded INV-1002
+      expect(created.kind, OrderKind.order);
+      expect(
+        created.number,
+        'ORD-2026-0006',
+      ); // one past the seeded ORD-2026-0005
 
-      final history = container.read(invoiceHistoryProvider).requireValue;
+      final history = container.read(orderHistoryProvider).requireValue;
       expect(history.first.id, created.id);
 
-      final draft = container.read(invoiceDraftProvider);
+      final draft = container.read(orderDraftProvider);
       expect(draft.isEmpty, isTrue);
       expect(draft.tax, kDefaultTaxOption);
     });
