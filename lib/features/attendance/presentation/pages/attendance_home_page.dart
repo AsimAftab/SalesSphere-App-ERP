@@ -234,17 +234,32 @@ class _AttendanceHomePageState extends ConsumerState<AttendanceHomePage> {
       return outAt == null ? inAt : '$inAt | ${fmt.format(outAt)}';
     }
 
+    final StatusBadge badge;
+    if (hasCheckOut) {
+      badge = const StatusBadge(label: 'Checked Out', color: AppColors.blue500);
+    } else if (hasCheckIn) {
+      badge = const StatusBadge(label: 'Checked In', color: AppColors.green500);
+    } else if (record != null) {
+      // A record with no check-in timestamp was marked administratively
+      // (e.g. a manager marked the rep present from the web because they
+      // couldn't check in on time). A self check-in always stamps
+      // `checkInAt`, so a record without one is a manual mark — reflect the
+      // marked status instead of the misleading "Not Checked In".
+      badge = StatusBadge(
+        label: 'Marked ${record.status.palette.label}',
+        color: record.status.palette.accent,
+      );
+    } else {
+      badge = const StatusBadge(
+        label: 'Not Checked In',
+        color: AppColors.textSecondary,
+      );
+    }
+
     return TodayStatusCard(
       icon: Icons.access_time_rounded,
       title: "Today's Status",
-      statusBadge: hasCheckOut
-          ? const StatusBadge(label: 'Checked Out', color: AppColors.blue500)
-          : hasCheckIn
-          ? const StatusBadge(label: 'Checked In', color: AppColors.green500)
-          : const StatusBadge(
-              label: 'Not Checked In',
-              color: AppColors.textSecondary,
-            ),
+      statusBadge: badge,
       trailingWidget: hasCheckIn
           ? Text(
               formatTimes(record!),

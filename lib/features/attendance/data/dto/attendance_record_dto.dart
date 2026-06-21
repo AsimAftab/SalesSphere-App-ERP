@@ -55,7 +55,7 @@ class AttendanceRecordDto {
       checkOutAddress: checkOutMap?['address'] as String?,
       markedByUserId: markedByMap?['id'] as String?,
       markedByName: markedByMap?['name'] as String?,
-      // markedByRole isn't in the contract — left at its null default.
+      markedByRole: markedByMap?['role'] as String?,
       isLate: (json['isLate'] as bool?) ?? false,
     );
   }
