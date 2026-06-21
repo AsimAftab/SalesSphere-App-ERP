@@ -4,6 +4,7 @@ import 'package:http_parser/http_parser.dart';
 
 import 'package:sales_sphere_erp/core/api/dio_client.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/data/dto/unplanned_visit_dto.dart';
+import 'package:sales_sphere_erp/features/unplanned_visits/data/dto/unplanned_visits_monthly_report_dto.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/data/dto/unplanned_visits_today_dto.dart';
 
 /// HTTP layer for unplanned visits. Every call hits the live backend; the
@@ -25,6 +26,18 @@ class UnplannedVisitsApi {
       Endpoints.unplannedVisitsStatusToday,
     );
     return UnplannedVisitsTodayDto.fromJson(_unwrap(response.data));
+  }
+
+  /// `GET /unplanned-visits/my-monthly-report?year=&month=`.
+  Future<UnplannedVisitsMonthlyReportDto> fetchMonthlyReport(
+    int year,
+    int month,
+  ) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      Endpoints.unplannedVisitsMyMonthlyReport,
+      queryParameters: <String, dynamic>{'year': year, 'month': month},
+    );
+    return UnplannedVisitsMonthlyReportDto.fromJson(_unwrap(response.data));
   }
 
   /// `GET /unplanned-visits/:id`.

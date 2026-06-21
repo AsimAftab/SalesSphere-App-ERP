@@ -103,6 +103,8 @@ class Endpoints {
   static const unplannedVisitStart = '/unplanned-visits/start';
   static const unplannedVisitStop = '/unplanned-visits/stop';
   static const unplannedVisitsStatusToday = '/unplanned-visits/status/today';
+  static const unplannedVisitsMyMonthlyReport =
+      '/unplanned-visits/my-monthly-report';
   static String unplannedVisitById(String id) => '/unplanned-visits/$id';
 
   // ── Collections ───────────────────────────────────────────────────────────

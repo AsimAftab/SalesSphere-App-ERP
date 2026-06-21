@@ -2,18 +2,20 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/data/dto/unplanned_visit_dto.dart';
+import 'package:sales_sphere_erp/features/unplanned_visits/data/dto/unplanned_visits_monthly_report_dto.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/data/dto/unplanned_visits_today_dto.dart';
-import 'package:sales_sphere_erp/features/unplanned_visits/data/unplanned_visits_api.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/data/repositories/unplanned_visit_repository_impl.dart';
+import 'package:sales_sphere_erp/features/unplanned_visits/data/unplanned_visits_api.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/domain/unplanned_visit.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/domain/unplanned_visit_exceptions.dart';
 
 /// Fake API: only the methods exercised per test are populated; the rest throw.
 class _FakeApi implements UnplannedVisitsApi {
-  _FakeApi({this.today, this.byId, this.startError});
+  _FakeApi({this.today, this.byId, this.monthly, this.startError});
 
   UnplannedVisitsTodayDto? today;
   UnplannedVisitDto? byId;
+  UnplannedVisitsMonthlyReportDto? monthly;
   DioException? startError;
 
   @override
@@ -21,6 +23,12 @@ class _FakeApi implements UnplannedVisitsApi {
 
   @override
   Future<UnplannedVisitDto> fetchById(String id) async => byId!;
+
+  @override
+  Future<UnplannedVisitsMonthlyReportDto> fetchMonthlyReport(
+    int year,
+    int month,
+  ) async => monthly!;
 
   @override
   Future<UnplannedVisitDto> start({
@@ -160,6 +168,58 @@ void main() {
       expect(status.hasActiveVisit, isTrue);
       expect(status.activeVisit?.id, 'vis_2');
       expect(status.completedVisits.length, 1);
+    });
+  });
+
+  group('getMonthlyReport → DTO→domain mapping', () {
+    test('maps records + summary and sorts newest-first', () async {
+      final older = _completedJson()
+        ..['id'] = 'vis_old'
+        ..['startTime'] = '2026-06-02T03:00:00.000Z';
+      final newer = _completedJson()
+        ..['id'] = 'vis_new'
+        ..['startTime'] = '2026-06-20T03:00:00.000Z';
+      final monthly = UnplannedVisitsMonthlyReportDto.fromJson(
+        <String, dynamic>{
+          'month': 6,
+          'year': 2026,
+          // Deliberately out of order to prove the repo re-sorts.
+          'records': <dynamic>[older, newer],
+          'summary': <String, dynamic>{
+            'totalVisits': 2,
+            'visitsCompleted': 2,
+            'visitsInProgress': 0,
+            'followUps': 2,
+          },
+        },
+      );
+      final repo = UnplannedVisitRepositoryImpl(api: _FakeApi(monthly: monthly));
+
+      final report = await repo.getMonthlyReport(2026, 6);
+
+      expect(report.year, 2026);
+      expect(report.month, 6);
+      expect(report.records.map((v) => v.id).toList(), <String>[
+        'vis_new',
+        'vis_old',
+      ]);
+      expect(report.summary.totalVisits, 2);
+      expect(report.summary.visitsCompleted, 2);
+      expect(report.summary.visitsInProgress, 0);
+      expect(report.summary.followUps, 2);
+    });
+
+    test('empty month → empty records + zeroed summary', () async {
+      final monthly = UnplannedVisitsMonthlyReportDto.fromJson(
+        <String, dynamic>{'month': 1, 'year': 2026, 'records': <dynamic>[]},
+      );
+      final repo = UnplannedVisitRepositoryImpl(api: _FakeApi(monthly: monthly));
+
+      final report = await repo.getMonthlyReport(2026, 1);
+
+      expect(report.records, isEmpty);
+      expect(report.summary.totalVisits, 0);
+      expect(report.summary.followUps, 0);
     });
   });
 

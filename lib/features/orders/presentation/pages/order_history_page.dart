@@ -13,6 +13,8 @@ import 'package:sales_sphere_erp/features/orders/presentation/widgets/order_stat
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
+import 'package:sales_sphere_erp/shared/widgets/primary_search_filter.dart';
+import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_badge.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 import 'package:skeletonizer/skeletonizer.dart';
@@ -36,6 +38,15 @@ class OrderHistoryPage extends ConsumerStatefulWidget {
 class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  final TextEditingController _searchController = TextEditingController();
+
+  /// Search query applied to both tabs — matches the document number
+  /// (order / estimate number) and the party name.
+  String _query = '';
+
+  /// Status filter for the Orders tab. `null` means "all statuses".
+  /// Estimates ignore it — they carry no fulfilment status worth filtering.
+  OrderStatus? _statusFilter;
 
   @override
   void initState() {
@@ -50,7 +61,14 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage>
   @override
   void dispose() {
     _tabController.dispose();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() => _query = '');
+    FocusManager.instance.primaryFocus?.unfocus();
   }
 
   void _back() {
@@ -70,10 +88,30 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage>
   Widget build(BuildContext context) {
     final historyAsync = ref.watch(orderHistoryProvider);
     final all = historyAsync.value ?? const <Order>[];
-    final orderCount = all.where((i) => i.kind == OrderKind.order).length;
-    final estimateCount = all
-        .where((i) => i.kind == OrderKind.estimate)
-        .length;
+    final query = _query.trim().toLowerCase();
+
+    bool matchesQuery(Order o) {
+      if (query.isEmpty) return true;
+      return o.number.toLowerCase().contains(query) ||
+          (o.party?.name.toLowerCase().contains(query) ?? false);
+    }
+
+    // Search applies to both tabs; the status filter only narrows orders.
+    final orders = <Order>[
+      for (final o in all)
+        if (o.kind == OrderKind.order &&
+            matchesQuery(o) &&
+            (_statusFilter == null || o.status == _statusFilter))
+          o,
+    ];
+    final estimates = <Order>[
+      for (final o in all)
+        if (o.kind == OrderKind.estimate && matchesQuery(o)) o,
+    ];
+
+    final hasQuery = query.isNotEmpty;
+    Future<void> refresh() =>
+        ref.read(orderHistoryProvider.notifier).refresh();
 
     return DarkStatusBar(
       child: Scaffold(
@@ -112,14 +150,35 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage>
                         color: AppColors.primary,
                         size: 22.sp,
                       ),
-                      onPressed: () =>
-                          ref.read(orderHistoryProvider.notifier).refresh(),
+                      onPressed: refresh,
                       tooltip: 'Refresh',
                     ),
                   ],
                 ),
               ),
-              SizedBox(height: 8.h),
+              SizedBox(height: 12.h),
+              // Search bar — applies to both tabs (number + party name).
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20.w),
+                child: PrimaryTextField(
+                  controller: _searchController,
+                  hintText: 'Search by number or party',
+                  prefixIcon: Icons.search,
+                  onChanged: (v) => setState(() => _query = v),
+                  suffixWidget: _query.isEmpty
+                      ? null
+                      : IconButton(
+                          icon: Icon(
+                            Icons.close,
+                            size: 20.sp,
+                            color: AppColors.textSecondary,
+                          ),
+                          onPressed: _clearSearch,
+                          tooltip: 'Clear search',
+                        ),
+                ),
+              ),
+              SizedBox(height: 12.h),
               TabBar(
                 controller: _tabController,
                 labelColor: AppColors.primary,
@@ -132,25 +191,44 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage>
                   fontWeight: FontWeight.w600,
                 ),
                 tabs: <Widget>[
-                  Tab(text: _tabLabel('Orders', orderCount)),
-                  Tab(text: _tabLabel('Estimates', estimateCount)),
+                  Tab(text: _tabLabel('Orders', orders.length)),
+                  Tab(text: _tabLabel('Estimates', estimates.length)),
                 ],
               ),
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
                   children: <Widget>[
-                    _HistoryList(
-                      async: historyAsync,
-                      kind: OrderKind.order,
-                      onRefresh: () =>
-                          ref.read(orderHistoryProvider.notifier).refresh(),
+                    // Orders tab — the status filter is pinned above the list
+                    // and lives INSIDE the tab, so switching tabs slides it
+                    // away horizontally instead of popping the page layout.
+                    Column(
+                      children: <Widget>[
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
+                          child: _StatusFilterBar(
+                            selected: _statusFilter,
+                            onChanged: (next) =>
+                                setState(() => _statusFilter = next),
+                          ),
+                        ),
+                        Expanded(
+                          child: _HistoryList(
+                            async: historyAsync,
+                            items: orders,
+                            kind: OrderKind.order,
+                            isFiltered: hasQuery || _statusFilter != null,
+                            onRefresh: refresh,
+                          ),
+                        ),
+                      ],
                     ),
                     _HistoryList(
                       async: historyAsync,
+                      items: estimates,
                       kind: OrderKind.estimate,
-                      onRefresh: () =>
-                          ref.read(orderHistoryProvider.notifier).refresh(),
+                      isFiltered: hasQuery,
+                      onRefresh: refresh,
                     ),
                   ],
                 ),
@@ -163,15 +241,57 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage>
   }
 }
 
+/// Status filter for the Orders tab — "All Statuses" plus one option per
+/// [OrderStatus], each carrying the same icon + colour as its status badge.
+class _StatusFilterBar extends StatelessWidget {
+  const _StatusFilterBar({required this.selected, required this.onChanged});
+
+  final OrderStatus? selected;
+  final ValueChanged<OrderStatus?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return PrimarySearchFilter<OrderStatus?>(
+      selected: selected,
+      onChanged: onChanged,
+      options: <SearchFilterOption<OrderStatus?>>[
+        const SearchFilterOption<OrderStatus?>(
+          value: null,
+          label: 'All Statuses',
+          icon: Icons.list_alt_rounded,
+        ),
+        for (final s in OrderStatus.values)
+          SearchFilterOption<OrderStatus?>(
+            value: s,
+            label: orderStatusLabel(s),
+            icon: orderStatusIcon(s),
+            iconColor: orderStatusColor(s),
+          ),
+      ],
+    );
+  }
+}
+
 class _HistoryList extends StatelessWidget {
   const _HistoryList({
     required this.async,
+    required this.items,
     required this.kind,
+    required this.isFiltered,
     required this.onRefresh,
   });
 
   final AsyncValue<List<Order>> async;
+
+  /// Already filtered by [kind] + search + (for orders) status. The list
+  /// renders these as-is; the source [async] is kept only to distinguish
+  /// loading / error from a genuinely empty result.
+  final List<Order> items;
   final OrderKind kind;
+
+  /// True when a search query or status filter is narrowing the list, so an
+  /// empty result reads as "no matches" rather than "nothing created yet".
+  final bool isFiltered;
   final Future<void> Function() onRefresh;
 
   @override
@@ -213,11 +333,9 @@ class _HistoryList extends StatelessWidget {
       );
     }
 
-    final items = async.requireValue
-        .where((i) => i.kind == kind)
-        .toList(growable: false);
-
     if (items.isEmpty) {
+      final isOrder = kind == OrderKind.order;
+      final noun = isOrder ? 'orders' : 'estimates';
       return wrapRefresh(
         ListView(
           physics: const AlwaysScrollableScrollPhysics(
@@ -226,15 +344,16 @@ class _HistoryList extends StatelessWidget {
           padding: EdgeInsets.fromLTRB(20.w, 72.h, 20.w, 28.h),
           children: <Widget>[
             _EmptyState(
-              icon: kind == OrderKind.order
+              icon: isOrder
                   ? Icons.receipt_long_outlined
                   : Icons.description_outlined,
-              title: kind == OrderKind.order
-                  ? 'No orders yet'
-                  : 'No estimates yet',
-              message: kind == OrderKind.order
-                  ? 'Orders you create will appear here.'
-                  : 'Estimates you create will appear here.',
+              title: isFiltered
+                  ? 'No matches'
+                  : (isOrder ? 'No orders yet' : 'No estimates yet'),
+              message: isFiltered
+                  ? 'No $noun match your search${isOrder ? ' or filter' : ''}.'
+                  : '${isOrder ? 'Orders' : 'Estimates'} you create will '
+                        'appear here.',
             ),
           ],
         ),
