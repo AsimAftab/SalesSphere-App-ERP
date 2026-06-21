@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/data/dto/unplanned_visit_dto.dart';
+import 'package:sales_sphere_erp/features/unplanned_visits/data/dto/unplanned_visits_monthly_report_dto.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/data/unplanned_visits_api.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/domain/repositories/unplanned_visit_repository.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/domain/unplanned_visit.dart';
@@ -39,20 +40,20 @@ class UnplannedVisitRepositoryImpl implements UnplannedVisitRepository {
     int year,
     int month,
   ) async {
-    // TODO(backend): replace with `GET /unplanned-visits/my-monthly-report`
-    // once that endpoint exists. Until then we surface the only history the
-    // server can give us — the rep's visits for *today* — so the summary and
-    // history UI are real and demoable. Past/future months come back empty.
-    final now = DateTime.now();
-    final isCurrentMonth = year == now.year && month == now.month;
-    final visits = isCurrentMonth
-        ? (await getTodayStatus()).visits
-        : const <UnplannedVisit>[];
+    final dto = await _api.fetchMonthlyReport(year, month);
+    // Server already returns rows newest-first; re-sort defensively on the
+    // same key the history/detail pages bucket by (startedAt ?? createdAt).
+    final records = dto.records.map(_toDomain).toList(growable: false)
+      ..sort((a, b) {
+        final at = a.startedAt ?? a.createdAt ?? DateTime(0);
+        final bt = b.startedAt ?? b.createdAt ?? DateTime(0);
+        return bt.compareTo(at);
+      });
     return UnplannedVisitsMonthlyReport(
-      year: year,
-      month: month,
-      records: visits,
-      summary: UnplannedVisitsMonthlySummary.fromVisits(visits),
+      year: dto.year,
+      month: dto.month,
+      records: records,
+      summary: _summaryToDomain(dto.summary),
     );
   }
 
@@ -161,6 +162,15 @@ class UnplannedVisitRepositoryImpl implements UnplannedVisitRepository {
     durationSeconds: dto.durationSeconds,
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
+  );
+
+  UnplannedVisitsMonthlySummary _summaryToDomain(
+    UnplannedVisitsMonthlySummaryDto dto,
+  ) => UnplannedVisitsMonthlySummary(
+    totalVisits: dto.totalVisits,
+    visitsCompleted: dto.visitsCompleted,
+    visitsInProgress: dto.visitsInProgress,
+    followUps: dto.followUps,
   );
 
   VisitTarget _targetToDomain(VisitTargetDto dto) => VisitTarget(
