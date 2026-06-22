@@ -8,8 +8,8 @@ import 'package:flutter/foundation.dart';
 /// Equality is by [id] so a selected option can be matched back to its
 /// list entry inside the picker regardless of instance identity.
 @immutable
-class CollectionParty {
-  const CollectionParty({
+class CollectionPlusParty {
+  const CollectionPlusParty({
     required this.id,
     required this.name,
     required this.address,
@@ -25,7 +25,7 @@ class CollectionParty {
 
   @override
   bool operator ==(Object other) =>
-      other is CollectionParty && other.id == id;
+      other is CollectionPlusParty && other.id == id;
 
   @override
   int get hashCode => id.hashCode;

@@ -1,7 +1,7 @@
-import 'package:sales_sphere_erp/features/collection/domain/cheque_status.dart';
-import 'package:sales_sphere_erp/features/collection/domain/collection_invoice.dart';
-import 'package:sales_sphere_erp/features/collection/domain/collection_party.dart';
-import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/cheque_status.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/collection_allocation.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/collection_party.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/payment_mode.dart';
 
 /// UI-facing collection model — one recorded payment received from a
 /// party. Decoupled from any wire DTO so a future backend rename
@@ -11,10 +11,10 @@ import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart';
 /// carries no approval workflow. The bank / cheque fields are only
 /// populated when [paymentMode] calls for them
 /// ([PaymentModeX.requiresBank] / [PaymentModeX.requiresChequeDetails]).
-class Collection {
-  const Collection({
+class CollectionPlus {
+  const CollectionPlus({
     required this.id,
-    required this.invoice,
+    required this.allocations,
     required this.party,
     required this.amount,
     required this.receivedDate,
@@ -30,14 +30,15 @@ class Collection {
 
   final String id;
 
-  /// The posted invoice this collection settles. The payment reflects as
-  /// a credit against this invoice on the accounting side.
-  final CollectionInvoice invoice;
+  /// How [amount] was split across the party's outstanding invoices,
+  /// oldest-first (FIFO). Always holds at least one entry; more than one
+  /// when a single payment spilled across invoices. Each entry reflects
+  /// as a credit against its invoice on the accounting side.
+  final List<CollectionPlusAllocation> allocations;
 
-  /// The party the payment was collected from. Derived from [invoice] —
-  /// denormalised here so the list card can render it without resolving
-  /// the invoice's party.
-  final CollectionParty party;
+  /// The party the payment was collected from. Denormalised here so the
+  /// list card can render it without resolving the allocations.
+  final CollectionPlusParty party;
 
   /// Amount received in NPR. Stored as a raw number; the UI formats it
   /// with the `Rs` prefix.
@@ -72,12 +73,22 @@ class Collection {
   /// When the collection row was created locally. Drives list ordering.
   final DateTime createdAt;
 
+  /// Document numbers this payment settled, for the list / detail cards:
+  /// `ORD-2026-0006` for one invoice, `ORD-2026-0006 +1 more` when the
+  /// payment spilled across several.
+  String get invoiceSummary {
+    if (allocations.isEmpty) return '';
+    final first = allocations.first.invoiceNumber;
+    if (allocations.length == 1) return first;
+    return '$first +${allocations.length - 1} more';
+  }
+
   /// Convenience copy used by the edit flow. The `clear*` flags null
   /// out the bank / cheque fields when switching to a payment mode that
   /// no longer needs them.
-  Collection copyWith({
-    CollectionInvoice? invoice,
-    CollectionParty? party,
+  CollectionPlus copyWith({
+    List<CollectionPlusAllocation>? allocations,
+    CollectionPlusParty? party,
     double? amount,
     DateTime? receivedDate,
     PaymentMode? paymentMode,
@@ -92,9 +103,9 @@ class Collection {
     String? description,
     List<String>? imagePaths,
   }) {
-    return Collection(
+    return CollectionPlus(
       id: id,
-      invoice: invoice ?? this.invoice,
+      allocations: allocations ?? this.allocations,
       party: party ?? this.party,
       amount: amount ?? this.amount,
       receivedDate: receivedDate ?? this.receivedDate,

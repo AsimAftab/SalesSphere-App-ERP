@@ -8,17 +8,21 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
-import 'package:sales_sphere_erp/features/collection/domain/cheque_status.dart';
-import 'package:sales_sphere_erp/features/collection/domain/collection.dart';
-import 'package:sales_sphere_erp/features/collection/domain/collection_invoice.dart';
-import 'package:sales_sphere_erp/features/collection/domain/collection_party.dart';
-import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart';
-import 'package:sales_sphere_erp/features/collection/presentation/controllers/collection_controller.dart';
-import 'package:sales_sphere_erp/features/collection/presentation/providers/collection_providers.dart';
-import 'package:sales_sphere_erp/features/collection/presentation/widgets/bank_name_field.dart';
-import 'package:sales_sphere_erp/features/collection/presentation/widgets/cheque_status_field.dart';
-import 'package:sales_sphere_erp/features/collection/presentation/widgets/invoice_picker_field.dart';
-import 'package:sales_sphere_erp/features/collection/presentation/widgets/payment_mode_field.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/cheque_status.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/collection.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/collection_allocation.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/collection_invoice.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/collection_party.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/invoice_due.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/payment_allocator.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/payment_mode.dart';
+import 'package:sales_sphere_erp/features/collection_plus/presentation/controllers/collection_controller.dart';
+import 'package:sales_sphere_erp/features/collection_plus/presentation/providers/collection_providers.dart';
+import 'package:sales_sphere_erp/features/collection_plus/presentation/widgets/bank_name_field.dart';
+import 'package:sales_sphere_erp/features/collection_plus/presentation/widgets/cheque_status_field.dart';
+import 'package:sales_sphere_erp/features/collection_plus/presentation/widgets/invoice_multi_picker_field.dart';
+import 'package:sales_sphere_erp/features/collection_plus/presentation/widgets/outstanding_invoices_section.dart';
+import 'package:sales_sphere_erp/features/collection_plus/presentation/widgets/payment_mode_field.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
@@ -28,22 +32,24 @@ import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/section_card.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
-class EditCollectionDetailPage extends ConsumerStatefulWidget {
-  const EditCollectionDetailPage({required this.id, this.initial, super.key});
+final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 0);
+
+class EditCollectionPlusDetailPage extends ConsumerStatefulWidget {
+  const EditCollectionPlusDetailPage({required this.id, this.initial, super.key});
 
   final String id;
 
   /// Optional starting record passed via `extra` when navigating from
   /// the list — saves a re-read on first paint.
-  final Collection? initial;
+  final CollectionPlus? initial;
 
   @override
-  ConsumerState<EditCollectionDetailPage> createState() =>
-      _EditCollectionDetailPageState();
+  ConsumerState<EditCollectionPlusDetailPage> createState() =>
+      _EditCollectionPlusDetailPageState();
 }
 
-class _EditCollectionDetailPageState
-    extends ConsumerState<EditCollectionDetailPage> {
+class _EditCollectionPlusDetailPageState
+    extends ConsumerState<EditCollectionPlusDetailPage> {
   final _formKey = GlobalKey<FormState>();
 
   final _partyController = TextEditingController();
@@ -56,8 +62,14 @@ class _EditCollectionDetailPageState
 
   static const _maxImages = 2;
 
-  CollectionInvoice? _invoice;
-  CollectionParty? _party;
+  // The party a receipt belongs to is fixed — only the amount, the
+  // invoice allocation, and the metadata (date/mode/bank/cheque/notes)
+  // can change. [_allocations] holds the last-saved split; in edit mode
+  // it's recomputed FIFO from [_selectedInvoiceIds] + the amount.
+  List<CollectionPlusAllocation> _allocations = const <CollectionPlusAllocation>[];
+  double _amount = 0;
+  CollectionPlusParty? _party;
+  final Set<String> _selectedInvoiceIds = <String>{};
   DateTime? _receivedDate;
   PaymentMode? _paymentMode;
   String? _bankName;
@@ -74,7 +86,7 @@ class _EditCollectionDetailPageState
   void initState() {
     super.initState();
     final collection =
-        widget.initial ?? ref.read(collectionByIdProvider(widget.id));
+        widget.initial ?? ref.read(collectionPlusByIdProvider(widget.id));
     if (collection != null) {
       _populate(collection);
     } else {
@@ -94,11 +106,22 @@ class _EditCollectionDetailPageState
     super.dispose();
   }
 
-  void _populate(Collection c) {
-    _invoice = c.invoice;
+  /// Renders an amount without a trailing `.0` for whole numbers — used
+  /// while the amount field is editable.
+  String _rawAmount(double amount) => amount == amount.roundToDouble()
+      ? amount.toInt().toString()
+      : amount.toStringAsFixed(2);
+
+  void _populate(CollectionPlus c) {
+    _allocations = c.allocations;
+    _amount = c.amount;
     _party = c.party;
     _partyController.text = c.party.name;
-    _amountController.text = _trimAmount(c.amount);
+    // Currency-formatted while viewing; switched to a raw number on edit.
+    _amountController.text = _currency.format(c.amount);
+    _selectedInvoiceIds
+      ..clear()
+      ..addAll(c.allocations.map((a) => a.invoiceId));
     _receivedDate = c.receivedDate;
     _receivedDateController.text =
         DateFormat('dd MMM yyyy').format(c.receivedDate);
@@ -119,55 +142,27 @@ class _EditCollectionDetailPageState
       ..addAll(c.imagePaths);
   }
 
-  /// Renders the stored amount without a trailing `.0` for whole numbers
-  /// so the edit field shows `12500`, not `12500.0`.
-  String _trimAmount(double amount) =>
-      amount == amount.roundToDouble()
-          ? amount.toInt().toString()
-          : amount.toString();
-
   void _toggleEdit() {
-    setState(() => _editing = !_editing);
+    setState(() {
+      _editing = true;
+      // Show a raw, editable number instead of the formatted currency.
+      _amountController.text = _rawAmount(_amount);
+    });
   }
 
   void _cancelEdit() {
     final saved =
-        ref.read(collectionByIdProvider(widget.id)) ?? widget.initial;
+        ref.read(collectionPlusByIdProvider(widget.id)) ?? widget.initial;
     if (saved != null) _populate(saved);
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _editing = false);
   }
 
-  /// The collection is booked against an invoice, so the party is the
-  /// invoice's party — never picked independently. Resolves the full
-  /// [CollectionParty] from the known parties, falling back to a slim
-  /// record built from the invoice when the party isn't in the corpus.
-  CollectionParty _partyForInvoice(CollectionInvoice inv) {
-    for (final p in ref.read(collectionPartiesProvider)) {
-      if (p.id == inv.partyId) return p;
-    }
-    return CollectionParty(
-      id: inv.partyId ?? inv.id,
-      name: inv.partyName,
-      address: '',
-    );
-  }
-
-  /// Picking a different invoice re-points the party. The amount is left
-  /// as-is unless it's empty (an existing collection always has one).
-  void _onInvoicePicked(CollectionInvoice? inv) {
+  void _onInvoicesChanged(Set<String> ids) {
     setState(() {
-      _invoice = inv;
-      if (inv == null) {
-        _party = null;
-        _partyController.text = '';
-        return;
-      }
-      _party = _partyForInvoice(inv);
-      _partyController.text = _party!.name;
-      if (_amountController.text.trim().isEmpty) {
-        _amountController.text = _trimAmount(inv.amount);
-      }
+      _selectedInvoiceIds
+        ..clear()
+        ..addAll(ids);
     });
   }
 
@@ -209,26 +204,36 @@ class _EditCollectionDetailPageState
     setState(() => _imagePaths.removeAt(index));
   }
 
-  String? _validateAmount(String? value) {
+  /// Amount validator: required, > 0, and never more than the party's
+  /// total outstanding (computed with this collection released).
+  String? _validateAmount(String? value, double totalOutstanding) {
     final v = value?.trim() ?? '';
     if (v.isEmpty) return 'Amount is required';
     final parsed = double.tryParse(v);
     if (parsed == null) return 'Enter a valid amount';
     if (parsed <= 0) return 'Amount must be greater than 0';
+    if (parsed > totalOutstanding + 0.0001) {
+      return 'Exceeds total outstanding of '
+          '${_currency.format(totalOutstanding)}';
+    }
     return null;
   }
 
-  Future<void> _save() async {
-    final formValid = _formKey.currentState?.validate() ?? false;
-    final invoice = _invoice;
+  Future<void> _save(List<InvoiceDue> selectedDues) async {
     final party = _party;
+    if (party == null) {
+      SnackbarUtils.showError(context, 'Missing party.');
+      return;
+    }
+    if (selectedDues.isEmpty) {
+      SnackbarUtils.showError(context, 'Please select at least one invoice.');
+      return;
+    }
+
+    final formValid = _formKey.currentState?.validate() ?? false;
     final mode = _paymentMode;
     final receivedDate = _receivedDate;
 
-    if (invoice == null || party == null) {
-      SnackbarUtils.showError(context, 'Please select an invoice.');
-      return;
-    }
     if (mode == null) {
       SnackbarUtils.showError(context, 'Please choose a payment mode.');
       return;
@@ -249,14 +254,26 @@ class _EditCollectionDetailPageState
     }
     if (!formValid || receivedDate == null) return;
 
+    final amount = double.parse(_amountController.text.trim());
+    final selectedOutstanding = PaymentAllocator.totalOutstanding(selectedDues);
+    if (amount > selectedOutstanding + 0.0001) {
+      SnackbarUtils.showError(
+        context,
+        'Selected invoices cover only ${_currency.format(selectedOutstanding)}. '
+        'Select more to cover ${_currency.format(amount)}.',
+      );
+      return;
+    }
+    final allocations = PaymentAllocator.allocate(amount, selectedDues);
+
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _saving = true);
     try {
-      final updated = Collection(
+      final updated = CollectionPlus(
         id: widget.id,
-        invoice: invoice,
+        allocations: allocations,
         party: party,
-        amount: double.parse(_amountController.text.trim()),
+        amount: amount,
         receivedDate: receivedDate,
         paymentMode: mode,
         bankName: mode.requiresBank ? _bankName : null,
@@ -270,12 +287,15 @@ class _EditCollectionDetailPageState
         createdAt: _createdAt ?? DateTime.now(),
       );
       await ref
-          .read(collectionControllerProvider.notifier)
+          .read(collectionPlusControllerProvider.notifier)
           .updateCollection(updated);
       if (!mounted) return;
       setState(() {
         _saving = false;
         _editing = false;
+        _amount = amount;
+        _allocations = allocations;
+        _amountController.text = _currency.format(amount);
       });
       SnackbarUtils.showSuccess(context, 'Collection updated.');
     } on Exception catch (_) {
@@ -293,11 +313,53 @@ class _EditCollectionDetailPageState
   Widget build(BuildContext context) {
     if (_notFound) return const _NotFoundScaffold();
     // Keep the provider warm so cancelEdit reads the saved snapshot.
-    ref.watch(collectionByIdProvider(widget.id));
+    ref.watch(collectionPlusByIdProvider(widget.id));
 
     final mode = _paymentMode;
     final showBank = mode?.requiresBank ?? false;
     final showCheque = mode?.requiresChequeDetails ?? false;
+
+    // Invoice lookup so the read-mode breakdown can show each settled
+    // invoice's date and total alongside the amount collected against it.
+    final invoiceById = <String, CollectionPlusInvoice>{
+      for (final inv in ref.watch(collectionPlusInvoicesProvider)) inv.id: inv,
+    };
+
+    final party = _party;
+    // Outstanding with THIS collection released, so its own amount is
+    // available to re-allocate while editing.
+    final dues = party == null
+        ? const <InvoiceDue>[]
+        : ref.watch(
+            outstandingInvoicesForPartyProvider(
+              party.id,
+              excludeCollectionId: widget.id,
+            ),
+          );
+    final totalOutstanding = PaymentAllocator.totalOutstanding(dues);
+    final selectedDues = dues
+        .where((d) => _selectedInvoiceIds.contains(d.invoice.id))
+        .toList(growable: false);
+    final selectedOutstanding = PaymentAllocator.totalOutstanding(selectedDues);
+
+    final entered = double.tryParse(_amountController.text.trim()) ?? 0;
+    final capped =
+        entered > selectedOutstanding ? selectedOutstanding : entered;
+    final allocations = PaymentAllocator.allocate(capped, selectedDues);
+    final allocatedById = <String, double>{
+      for (final a in allocations) a.invoiceId: a.amount,
+    };
+    final unallocated = entered - selectedOutstanding > 0.0001
+        ? entered - selectedOutstanding
+        : 0.0;
+    final amountText = _amountController.text.trim();
+    final parsedAmount = double.tryParse(amountText);
+    final amountLiveError = _editing &&
+            amountText.isNotEmpty &&
+            parsedAmount != null &&
+            parsedAmount > totalOutstanding + 0.0001
+        ? 'Exceeds total outstanding of ${_currency.format(totalOutstanding)}'
+        : null;
 
     return DarkStatusBar(
       child: Scaffold(
@@ -305,7 +367,7 @@ class _EditCollectionDetailPageState
         bottomNavigationBar: _SubmitBar(
           editing: _editing,
           isLoading: _saving,
-          onPressed: _editing ? _save : _toggleEdit,
+          onPressed: _editing ? () => _save(selectedDues) : _toggleEdit,
         ),
         body: Stack(
           children: <Widget>[
@@ -329,40 +391,87 @@ class _EditCollectionDetailPageState
                           children: <Widget>[
                             SectionCard(
                               children: <Widget>[
-                                InvoicePickerField(
-                                  value: _invoice,
-                                  enabled: _editing,
-                                  invoices:
-                                      ref.watch(collectionInvoicesProvider),
-                                  onChanged: _onInvoicePicked,
-                                ),
-                                SizedBox(height: 12.h),
+                                // Party is fixed — read-only in both modes.
                                 PrimaryTextField(
                                   controller: _partyController,
                                   label: 'Party',
-                                  hintText: 'Set from the selected invoice',
                                   prefixIcon: Icons.storefront_outlined,
                                   enabled: false,
                                   readOnly: true,
                                 ),
                                 SizedBox(height: 12.h),
-                                PrimaryTextField(
-                                  controller: _amountController,
-                                  label: 'Amount Received',
-                                  hintText: 'Enter amount (Rs)',
-                                  prefixIcon: Icons.currency_rupee,
-                                  enabled: _editing,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                    decimal: true,
+                                if (_editing)
+                                  PrimaryTextField(
+                                    controller: _amountController,
+                                    label: 'Amount Received',
+                                    hintText: 'Enter amount (Rs)',
+                                    prefixIcon: Icons.currency_rupee,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                    inputFormatters: <TextInputFormatter>[
+                                      FilteringTextInputFormatter.allow(
+                                        RegExp(r'^\d*\.?\d*'),
+                                      ),
+                                    ],
+                                    errorText: amountLiveError,
+                                    onChanged: (_) => setState(() {}),
+                                    validator: (v) =>
+                                        _validateAmount(v, totalOutstanding),
+                                  )
+                                else
+                                  PrimaryTextField(
+                                    controller: _amountController,
+                                    label: 'Amount Received',
+                                    prefixIcon: Icons.currency_rupee,
+                                    enabled: false,
+                                    readOnly: true,
                                   ),
-                                  inputFormatters: <TextInputFormatter>[
-                                    FilteringTextInputFormatter.allow(
-                                      RegExp(r'^\d*\.?\d*'),
+                                if (_editing) ...<Widget>[
+                                  SizedBox(height: 6.h),
+                                  Row(
+                                    children: <Widget>[
+                                      Icon(
+                                        Icons.account_balance_wallet_outlined,
+                                        size: 13.sp,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                      SizedBox(width: 6.w),
+                                      Text(
+                                        'Total outstanding: '
+                                        '${_currency.format(totalOutstanding)}',
+                                        style: TextStyle(
+                                          color: AppColors.textSecondary,
+                                          fontSize: 11.sp,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                                SizedBox(height: 12.h),
+                                if (_editing) ...<Widget>[
+                                  InvoiceMultiPickerField(
+                                    dues: dues,
+                                    selectedIds: _selectedInvoiceIds,
+                                    targetAmount: entered,
+                                    onChanged: _onInvoicesChanged,
+                                  ),
+                                  if (selectedDues.isNotEmpty) ...<Widget>[
+                                    SizedBox(height: 12.h),
+                                    OutstandingInvoicesSection(
+                                      dues: selectedDues,
+                                      allocatedById: allocatedById,
+                                      totalOutstanding: selectedOutstanding,
+                                      unallocated: unallocated,
                                     ),
                                   ],
-                                  validator: _validateAmount,
-                                ),
+                                ] else
+                                  _AllocationBreakdown(
+                                    allocations: _allocations,
+                                    invoiceById: invoiceById,
+                                  ),
                                 SizedBox(height: 12.h),
                                 CustomDatePicker(
                                   controller: _receivedDateController,
@@ -489,6 +598,197 @@ class _EditCollectionDetailPageState
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Read-only list of which invoices the payment settled and by how much.
+/// For each, shows the invoice date and total (resolved from
+/// [invoiceById]) alongside the amount collected against it.
+class _AllocationBreakdown extends StatelessWidget {
+  const _AllocationBreakdown({
+    required this.allocations,
+    required this.invoiceById,
+  });
+
+  final List<CollectionPlusAllocation> allocations;
+  final Map<String, CollectionPlusInvoice> invoiceById;
+
+  @override
+  Widget build(BuildContext context) {
+    if (allocations.isEmpty) return const SizedBox.shrink();
+    final dateFmt = DateFormat('dd MMM yyyy');
+    final totalCollected =
+        allocations.fold<double>(0, (sum, a) => sum + a.amount);
+
+    return Container(
+      decoration: BoxDecoration(
+        // Match the disabled `PrimaryTextField` fill + faded border so the
+        // card reads as one of the other read-only fields on the page.
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(14.r),
+        border: Border.all(
+          color: AppColors.border.withValues(alpha: 0.2),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          // Header (no icon) — labelled distinctly from the add form.
+          Padding(
+            padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 10.h),
+            child: Row(
+              children: <Widget>[
+                Text(
+                  'Settled Invoices',
+                  style: TextStyle(
+                    color: AppColors.textSecondary.withValues(alpha: 0.6),
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  allocations.length == 1
+                      ? '1 invoice'
+                      : '${allocations.length} invoices',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Divider(height: 1, color: AppColors.border.withValues(alpha: 0.6)),
+          for (var i = 0; i < allocations.length; i++) ...<Widget>[
+            if (i > 0)
+              Divider(height: 1, color: AppColors.border.withValues(alpha: 0.4)),
+            _SettledInvoiceRow(
+              allocation: allocations[i],
+              invoice: invoiceById[allocations[i].invoiceId],
+              dateFmt: dateFmt,
+            ),
+          ],
+          Divider(height: 1, color: AppColors.border.withValues(alpha: 0.6)),
+          Padding(
+            padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 12.h),
+            child: Row(
+              children: <Widget>[
+                Text(
+                  'Total collected',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  _currency.format(totalCollected),
+                  style: TextStyle(
+                    color: AppColors.textSecondary.withValues(alpha: 0.6),
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettledInvoiceRow extends StatelessWidget {
+  const _SettledInvoiceRow({
+    required this.allocation,
+    required this.invoice,
+    required this.dateFmt,
+  });
+
+  final CollectionPlusAllocation allocation;
+  final CollectionPlusInvoice? invoice;
+  final DateFormat dateFmt;
+
+  @override
+  Widget build(BuildContext context) {
+    final inv = invoice;
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 11.h),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        allocation.invoiceNumber,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppColors.textSecondary.withValues(alpha: 0.6),
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (inv != null) ...<Widget>[
+                      SizedBox(width: 8.w),
+                      Text(
+                        dateFmt.format(inv.invoiceDate),
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 11.sp,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                if (inv != null) ...<Widget>[
+                  SizedBox(height: 3.h),
+                  Text(
+                    'Invoice total ${_currency.format(inv.amount)}',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11.sp,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          SizedBox(width: 12.w),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
+              Text(
+                _currency.format(allocation.amount),
+                style: TextStyle(
+                  color: AppColors.textSecondary.withValues(alpha: 0.6),
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              SizedBox(height: 2.h),
+              Text(
+                'Collected',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 10.sp,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

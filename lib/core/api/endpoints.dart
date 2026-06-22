@@ -107,8 +107,8 @@ class Endpoints {
       '/unplanned-visits/my-monthly-report';
   static String unplannedVisitById(String id) => '/unplanned-visits/$id';
 
-  // ── Collections ───────────────────────────────────────────────────────────
-  static const collections = '/collections';
+  // ── Collection Plus ───────────────────────────────────────────────────────
+  static const collectionPlus = '/collection-plus';
 
   // ── Expense claims ────────────────────────────────────────────────────────
   static const expenseClaims = '/expense-claims';

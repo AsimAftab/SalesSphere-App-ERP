@@ -15,10 +15,10 @@ import 'package:sales_sphere_erp/features/auth/presentation/pages/login_page.dar
 import 'package:sales_sphere_erp/features/beat_plan/presentation/pages/beat_plan_detail_page.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/pages/catalog_page.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/pages/category_selection_page.dart';
-import 'package:sales_sphere_erp/features/collection/domain/collection.dart';
-import 'package:sales_sphere_erp/features/collection/presentation/pages/add_collection_page.dart';
-import 'package:sales_sphere_erp/features/collection/presentation/pages/collection_list_page.dart';
-import 'package:sales_sphere_erp/features/collection/presentation/pages/edit_collection_detail_page.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/collection.dart';
+import 'package:sales_sphere_erp/features/collection_plus/presentation/pages/add_collection_plus_page.dart';
+import 'package:sales_sphere_erp/features/collection_plus/presentation/pages/collection_plus_list_page.dart';
+import 'package:sales_sphere_erp/features/collection_plus/presentation/pages/edit_collection_plus_detail_page.dart';
 import 'package:sales_sphere_erp/features/customers/presentation/pages/field_ops_page.dart';
 import 'package:sales_sphere_erp/features/expenses/domain/expense_claim.dart';
 import 'package:sales_sphere_erp/features/expenses/presentation/pages/add_expense_claim_page.dart';
@@ -342,24 +342,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
-        path: Routes.collections,
-        name: Routes.collectionsName,
-        builder: (_, __) => const CollectionListPage(),
+        path: Routes.collectionPlus,
+        name: Routes.collectionPlusName,
+        builder: (_, __) => const CollectionPlusListPage(),
       ),
       GoRoute(
-        path: Routes.addCollection,
-        name: Routes.addCollectionName,
-        builder: (_, __) => const AddCollectionPage(),
+        path: Routes.addCollectionPlus,
+        name: Routes.addCollectionPlusName,
+        builder: (_, __) => const AddCollectionPlusPage(),
       ),
       GoRoute(
-        path: Routes.collectionDetail,
-        name: Routes.collectionDetailName,
+        path: Routes.collectionPlusDetail,
+        name: Routes.collectionPlusDetailName,
         builder: (context, state) {
           final id = state.pathParameters['id']!;
           final extra = state.extra;
-          return EditCollectionDetailPage(
+          return EditCollectionPlusDetailPage(
             id: id,
-            initial: extra is Collection ? extra : null,
+            initial: extra is CollectionPlus ? extra : null,
           );
         },
       ),
