@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/payment_mode.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_option_picker.dart';
 
 /// Payment-mode selection field built on the shared [CustomOptionPicker]

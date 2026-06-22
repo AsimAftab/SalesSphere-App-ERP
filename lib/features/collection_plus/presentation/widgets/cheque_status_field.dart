@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:sales_sphere_erp/features/collection/domain/cheque_status.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/cheque_status.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_option_picker.dart';
 
 /// Cheque-status selection field built on the shared [CustomOptionPicker]

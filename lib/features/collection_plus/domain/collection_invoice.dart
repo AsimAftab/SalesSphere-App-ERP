@@ -8,17 +8,19 @@ import 'package:flutter/foundation.dart';
 ///
 /// [id] mirrors the source order's id (the linkage accounting uses to
 /// credit the exact invoice); [number] is the human-facing document
-/// number (e.g. `ORD-2026-0002`); [amount] is the invoice grand total,
-/// shown in the picker and used to pre-fill the collection amount.
+/// number (e.g. `ORD-2026-0002`); [amount] is the invoice grand total
+/// shown in the outstanding-invoices list; [invoiceDate] is the order's
+/// delivery/posting date and drives the oldest-first allocation order.
 ///
 /// Equality is by [id] so a stored selection can be matched back to its
 /// list entry inside the picker regardless of instance identity.
 @immutable
-class CollectionInvoice {
-  const CollectionInvoice({
+class CollectionPlusInvoice {
+  const CollectionPlusInvoice({
     required this.id,
     required this.number,
     required this.amount,
+    required this.invoiceDate,
     this.partyId,
     this.partyName = '',
   });
@@ -27,6 +29,10 @@ class CollectionInvoice {
   final String number;
   final double amount;
 
+  /// When the invoice was posted (the order's delivery date, falling back
+  /// to its created date). Oldest invoices are settled first.
+  final DateTime invoiceDate;
+
   /// The invoice's party — drives the collection's auto-filled party so
   /// a collection can't be booked against the wrong customer.
   final String? partyId;
@@ -34,7 +40,7 @@ class CollectionInvoice {
 
   @override
   bool operator ==(Object other) =>
-      other is CollectionInvoice && other.id == id;
+      other is CollectionPlusInvoice && other.id == id;
 
   @override
   int get hashCode => id.hashCode;

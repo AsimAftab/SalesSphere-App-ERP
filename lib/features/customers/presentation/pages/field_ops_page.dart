@@ -93,10 +93,10 @@ class FieldOpsPage extends StatelessWidget {
     ),
     _TileSpec(
       icon: Icons.account_balance_wallet_outlined,
-      title: 'Collection',
+      title: 'Collection Plus',
       subtitle: 'Record payments collected from parties',
       iconColor: AppColors.yellow500,
-      onTap: () => context.push(Routes.collections),
+      onTap: () => context.push(Routes.collectionPlus),
     ),
     _TileSpec(
       icon: Icons.event_note_outlined,

@@ -7,11 +7,11 @@ import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
-import 'package:sales_sphere_erp/features/collection/domain/collection.dart';
-import 'package:sales_sphere_erp/features/collection/domain/collection_invoice.dart';
-import 'package:sales_sphere_erp/features/collection/domain/collection_party.dart';
-import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart';
-import 'package:sales_sphere_erp/features/collection/presentation/providers/collection_providers.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/collection.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/collection_allocation.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/collection_party.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/payment_mode.dart';
+import 'package:sales_sphere_erp/features/collection_plus/presentation/providers/collection_providers.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_search_filter.dart';
@@ -23,19 +23,19 @@ import 'package:skeletonizer/skeletonizer.dart';
 /// `Rs 12,500` style formatter for collected amounts.
 final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 0);
 
-class CollectionListPage extends ConsumerStatefulWidget {
-  const CollectionListPage({super.key});
+class CollectionPlusListPage extends ConsumerStatefulWidget {
+  const CollectionPlusListPage({super.key});
 
   @override
-  ConsumerState<CollectionListPage> createState() => _CollectionListPageState();
+  ConsumerState<CollectionPlusListPage> createState() => _CollectionPlusListPageState();
 }
 
-class _CollectionListPageState extends ConsumerState<CollectionListPage> {
+class _CollectionPlusListPageState extends ConsumerState<CollectionPlusListPage> {
   final _searchController = TextEditingController();
   String _query = '';
 
   /// `null` means "All" — no payment-mode filter applied. Otherwise the
-  /// list narrows to collections whose [Collection.paymentMode] matches.
+  /// list narrows to collections whose [CollectionPlus.paymentMode] matches.
   PaymentMode? _modeFilter;
 
   @override
@@ -54,7 +54,7 @@ class _CollectionListPageState extends ConsumerState<CollectionListPage> {
 
   /// Apply the in-page search query + payment-mode filter against the
   /// loaded collections.
-  List<Collection> _applyFilters(List<Collection> source) {
+  List<CollectionPlus> _applyFilters(List<CollectionPlus> source) {
     final q = _query.trim().toLowerCase();
     return source.where((c) {
       if (_modeFilter != null && c.paymentMode != _modeFilter) return false;
@@ -69,14 +69,14 @@ class _CollectionListPageState extends ConsumerState<CollectionListPage> {
 
   @override
   Widget build(BuildContext context) {
-    final collectionsAsync = ref.watch(collectionsListProvider);
+    final collectionsAsync = ref.watch(collectionPlusListProvider);
 
     return DarkStatusBar(
       child: Scaffold(
         backgroundColor: AppColors.background,
         floatingActionButton: PrimaryFabButton(
           label: 'Add Collection',
-          onPressed: () => context.push(Routes.addCollection),
+          onPressed: () => context.push(Routes.addCollectionPlus),
         ),
         body: Stack(
           children: <Widget>[
@@ -167,12 +167,12 @@ class _CollectionListPageState extends ConsumerState<CollectionListPage> {
     );
   }
 
-  Widget _buildBody(AsyncValue<List<Collection>> collectionsAsync) {
+  Widget _buildBody(AsyncValue<List<CollectionPlus>> collectionsAsync) {
     final padding = EdgeInsets.fromLTRB(20.w, 0, 20.w, 140.h);
 
     Widget wrapRefresh(Widget child) => RefreshIndicator(
           onRefresh: () =>
-              ref.read(collectionsListProvider.notifier).refresh(),
+              ref.read(collectionPlusListProvider.notifier).refresh(),
           color: AppColors.primary,
           backgroundColor: AppColors.surface,
           child: child,
@@ -237,7 +237,7 @@ class _CollectionListPageState extends ConsumerState<CollectionListPage> {
           return _CollectionCard(
             collection: collection,
             onTap: () => context.push(
-              Routes.collectionDetailPath(collection.id),
+              Routes.collectionPlusDetailPath(collection.id),
               extra: collection,
             ),
           );
@@ -269,7 +269,7 @@ class _AppBar extends StatelessWidget {
           ),
           SizedBox(width: 12.w),
           Text(
-            'Collection',
+            'Collection Plus',
             style: TextStyle(
               color: AppColors.primary,
               fontSize: 20.sp,
@@ -288,7 +288,7 @@ class _AppBar extends StatelessWidget {
 class _CollectionCard extends StatelessWidget {
   const _CollectionCard({required this.collection, required this.onTap});
 
-  final Collection collection;
+  final CollectionPlus collection;
   final VoidCallback onTap;
 
   @override
@@ -348,7 +348,7 @@ class _CollectionCard extends StatelessWidget {
                     SizedBox(width: 6.w),
                     Expanded(
                       child: Text(
-                        'Against ${collection.invoice.number}',
+                        'Against ${collection.invoiceSummary}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -366,9 +366,9 @@ class _CollectionCard extends StatelessWidget {
                     Text(
                       _currency.format(collection.amount),
                       style: TextStyle(
-                        color: Colors.green.shade700,
+                        color: AppColors.textPrimary,
                         fontSize: 16.sp,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const Spacer(),
@@ -399,14 +399,16 @@ class _CollectionCard extends StatelessWidget {
 
 /// Sample collection fed to [_CollectionCard] while the list is loading.
 /// Skeletonizer paints bones over the rendered party / amount / date.
-final _placeholder = Collection(
+final _placeholder = CollectionPlus(
   id: '',
-  invoice: const CollectionInvoice(
-    id: '',
-    number: 'ORD-0000-0000',
-    amount: 10000,
-  ),
-  party: const CollectionParty(
+  allocations: const <CollectionPlusAllocation>[
+    CollectionPlusAllocation(
+      invoiceId: '',
+      invoiceNumber: 'ORD-0000-0000',
+      amount: 10000,
+    ),
+  ],
+  party: const CollectionPlusParty(
     id: '',
     name: 'Loading party name',
     address: '',

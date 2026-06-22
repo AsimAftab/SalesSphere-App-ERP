@@ -4,18 +4,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
-import 'package:sales_sphere_erp/features/collection/domain/cheque_status.dart';
-import 'package:sales_sphere_erp/features/collection/domain/collection_invoice.dart';
-import 'package:sales_sphere_erp/features/collection/domain/collection_party.dart';
-import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart';
-import 'package:sales_sphere_erp/features/collection/presentation/controllers/collection_controller.dart';
-import 'package:sales_sphere_erp/features/collection/presentation/providers/collection_providers.dart';
-import 'package:sales_sphere_erp/features/collection/presentation/widgets/bank_name_field.dart';
-import 'package:sales_sphere_erp/features/collection/presentation/widgets/cheque_status_field.dart';
-import 'package:sales_sphere_erp/features/collection/presentation/widgets/invoice_picker_field.dart';
-import 'package:sales_sphere_erp/features/collection/presentation/widgets/payment_mode_field.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/cheque_status.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/collection_party.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/invoice_due.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/payment_allocator.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/payment_mode.dart';
+import 'package:sales_sphere_erp/features/collection_plus/presentation/controllers/collection_controller.dart';
+import 'package:sales_sphere_erp/features/collection_plus/presentation/providers/collection_providers.dart';
+import 'package:sales_sphere_erp/features/collection_plus/presentation/widgets/bank_name_field.dart';
+import 'package:sales_sphere_erp/features/collection_plus/presentation/widgets/cheque_status_field.dart';
+import 'package:sales_sphere_erp/features/collection_plus/presentation/widgets/collection_party_picker_field.dart';
+import 'package:sales_sphere_erp/features/collection_plus/presentation/widgets/invoice_multi_picker_field.dart';
+import 'package:sales_sphere_erp/features/collection_plus/presentation/widgets/outstanding_invoices_section.dart';
+import 'package:sales_sphere_erp/features/collection_plus/presentation/widgets/payment_mode_field.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
 import 'package:sales_sphere_erp/shared/widgets/add_form_header.dart';
@@ -26,17 +30,16 @@ import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/section_card.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
-class AddCollectionPage extends ConsumerStatefulWidget {
-  const AddCollectionPage({super.key});
+class AddCollectionPlusPage extends ConsumerStatefulWidget {
+  const AddCollectionPlusPage({super.key});
 
   @override
-  ConsumerState<AddCollectionPage> createState() => _AddCollectionPageState();
+  ConsumerState<AddCollectionPlusPage> createState() => _AddCollectionPlusPageState();
 }
 
-class _AddCollectionPageState extends ConsumerState<AddCollectionPage> {
+class _AddCollectionPlusPageState extends ConsumerState<AddCollectionPlusPage> {
   final _formKey = GlobalKey<FormState>();
 
-  final _partyController = TextEditingController();
   final _amountController = TextEditingController();
   final _receivedDateController = TextEditingController();
   final _chequeNumberController = TextEditingController();
@@ -45,8 +48,13 @@ class _AddCollectionPageState extends ConsumerState<AddCollectionPage> {
 
   static const _maxImages = 2;
 
-  CollectionInvoice? _invoice;
-  CollectionParty? _party;
+  CollectionPlusParty? _party;
+
+  /// Ids of the invoices the user ticked in the picker. The payment is
+  /// FIFO-split across these (oldest-first); the user adds another when
+  /// the amount overflows beyond the ones already chosen.
+  final Set<String> _selectedInvoiceIds = <String>{};
+
   DateTime? _receivedDate;
   PaymentMode? _paymentMode;
   String? _bankName;
@@ -57,7 +65,6 @@ class _AddCollectionPageState extends ConsumerState<AddCollectionPage> {
 
   @override
   void dispose() {
-    _partyController.dispose();
     _amountController.dispose();
     _receivedDateController.dispose();
     _chequeNumberController.dispose();
@@ -66,44 +73,25 @@ class _AddCollectionPageState extends ConsumerState<AddCollectionPage> {
     super.dispose();
   }
 
-  /// The collection is booked against an invoice, so the party is the
-  /// invoice's party — never picked independently. Resolves the full
-  /// [CollectionParty] from the known parties, falling back to a slim
-  /// record built from the invoice when the party isn't in the corpus.
-  CollectionParty _partyForInvoice(CollectionInvoice inv) {
-    for (final p in ref.read(collectionPartiesProvider)) {
-      if (p.id == inv.partyId) return p;
-    }
-    return CollectionParty(
-      id: inv.partyId ?? inv.id,
-      name: inv.partyName,
-      address: '',
-    );
-  }
-
-  /// Picking an invoice fixes the party and seeds the amount with the
-  /// invoice total (only when the amount field is still empty, so a
-  /// typed-in part-payment isn't clobbered).
-  void _onInvoicePicked(CollectionInvoice? inv) {
+  /// Picking a (different) party changes which invoices the payment can
+  /// settle, so clear the invoice selection and amount — both only make
+  /// sense against the previously chosen party.
+  void _onPartyPicked(CollectionPlusParty? party) {
     setState(() {
-      _invoice = inv;
-      if (inv == null) {
-        _party = null;
-        _partyController.text = '';
-        return;
-      }
-      _party = _partyForInvoice(inv);
-      _partyController.text = _party!.name;
-      if (_amountController.text.trim().isEmpty) {
-        _amountController.text = _trimAmount(inv.amount);
-      }
+      _party = party;
+      _selectedInvoiceIds.clear();
+      _amountController.clear();
     });
   }
 
-  /// Renders an amount without a trailing `.0` for whole numbers.
-  String _trimAmount(double amount) => amount == amount.roundToDouble()
-      ? amount.toInt().toString()
-      : amount.toString();
+  /// The user changed the ticked invoices in the picker.
+  void _onInvoicesChanged(Set<String> ids) {
+    setState(() {
+      _selectedInvoiceIds
+        ..clear()
+        ..addAll(ids);
+    });
+  }
 
   /// When the payment mode changes, drop any conditional state that the
   /// new mode no longer needs so a stale bank / cheque value can't be
@@ -143,37 +131,44 @@ class _AddCollectionPageState extends ConsumerState<AddCollectionPage> {
     setState(() => _imagePaths.removeAt(index));
   }
 
-  /// Amount validator: required + must parse to a number greater than 0.
-  String? _validateAmount(String? value) {
+  /// Amount validator: required, a number > 0, and never more than the
+  /// party's total outstanding (overpayment is blocked). Whether the
+  /// *selected* invoices cover the amount is enforced separately on submit
+  /// — that's a "tick another bill" nudge, not a hard amount error.
+  String? _validateAmount(String? value, double totalOutstanding) {
     final v = value?.trim() ?? '';
     if (v.isEmpty) return 'Amount is required';
     final parsed = double.tryParse(v);
     if (parsed == null) return 'Enter a valid amount';
     if (parsed <= 0) return 'Amount must be greater than 0';
+    if (parsed > totalOutstanding + 0.0001) {
+      return 'Exceeds total outstanding of '
+          '${_currency.format(totalOutstanding)}';
+    }
     return null;
   }
 
-  Future<void> _submit() async {
-    final formValid = _formKey.currentState?.validate() ?? false;
-    final invoice = _invoice;
+  Future<void> _submit(List<InvoiceDue> selectedDues) async {
     final party = _party;
+    if (party == null) {
+      SnackbarUtils.showError(context, 'Please select a party.');
+      return;
+    }
+    if (selectedDues.isEmpty) {
+      SnackbarUtils.showError(context, 'Please select at least one invoice.');
+      return;
+    }
+
+    final formValid = _formKey.currentState?.validate() ?? false;
     final mode = _paymentMode;
     final receivedDate = _receivedDate;
 
-    // The invoice / payment-mode pickers have no Form validator, so their
-    // required-ness is enforced here. Surface a snackbar rather than
-    // silently no-op so the user knows why submit didn't proceed.
-    if (invoice == null || party == null) {
-      SnackbarUtils.showError(context, 'Please select an invoice.');
-      return;
-    }
+    // The payment-mode picker has no Form validator, so its required-ness
+    // is enforced here. Surface a snackbar rather than silently no-op.
     if (mode == null) {
       SnackbarUtils.showError(context, 'Please choose a payment mode.');
       return;
     }
-    // Conditional required fields. The cheque number / date use Form
-    // validators (handled by `formValid`); bank + cheque status are
-    // pickers, so they're guarded here.
     if (mode.requiresBank && (_bankName == null || _bankName!.isEmpty)) {
       SnackbarUtils.showError(context, 'Please select a bank.');
       return;
@@ -190,13 +185,28 @@ class _AddCollectionPageState extends ConsumerState<AddCollectionPage> {
     }
     if (!formValid || receivedDate == null) return;
 
+    final amount = double.parse(_amountController.text.trim());
+    // The selected invoices must cover the whole amount; otherwise part of
+    // the payment would have nowhere to land — nudge to tick another bill.
+    final selectedOutstanding = PaymentAllocator.totalOutstanding(selectedDues);
+    if (amount > selectedOutstanding + 0.0001) {
+      SnackbarUtils.showError(
+        context,
+        'Selected invoices cover only ${_currency.format(selectedOutstanding)}. '
+        'Select more to cover ${_currency.format(amount)}.',
+      );
+      return;
+    }
+    // FIFO split across the selected invoices (oldest-first).
+    final allocations = PaymentAllocator.allocate(amount, selectedDues);
+
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _submitting = true);
     try {
-      await ref.read(collectionControllerProvider.notifier).addCollection(
-            invoice: invoice,
+      await ref.read(collectionPlusControllerProvider.notifier).addCollection(
+            allocations: allocations,
             party: party,
-            amount: double.parse(_amountController.text.trim()),
+            amount: amount,
             receivedDate: receivedDate,
             paymentMode: mode,
             bankName: mode.requiresBank ? _bankName : null,
@@ -225,12 +235,48 @@ class _AddCollectionPageState extends ConsumerState<AddCollectionPage> {
     final showBank = mode?.requiresBank ?? false;
     final showCheque = mode?.requiresChequeDetails ?? false;
 
+    final party = _party;
+    final dues = party == null
+        ? const <InvoiceDue>[]
+        : ref.watch(outstandingInvoicesForPartyProvider(party.id));
+    // Party-level cap: a collection can never exceed everything the party
+    // owes. The selected invoices must then *cover* the entered amount.
+    final totalOutstanding = PaymentAllocator.totalOutstanding(dues);
+
+    // Selected invoices, kept in the dues' oldest-first order.
+    final selectedDues = dues
+        .where((d) => _selectedInvoiceIds.contains(d.invoice.id))
+        .toList(growable: false);
+    final selectedOutstanding = PaymentAllocator.totalOutstanding(selectedDues);
+
+    // Live FIFO preview of how the entered amount splits across the
+    // selected invoices, plus any portion not yet covered by a selection.
+    final entered = double.tryParse(_amountController.text.trim()) ?? 0;
+    final capped =
+        entered > selectedOutstanding ? selectedOutstanding : entered;
+    final allocations = PaymentAllocator.allocate(capped, selectedDues);
+    final allocatedById = <String, double>{
+      for (final a in allocations) a.invoiceId: a.amount,
+    };
+    final unallocated =
+        entered - selectedOutstanding > 0.0001 ? entered - selectedOutstanding : 0.0;
+
+    // Live overpayment feedback: as soon as the typed amount exceeds what
+    // the party owes in total, flag it (no waiting for submit).
+    final amountText = _amountController.text.trim();
+    final parsedAmount = double.tryParse(amountText);
+    final amountLiveError = amountText.isNotEmpty &&
+            parsedAmount != null &&
+            parsedAmount > totalOutstanding + 0.0001
+        ? 'Exceeds total outstanding of ${_currency.format(totalOutstanding)}'
+        : null;
+
     return LightStatusBar(
       child: Scaffold(
         backgroundColor: AppColors.primary,
         bottomNavigationBar: _SubmitBar(
           isLoading: _submitting,
-          onPressed: _submit,
+          onPressed: () => _submit(selectedDues),
         ),
         body: Column(
           children: <Widget>[
@@ -255,26 +301,22 @@ class _AddCollectionPageState extends ConsumerState<AddCollectionPage> {
                     padding: EdgeInsets.fromLTRB(20.w, 24.h, 20.w, 28.h),
                     child: SectionCard(
                       children: <Widget>[
-                        InvoicePickerField(
-                          value: _invoice,
-                          invoices: ref.watch(collectionInvoicesProvider),
-                          onChanged: _onInvoicePicked,
-                        ),
-                        SizedBox(height: 16.h),
-                        PrimaryTextField(
-                          controller: _partyController,
-                          label: 'Party',
-                          hintText: 'Set from the selected invoice',
-                          prefixIcon: Icons.storefront_outlined,
-                          enabled: false,
-                          readOnly: true,
+                        CollectionPlusPartyPickerField(
+                          value: _party,
+                          parties: ref.watch(collectionPlusPartiesProvider),
+                          onChanged: _onPartyPicked,
                         ),
                         SizedBox(height: 16.h),
                         PrimaryTextField(
                           controller: _amountController,
                           label: 'Amount Received',
-                          hintText: 'Enter amount (Rs)',
+                          hintText: party == null
+                              ? 'Select a party first'
+                              : (dues.isEmpty
+                                  ? 'No outstanding invoices'
+                                  : 'Enter amount (Rs)'),
                           prefixIcon: Icons.currency_rupee,
+                          enabled: party != null && dues.isNotEmpty,
                           keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
                           ),
@@ -284,8 +326,60 @@ class _AddCollectionPageState extends ConsumerState<AddCollectionPage> {
                             ),
                           ],
                           textInputAction: TextInputAction.next,
-                          validator: _validateAmount,
+                          errorText: amountLiveError,
+                          onChanged: (_) => setState(() {}),
+                          validator: (v) =>
+                              _validateAmount(v, totalOutstanding),
                         ),
+                        if (party != null && dues.isNotEmpty) ...<Widget>[
+                          SizedBox(height: 6.h),
+                          Row(
+                            children: <Widget>[
+                              Icon(
+                                Icons.account_balance_wallet_outlined,
+                                size: 13.sp,
+                                color: AppColors.textSecondary,
+                              ),
+                              SizedBox(width: 6.w),
+                              Text(
+                                'Total outstanding: '
+                                '${_currency.format(totalOutstanding)}',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 11.sp,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (party != null) ...<Widget>[
+                          SizedBox(height: 16.h),
+                          if (dues.isEmpty)
+                            OutstandingInvoicesSection(
+                              dues: dues,
+                              allocatedById: allocatedById,
+                              totalOutstanding: selectedOutstanding,
+                              unallocated: unallocated,
+                            )
+                          else ...<Widget>[
+                            InvoiceMultiPickerField(
+                              dues: dues,
+                              selectedIds: _selectedInvoiceIds,
+                              targetAmount: entered,
+                              onChanged: _onInvoicesChanged,
+                            ),
+                            if (selectedDues.isNotEmpty) ...<Widget>[
+                              SizedBox(height: 16.h),
+                              OutstandingInvoicesSection(
+                                dues: selectedDues,
+                                allocatedById: allocatedById,
+                                totalOutstanding: selectedOutstanding,
+                                unallocated: unallocated,
+                              ),
+                            ],
+                          ],
+                        ],
                         SizedBox(height: 16.h),
                         CustomDatePicker(
                           controller: _receivedDateController,
@@ -395,6 +489,9 @@ class _AddCollectionPageState extends ConsumerState<AddCollectionPage> {
     );
   }
 }
+
+/// `Rs 98,000` style formatter shared by the amount validator.
+final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 0);
 
 class _SubmitBar extends StatelessWidget {
   const _SubmitBar({required this.isLoading, required this.onPressed});

@@ -100,6 +100,23 @@ OrderLineItem _seedLine(
 /// Numbers seed the per-kind counter (the controller continues from the
 /// max existing suffix).
 final kMockOrderHistory = <Order>[
+  // A second completed invoice for Himalayan Traders so the party has two
+  // outstanding bills — lets the collection form demonstrate FIFO
+  // allocation (a payment settles the older `inv_1006` before this one).
+  Order(
+    id: 'inv_1009',
+    number: 'ORD-2026-0009',
+    kind: OrderKind.order,
+    status: OrderStatus.completed,
+    party: kMockOrderParties[0],
+    deliveryDate: DateTime(2026, 6, 21),
+    items: <OrderLineItem>[
+      _seedLine('p_san_mixer', quantity: 5),
+    ],
+    overallDiscountPercent: 0,
+    tax: kTaxOptions[1],
+    createdAt: DateTime(2026, 6, 21, 10),
+  ),
   Order(
     id: 'inv_1008',
     number: 'ORD-2026-0008',

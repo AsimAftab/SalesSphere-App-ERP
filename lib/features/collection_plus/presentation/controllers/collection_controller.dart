@@ -1,16 +1,16 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import 'package:sales_sphere_erp/features/collection/domain/cheque_status.dart';
-import 'package:sales_sphere_erp/features/collection/domain/collection.dart';
-import 'package:sales_sphere_erp/features/collection/domain/collection_invoice.dart';
-import 'package:sales_sphere_erp/features/collection/domain/collection_party.dart';
-import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart';
-import 'package:sales_sphere_erp/features/collection/presentation/providers/collection_providers.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/cheque_status.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/collection.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/collection_allocation.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/collection_party.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/payment_mode.dart';
+import 'package:sales_sphere_erp/features/collection_plus/presentation/providers/collection_providers.dart';
 
 part 'collection_controller.g.dart';
 
 /// Routes collection write actions from the UI into the in-memory store.
-/// Reads stay on [collectionsListProvider].
+/// Reads stay on [collectionPlusListProvider].
 ///
 /// Mock-only: there's no repository / network yet, so [addCollection]
 /// just stamps an id + `createdAt` onto the draft and prepends it to the
@@ -18,15 +18,15 @@ part 'collection_controller.g.dart';
 /// body becomes a `repo.addCollection(draft)` call, same as
 /// `NotesController.addNote`.
 @riverpod
-class CollectionController extends _$CollectionController {
+class CollectionPlusController extends _$CollectionPlusController {
   @override
   void build() {}
 
   /// Persists a new collection. Mock-only: stamps an id + `createdAt`
   /// before prepending it to the list.
-  Future<Collection> addCollection({
-    required CollectionInvoice invoice,
-    required CollectionParty party,
+  Future<CollectionPlus> addCollection({
+    required List<CollectionPlusAllocation> allocations,
+    required CollectionPlusParty party,
     required double amount,
     required DateTime receivedDate,
     required PaymentMode paymentMode,
@@ -38,9 +38,9 @@ class CollectionController extends _$CollectionController {
     List<String> imagePaths = const <String>[],
   }) async {
     final now = DateTime.now();
-    final created = Collection(
+    final created = CollectionPlus(
       id: 'col_${now.microsecondsSinceEpoch}',
-      invoice: invoice,
+      allocations: allocations,
       party: party,
       amount: amount,
       receivedDate: receivedDate,
@@ -53,14 +53,14 @@ class CollectionController extends _$CollectionController {
       imagePaths: imagePaths,
       createdAt: now,
     );
-    ref.read(collectionsListProvider.notifier).prependLocal(created);
+    ref.read(collectionPlusListProvider.notifier).prependLocal(created);
     return created;
   }
 
   /// Persists edits to an existing collection. Mock-only: writes the row
   /// straight back into the in-memory list.
-  Future<Collection> updateCollection(Collection collection) async {
-    ref.read(collectionsListProvider.notifier).replaceLocal(collection);
+  Future<CollectionPlus> updateCollection(CollectionPlus collection) async {
+    ref.read(collectionPlusListProvider.notifier).replaceLocal(collection);
     return collection;
   }
 }
