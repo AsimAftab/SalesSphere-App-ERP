@@ -44,7 +44,7 @@ class _CategorySelectionPageState extends ConsumerState<CategorySelectionPage> {
 
   Future<void> _refresh() async {
     ref.invalidate(catalogCategoriesProvider);
-    await Future<void>.delayed(const Duration(milliseconds: 600));
+    await ref.read(catalogCategoriesProvider.future);
   }
 
   void _pick(String? categoryId) {
@@ -55,13 +55,8 @@ class _CategorySelectionPageState extends ConsumerState<CategorySelectionPage> {
 
   @override
   Widget build(BuildContext context) {
-    final categories = ref.watch(catalogCategoriesProvider);
+    final categoriesAsync = ref.watch(catalogCategoriesProvider);
     final q = _query.trim().toLowerCase();
-    final filtered = q.isEmpty
-        ? categories
-        : categories
-              .where((c) => c.name.toLowerCase().contains(q))
-              .toList(growable: false);
 
     return DarkStatusBar(
       child: Scaffold(
@@ -109,44 +104,62 @@ class _CategorySelectionPageState extends ConsumerState<CategorySelectionPage> {
                   ),
                   SizedBox(height: 16.h),
                   Expanded(
-                    child: filtered.isEmpty
-                        ? _EmptyCategories(query: _query.trim())
-                        : RefreshIndicator(
-                            onRefresh: _refresh,
-                            color: AppColors.primary,
-                            backgroundColor: AppColors.surface,
-                            child: GridView.builder(
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 24.h),
-                              gridDelegate:
-                                  SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 2,
-                                    crossAxisSpacing: 16.w,
-                                    mainAxisSpacing: 16.h,
-                                  ),
-                              // +1 for the leading "All Products" tile.
-                              itemCount: filtered.length + 1,
-                              itemBuilder: (context, index) {
-                                if (index == 0) {
-                                  return _CategoryTile(
-                                    name: 'All Products',
-                                    icon: Icons.apps,
-                                    accent: AppColors.secondary,
-                                    onTap: () => _pick(null),
-                                  );
-                                }
-                                final cat = filtered[index - 1];
-                                final vis = categoryVisuals(cat.name);
+                    child: categoriesAsync.when(
+                      loading: () => const Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      error: (_, __) => _EmptyCategories(query: _query.trim()),
+                      data: (categories) {
+                        final filtered = q.isEmpty
+                            ? categories
+                            : categories
+                                  .where(
+                                    (c) => c.name.toLowerCase().contains(q),
+                                  )
+                                  .toList(growable: false);
+                        if (filtered.isEmpty) {
+                          return _EmptyCategories(query: _query.trim());
+                        }
+                        return RefreshIndicator(
+                          onRefresh: _refresh,
+                          color: AppColors.primary,
+                          backgroundColor: AppColors.surface,
+                          child: GridView.builder(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 24.h),
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  crossAxisSpacing: 16.w,
+                                  mainAxisSpacing: 16.h,
+                                ),
+                            // +1 for the leading "All Products" tile.
+                            itemCount: filtered.length + 1,
+                            itemBuilder: (context, index) {
+                              if (index == 0) {
                                 return _CategoryTile(
-                                  name: cat.name,
-                                  icon: vis.icon,
-                                  accent: vis.accent,
-                                  itemCount: cat.itemCount,
-                                  onTap: () => _pick(cat.id),
+                                  name: 'All Products',
+                                  icon: Icons.apps,
+                                  accent: AppColors.secondary,
+                                  onTap: () => _pick(null),
                                 );
-                              },
-                            ),
+                              }
+                              final cat = filtered[index - 1];
+                              final vis = categoryVisuals(cat.name);
+                              return _CategoryTile(
+                                name: cat.name,
+                                icon: vis.icon,
+                                accent: vis.accent,
+                                itemCount: cat.itemCount,
+                                onTap: () => _pick(cat.id),
+                              );
+                            },
                           ),
+                        );
+                      },
+                    ),
                   ),
                 ],
               ),

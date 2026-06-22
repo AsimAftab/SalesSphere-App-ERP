@@ -9,6 +9,7 @@ import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/widgets/product_image.dart';
 import 'package:sales_sphere_erp/features/orders/domain/order.dart';
 import 'package:sales_sphere_erp/features/orders/domain/order_line_item.dart';
+import 'package:sales_sphere_erp/features/orders/domain/order_organization.dart';
 import 'package:sales_sphere_erp/features/orders/domain/order_party.dart';
 import 'package:sales_sphere_erp/features/orders/presentation/controllers/order_controller.dart';
 import 'package:sales_sphere_erp/features/orders/presentation/providers/order_providers.dart';
@@ -76,9 +77,19 @@ class _Body extends ConsumerWidget {
     final deliveryDate = await ConvertToOrderDialog.show(context);
     if (deliveryDate == null || !context.mounted) return;
 
-    final created = await ref
-        .read(orderControllerProvider.notifier)
-        .convertToOrder(order, deliveryDate);
+    final Order created;
+    try {
+      created = await ref
+          .read(orderControllerProvider.notifier)
+          .convertToOrder(order, deliveryDate);
+    } on Object {
+      if (!context.mounted) return;
+      SnackbarUtils.showError(
+        context,
+        "Couldn't convert ${order.number}. Please try again.",
+      );
+      return;
+    }
     if (!context.mounted) return;
 
     SnackbarUtils.showSuccess(
@@ -96,7 +107,11 @@ class _Body extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final organization = ref.watch(orderOrganizationProvider);
+    // The "From" profile loads async; show em-dash placeholders until it
+    // resolves (the rest of the page renders from the passed-in order).
+    final organization =
+        ref.watch(orderOrganizationProvider).value ??
+        const OrderOrganization(name: '—', panVat: '', phone: '', address: '');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

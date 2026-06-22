@@ -1,30 +1,59 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+
 import 'package:sales_sphere_erp/features/catalog/domain/product.dart';
-import 'package:sales_sphere_erp/features/orders/data/order_mock_data.dart';
+import 'package:sales_sphere_erp/features/orders/data/repositories/order_repository_impl.dart';
+import 'package:sales_sphere_erp/features/orders/data/tax_options.dart';
 import 'package:sales_sphere_erp/features/orders/domain/order.dart';
 import 'package:sales_sphere_erp/features/orders/domain/order_draft_data.dart';
 import 'package:sales_sphere_erp/features/orders/domain/order_line_item.dart';
 import 'package:sales_sphere_erp/features/orders/domain/order_organization.dart';
 import 'package:sales_sphere_erp/features/orders/domain/order_party.dart';
 import 'package:sales_sphere_erp/features/orders/domain/tax_option.dart';
+import 'package:sales_sphere_erp/features/parties/presentation/providers/parties_providers.dart';
+
+// Re-export the repository provider so consumers (the controller, tests)
+// can depend on the contract surface without importing from `data/`.
+export 'package:sales_sphere_erp/features/orders/data/repositories/order_repository_impl.dart'
+    show orderRepositoryProvider;
 
 part 'order_providers.g.dart';
 
-/// Parties offered in the searchable "Select party" sheet. Synchronous —
-/// no API/drift yet (mock-only). Swap for a repository read when the
-/// order feature is wired to the backend.
-@riverpod
-List<OrderParty> orderParties(Ref ref) => kMockOrderParties;
+/// Page size pulled for the order party picker. The picker searches the
+/// fetched set client-side, so one generous page covers a field rep's book.
+const int _kPartyPickerPageSize = 100;
 
-/// Tax lines offered in the order's tax picker.
+/// Parties offered in the searchable "Select party" sheet. Sourced from the
+/// live customers list (`GET /customers`) and mapped to the slim
+/// [OrderParty] the picker needs (carrying `ownerName` for the order's
+/// auto-filled owner field).
+@riverpod
+Future<List<OrderParty>> orderParties(Ref ref) async {
+  final page = await ref
+      .watch(partiesRepositoryProvider)
+      .getPartiesPage(limit: _kPartyPickerPageSize);
+  return page.items
+      .map(
+        (p) => OrderParty(
+          id: p.id,
+          name: p.name,
+          ownerName: p.ownerName,
+          address: p.address,
+          panVat: p.panVat,
+          phone: p.phone,
+        ),
+      )
+      .toList(growable: false);
+}
+
+/// Tax lines offered in the order's tax picker (No Tax / VAT 13%).
 @riverpod
 List<TaxOption> taxOptions(Ref ref) => kTaxOptions;
 
 /// The selling organisation rendered as the "From" party on the order
-/// detail page. Mock-only — swap for the authenticated tenant's profile
-/// when the backend lands.
+/// detail page, from `GET /organizations/print-profile`.
 @riverpod
-OrderOrganization orderOrganization(Ref ref) => kMockOrderOrganization;
+Future<OrderOrganization> orderOrganization(Ref ref) =>
+    ref.watch(orderRepositoryProvider).getPrintProfile();
 
 /// The live order-builder draft. `keepAlive` so it survives navigation
 /// reliably (the Add-Item catalog round-trip, the History push). It is
@@ -131,21 +160,15 @@ class OrderDraft extends _$OrderDraft {
   }
 }
 
-/// In-memory list of saved orders + estimates, seeded from the mock
-/// corpus. The history screen watches this; the controller prepends new
-/// records after a successful create.
-///
-/// Async so the history screen has a real loading window to paint a
-/// skeleton against (mirrors `ExpenseClaimsList`). `keepAlive` so created
-/// records persist after leaving the page — swap `build` for a
-/// `repo.getOrders()` call when a backend lands.
+/// In-memory list of saved orders + estimates, hydrated from the backend
+/// (`GET /invoices` + `GET /estimates`, merged newest-first). The history
+/// screen watches this; the controller prepends/removes rows after a
+/// successful write. `keepAlive` so created records persist across
+/// navigation within the order zone.
 @Riverpod(keepAlive: true)
 class OrderHistory extends _$OrderHistory {
   @override
-  Future<List<Order>> build() async {
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-    return List<Order>.from(kMockOrderHistory);
-  }
+  Future<List<Order>> build() => ref.read(orderRepositoryProvider).getHistory();
 
   /// Insert [order] at the head of the list. Called by the controller
   /// after a successful create.
@@ -165,14 +188,12 @@ class OrderHistory extends _$OrderHistory {
     );
   }
 
-  /// Pull-to-refresh / header refresh. Mock-only: drops to a loading
-  /// state so the list paints the skeleton again, simulates a round-trip,
-  /// then re-emits the current list (locally-created rows are preserved).
+  /// Pull-to-refresh / header refresh — re-fetch from the backend.
   Future<void> refresh() async {
-    final current = state.value ?? const <Order>[];
     state = const AsyncValue<List<Order>>.loading();
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-    state = AsyncValue<List<Order>>.data(<Order>[...current]);
+    state = await AsyncValue.guard(
+      () => ref.read(orderRepositoryProvider).getHistory(),
+    );
   }
 }
 

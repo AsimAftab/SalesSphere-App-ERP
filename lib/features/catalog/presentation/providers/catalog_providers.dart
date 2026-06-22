@@ -1,20 +1,28 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import 'package:sales_sphere_erp/features/catalog/data/catalog_mock_data.dart';
+import 'package:sales_sphere_erp/features/catalog/data/repositories/catalog_repository_impl.dart';
 import 'package:sales_sphere_erp/features/catalog/domain/product.dart';
 import 'package:sales_sphere_erp/features/catalog/domain/product_category.dart';
 
+// Re-export the repository provider so consumers (controllers, tests) can
+// depend on the contract surface without importing from `data/`.
+export 'package:sales_sphere_erp/features/catalog/data/repositories/catalog_repository_impl.dart'
+    show catalogRepositoryProvider;
+
 part 'catalog_providers.g.dart';
 
-/// Mock product catalogue. Synchronous — no API/drift yet (design-only
-/// port). Swap the body for a repository read when the products feature
-/// is wired up.
+/// Live product catalogue from `GET /products`. Async — the catalog page
+/// paints a loading state, then filters the result client-side (search +
+/// category chip). The repository pages through to the full ACTIVE list.
 @riverpod
-List<Product> catalogProducts(Ref ref) => kMockProducts;
+Future<List<Product>> catalogProducts(Ref ref) =>
+    ref.watch(catalogRepositoryProvider).getProducts();
 
-/// Mock category list backing the chip row + the category-selection grid.
+/// Live category list from `GET /product-categories`, each carrying its
+/// `itemCount`. Backs the chip row + the category-selection grid.
 @riverpod
-List<ProductCategory> catalogCategories(Ref ref) => kMockCategories;
+Future<List<ProductCategory>> catalogCategories(Ref ref) =>
+    ref.watch(catalogRepositoryProvider).getCategories();
 
 /// Selected category filter, shared by the chip row and the
 /// category-selection screen so they stay in sync. `null` means "All".

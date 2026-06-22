@@ -1,9 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sales_sphere_erp/features/catalog/domain/product.dart';
-import 'package:sales_sphere_erp/features/orders/data/order_mock_data.dart';
+import 'package:sales_sphere_erp/features/orders/data/tax_options.dart';
 import 'package:sales_sphere_erp/features/orders/domain/order.dart';
+import 'package:sales_sphere_erp/features/orders/domain/order_draft_data.dart';
 import 'package:sales_sphere_erp/features/orders/domain/order_line_item.dart';
+import 'package:sales_sphere_erp/features/orders/domain/order_organization.dart';
+import 'package:sales_sphere_erp/features/orders/domain/repositories/order_repository.dart';
 import 'package:sales_sphere_erp/features/orders/domain/tax_option.dart';
 import 'package:sales_sphere_erp/features/orders/presentation/controllers/order_controller.dart';
 import 'package:sales_sphere_erp/features/orders/presentation/providers/order_providers.dart';
@@ -123,11 +126,17 @@ void main() {
 
   group('OrderController create flow', () {
     test('createOrder appends to history and resets the draft', () async {
-      final container = ProviderContainer();
+      final fake = _FakeOrderRepository();
+      final container = ProviderContainer(
+        overrides: [
+          orderRepositoryProvider.overrideWithValue(fake),
+        ],
+      );
       addTearDown(container.dispose);
       // Pin the auto-dispose draft so it survives across reads in the test.
       container.listen(orderDraftProvider, (_, __) {});
 
+      // Hydrate history from the (empty) fake backend first.
       await container.read(orderHistoryProvider.future);
       container
           .read(orderDraftProvider.notifier)
@@ -138,10 +147,8 @@ void main() {
           .createOrder();
 
       expect(created.kind, OrderKind.order);
-      expect(
-        created.number,
-        'ORD-2026-0010',
-      ); // one past the seeded max ORD-2026-0009
+      // The server issues the number; the controller just surfaces it.
+      expect(created.number, 'INV-82-0001');
 
       final history = container.read(orderHistoryProvider).requireValue;
       expect(history.first.id, created.id);
@@ -151,4 +158,64 @@ void main() {
       expect(draft.tax, kDefaultTaxOption);
     });
   });
+}
+
+/// Minimal in-memory [OrderRepository] for the controller test — stands in
+/// for the network so the create flow can be exercised without Dio.
+class _FakeOrderRepository implements OrderRepository {
+  @override
+  Future<List<Order>> getHistory() async => const <Order>[];
+
+  @override
+  Future<Order> createOrder(OrderDraftData draft) async => _order(
+    OrderKind.order,
+    'INV-82-0001',
+    draft,
+  );
+
+  @override
+  Future<Order> createEstimate(OrderDraftData draft) async => _order(
+    OrderKind.estimate,
+    'EST-82-0001',
+    draft,
+  );
+
+  @override
+  Future<Order> convertToOrder(Order estimate, DateTime deliveryDate) async =>
+      Order(
+        id: 'srv_conv',
+        number: 'INV-82-0002',
+        kind: OrderKind.order,
+        status: OrderStatus.pending,
+        party: estimate.party,
+        deliveryDate: deliveryDate,
+        items: estimate.items,
+        overallDiscountPercent: estimate.overallDiscountPercent,
+        tax: estimate.tax,
+        createdAt: DateTime(2026, 6, 22),
+      );
+
+  @override
+  Future<void> deleteEstimate(String id) async {}
+
+  @override
+  Future<OrderOrganization> getPrintProfile() async => const OrderOrganization(
+    name: 'Test Org',
+    panVat: '',
+    phone: '',
+    address: '',
+  );
+
+  Order _order(OrderKind kind, String number, OrderDraftData draft) => Order(
+    id: 'srv_${kind.name}',
+    number: number,
+    kind: kind,
+    status: OrderStatus.pending,
+    party: draft.party,
+    deliveryDate: draft.deliveryDate,
+    items: draft.items,
+    overallDiscountPercent: draft.overallDiscountPercent,
+    tax: draft.tax,
+    createdAt: DateTime(2026, 6, 22),
+  );
 }

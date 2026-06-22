@@ -20,6 +20,30 @@ class Endpoints {
   // ── Customer types (party-type picker) ────────────────────────────────────
   static const customerTypes = '/customer-types';
 
+  // ── Catalog: products ─────────────────────────────────────────────────────
+  static const products = '/products';
+  static String productById(String id) => '/products/$id';
+
+  // ── Catalog: product categories ───────────────────────────────────────────
+  static const productCategories = '/product-categories';
+  static String productCategoryById(String id) => '/product-categories/$id';
+
+  // ── Orders (invoices on the backend) ──────────────────────────────────────
+  static const invoices = '/invoices';
+  static const invoicesCount = '/invoices/count';
+  static String invoiceById(String id) => '/invoices/$id';
+  static String invoiceFulfillmentStatus(String id) =>
+      '/invoices/$id/fulfillment-status';
+
+  // ── Estimates (quotations) ────────────────────────────────────────────────
+  static const estimates = '/estimates';
+  static const estimatesCount = '/estimates/count';
+  static String estimateById(String id) => '/estimates/$id';
+  static String estimateConvert(String id) => '/estimates/$id/convert';
+
+  // ── Organization print profile (order/estimate "From" block) ──────────────
+  static const organizationsPrintProfile = '/organizations/print-profile';
+
   // ── Prospects (pre-conversion leads) ──────────────────────────────────────
   static const prospects = '/prospects';
   static String prospectById(String id) => '/prospects/$id';
