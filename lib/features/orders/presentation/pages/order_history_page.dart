@@ -429,8 +429,14 @@ class _OrderCard extends ConsumerWidget {
       builder: (ctx) => _DeleteEstimateDialog(number: order.number),
     );
     if (confirmed != true || !context.mounted) return;
-    ref.read(orderControllerProvider.notifier).deleteEstimate(order.id);
-    SnackbarUtils.showSuccess(context, '${order.number} deleted.');
+    try {
+      await ref.read(orderControllerProvider.notifier).deleteEstimate(order.id);
+      if (!context.mounted) return;
+      SnackbarUtils.showSuccess(context, '${order.number} deleted.');
+    } on Object {
+      if (!context.mounted) return;
+      SnackbarUtils.showError(context, "Couldn't delete ${order.number}.");
+    }
   }
 
   @override

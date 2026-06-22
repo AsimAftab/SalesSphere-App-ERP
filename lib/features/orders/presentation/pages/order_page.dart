@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
+import 'package:sales_sphere_erp/features/catalog/domain/product.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/providers/catalog_providers.dart';
 import 'package:sales_sphere_erp/features/orders/domain/order.dart';
 import 'package:sales_sphere_erp/features/orders/domain/order_draft_data.dart';
@@ -72,9 +73,13 @@ class _OrderPageState extends ConsumerState<OrderPage> {
   void _mergeCartIntoDraft() {
     final cart = ref.read(cartProvider);
     if (cart.isEmpty) return;
-    ref
-        .read(orderDraftProvider.notifier)
-        .addFromCart(cart, ref.read(catalogProductsProvider));
+    // The catalogue is async now — only merge against what's already loaded
+    // (the user reached the cart by browsing it, so it is). If absent, the
+    // cart is preserved and merged on the next entry.
+    final products =
+        ref.read(catalogProductsProvider).value ?? const <Product>[];
+    if (products.isEmpty) return;
+    ref.read(orderDraftProvider.notifier).addFromCart(cart, products);
     ref.read(cartProvider.notifier).clear();
   }
 
@@ -128,9 +133,21 @@ class _OrderPageState extends ConsumerState<OrderPage> {
 
     setState(() => _submitting = true);
     final controller = ref.read(orderControllerProvider.notifier);
-    final created = kind == OrderKind.order
-        ? await controller.createOrder()
-        : await controller.createEstimate();
+    final Order created;
+    try {
+      created = kind == OrderKind.order
+          ? await controller.createOrder()
+          : await controller.createEstimate();
+    } on Object {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      SnackbarUtils.showError(
+        context,
+        "Couldn't create the ${orderKindLabel(kind).toLowerCase()}. "
+        'Please try again.',
+      );
+      return;
+    }
     if (!mounted) return;
     setState(() => _submitting = false);
 
@@ -370,7 +387,8 @@ class _PartyDetailCard extends ConsumerWidget {
               notifier.selectParty(party);
             }
           },
-          items: ref.watch(orderPartiesProvider),
+          items:
+              ref.watch(orderPartiesProvider).value ?? const <OrderParty>[],
           titleOf: (p) => p.name,
           subtitleOf: (p) => '${p.ownerName} · ${p.address}',
           searchTextOf: (p) => '${p.name} ${p.ownerName} ${p.address}',

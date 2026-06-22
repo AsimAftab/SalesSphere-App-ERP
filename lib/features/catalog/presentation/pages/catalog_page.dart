@@ -51,22 +51,82 @@ class _CatalogPageState extends ConsumerState<CatalogPage> {
         .toList(growable: false);
   }
 
-  /// Pull-to-refresh. Mock-only: re-reads the catalogue providers and gives
-  /// the indicator a visible beat. Swap for a repository refetch when the
-  /// products API lands.
+  /// Pull-to-refresh. Invalidates the catalogue providers so the repository
+  /// refetches `/products` + `/product-categories`.
   Future<void> _refresh() async {
     ref
       ..invalidate(catalogProductsProvider)
       ..invalidate(catalogCategoriesProvider);
-    await Future<void>.delayed(const Duration(milliseconds: 600));
+    // Let the refetch settle so the indicator has a visible beat.
+    await ref.read(catalogProductsProvider.future);
   }
+
+  /// Empty-or-grid for the loaded product list. The empty branch stays
+  /// scrollable so the pull-to-refresh gesture works with no products.
+  Widget _grid(List<Product> items) {
+    if (items.isEmpty) {
+      return LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: ClampingScrollPhysics(),
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: _EmptyProducts(hasQuery: _query.trim().isNotEmpty),
+          ),
+        ),
+      );
+    }
+    return GridView.builder(
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: ClampingScrollPhysics(),
+      ),
+      padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 140.h),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.60,
+        crossAxisSpacing: 14.w,
+        mainAxisSpacing: 14.h,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) =>
+          CatalogProductCard(product: items[index]),
+    );
+  }
+
+  /// Centred loader on first load, kept scrollable so the refresh gesture
+  /// stays available.
+  Widget _loading() => _centeredScrollable(
+    const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+  );
+
+  Widget _error() => _centeredScrollable(
+    const EmptyStateView(
+      icon: Icons.cloud_off_rounded,
+      title: "Couldn't load products",
+      message: 'Pull down to retry.',
+    ),
+  );
+
+  Widget _centeredScrollable(Widget child) => LayoutBuilder(
+    builder: (context, constraints) => SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: ClampingScrollPhysics(),
+      ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: constraints.maxHeight),
+        child: SizedBox(height: constraints.maxHeight, child: child),
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
-    final products = ref.watch(catalogProductsProvider);
-    final categories = ref.watch(catalogCategoriesProvider);
+    final productsAsync = ref.watch(catalogProductsProvider);
+    final categories =
+        ref.watch(catalogCategoriesProvider).value ??
+        const <ProductCategory>[];
     final selectedCategoryId = ref.watch(selectedCategoryProvider);
-    final items = _filter(products, selectedCategoryId);
 
     return DarkStatusBar(
       child: Scaffold(
@@ -123,42 +183,12 @@ class _CatalogPageState extends ConsumerState<CatalogPage> {
                   onRefresh: _refresh,
                   color: AppColors.primary,
                   backgroundColor: AppColors.surface,
-                  child: items.isEmpty
-                      // Scrollable so the pull gesture works even with
-                      // no products; min-height keeps the empty state
-                      // vertically centred.
-                      ? LayoutBuilder(
-                          builder: (context, constraints) =>
-                              SingleChildScrollView(
-                                physics: const AlwaysScrollableScrollPhysics(
-                                  parent: ClampingScrollPhysics(),
-                                ),
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    minHeight: constraints.maxHeight,
-                                  ),
-                                  child: _EmptyProducts(
-                                    hasQuery: _query.trim().isNotEmpty,
-                                  ),
-                                ),
-                              ),
-                        )
-                      : GridView.builder(
-                          physics: const AlwaysScrollableScrollPhysics(
-                            parent: ClampingScrollPhysics(),
-                          ),
-                          padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 140.h),
-                          gridDelegate:
-                              SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                childAspectRatio: 0.60,
-                                crossAxisSpacing: 14.w,
-                                mainAxisSpacing: 14.h,
-                              ),
-                          itemCount: items.length,
-                          itemBuilder: (context, index) =>
-                              CatalogProductCard(product: items[index]),
-                        ),
+                  child: productsAsync.when(
+                    data: (products) =>
+                        _grid(_filter(products, selectedCategoryId)),
+                    loading: _loading,
+                    error: (_, __) => _error(),
+                  ),
                 ),
               ),
             ],
