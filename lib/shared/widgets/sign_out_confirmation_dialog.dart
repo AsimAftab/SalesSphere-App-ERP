@@ -88,8 +88,9 @@ class SignOutConfirmationDialog extends StatelessWidget {
                 ),
                 SizedBox(width: 12.w),
                 Expanded(
-                  child: PrimaryButton(
+                  child: CustomButton(
                     label: 'Sign Out',
+                    backgroundColor: AppColors.error,
                     onPressed: () => Navigator.of(context).pop(true),
                   ),
                 ),

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/core/constants/app_sizes.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/leaves/domain/leave.dart';
 import 'package:sales_sphere_erp/features/leaves/presentation/providers/leaves_providers.dart';
@@ -288,33 +289,38 @@ class _LeaveCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Icon(
-                      leaveCategoryIcon(leave.category),
-                      color: AppColors.textPrimary,
-                      size: 18.sp,
-                    ),
-                    SizedBox(width: 8.w),
-                    Expanded(
-                      child: Text(
-                        leaveCategoryLabel(leave.category),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w600,
-                          height: 1.2,
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: AppSizes.listRowHeaderHeight.h,
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      Icon(
+                        leaveCategoryIcon(leave.category),
+                        color: AppColors.textPrimary,
+                        size: 18.sp,
+                      ),
+                      SizedBox(width: 8.w),
+                      Expanded(
+                        child: Text(
+                          leaveCategoryLabel(leave.category),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.w600,
+                            height: 1.2,
+                          ),
                         ),
                       ),
-                    ),
-                    SizedBox(width: 8.w),
-                    StatusBadge(
-                      label: leaveStatusLabel(leave.status),
-                      color: _statusPalette(leave.status).fg,
-                    ),
-                  ],
+                      SizedBox(width: 8.w),
+                      StatusBadge(
+                        label: leaveStatusLabel(leave.status),
+                        color: _statusPalette(leave.status).fg,
+                      ),
+                    ],
+                  ),
                 ),
                 SizedBox(height: 6.h),
                 Row(

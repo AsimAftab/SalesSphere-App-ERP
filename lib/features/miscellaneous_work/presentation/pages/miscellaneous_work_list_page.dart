@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/core/constants/app_sizes.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/miscellaneous_work/domain/miscellaneous_work.dart';
 import 'package:sales_sphere_erp/features/miscellaneous_work/presentation/providers/miscellaneous_work_providers.dart';
@@ -456,6 +457,10 @@ class _WorkCard extends StatelessWidget {
             padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
             child: Row(
               children: <Widget>[
+                // Zero-width spacer that floors the row to the shared
+                // card-content height, so every avatar card matches the
+                // leaves / tour / notes cards regardless of avatar size.
+                SizedBox(height: AppSizes.listCardContentHeight.h),
                 // `Skeleton.replace` swaps the filled navy circle for a
                 // bone-circle in loading state so the placeholder reads
                 // as a skeleton instead of a solid coloured dot. Mirrors

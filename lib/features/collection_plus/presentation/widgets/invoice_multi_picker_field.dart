@@ -134,9 +134,42 @@ class _InvoiceMultiPickerSheet extends StatefulWidget {
 class _InvoiceMultiPickerSheetState extends State<_InvoiceMultiPickerSheet> {
   late final Set<String> _selected = <String>{...widget.initial};
 
+  /// Shown when the user taps an invoice the entered amount can't reach —
+  /// the current selection already covers it in full, so the new bill would
+  /// be allocated Rs 0 (FIFO). Cleared on the next successful toggle.
+  String? _coverWarning;
+
   void _toggle(String id) {
+    // Deselecting is always allowed.
+    if (_selected.contains(id)) {
+      setState(() {
+        _selected.remove(id);
+        _coverWarning = null;
+      });
+      return;
+    }
+    // Adding: if the entered amount is already fully covered by the current
+    // selection, this invoice would absorb nothing — block it and say why,
+    // rather than silently parking it as a "Not applied" row on the form.
+    if (widget.targetAmount > 0.0001) {
+      final currentOutstanding = PaymentAllocator.totalOutstanding(
+        widget.dues
+            .where((d) => _selected.contains(d.invoice.id))
+            .toList(growable: false),
+      );
+      if (currentOutstanding >= widget.targetAmount - 0.0001) {
+        setState(() {
+          _coverWarning =
+              "Can't apply this invoice — ${_currency.format(widget.targetAmount)} "
+              'is already fully covered. Increase the amount or deselect '
+              'another invoice.';
+        });
+        return;
+      }
+    }
     setState(() {
-      if (!_selected.add(id)) _selected.remove(id);
+      _selected.add(id);
+      _coverWarning = null;
     });
   }
 
@@ -283,6 +316,29 @@ class _InvoiceMultiPickerSheetState extends State<_InvoiceMultiPickerSheet> {
                               color: fullyCovered
                                   ? Colors.green.shade700
                                   : AppColors.error,
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 10.h),
+                  ],
+                  if (_coverWarning != null) ...<Widget>[
+                    Row(
+                      children: <Widget>[
+                        Icon(
+                          Icons.block,
+                          size: 16.sp,
+                          color: AppColors.error,
+                        ),
+                        SizedBox(width: 6.w),
+                        Expanded(
+                          child: Text(
+                            _coverWarning!,
+                            style: TextStyle(
+                              color: AppColors.error,
                               fontSize: 12.sp,
                               fontWeight: FontWeight.w600,
                             ),

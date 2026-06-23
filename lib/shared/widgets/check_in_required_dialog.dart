@@ -95,16 +95,30 @@ class CheckInRequiredDialog extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: 24.h),
-                PrimaryButton(
-                  label: 'Check In',
-                  leadingIcon: Icons.login_rounded,
-                  onPressed: () => Navigator.of(context).pop(true),
-                ),
-                SizedBox(height: 10.h),
-                CustomButton(
-                  label: 'Not Now',
-                  type: ButtonType.text,
-                  onPressed: () => Navigator.of(context).pop(false),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: OutlinedCustomButton(
+                        label: 'Not Now',
+                        customPadding: EdgeInsets.symmetric(
+                          horizontal: 12.w,
+                          vertical: 12.h,
+                        ),
+                        onPressed: () => Navigator.of(context).pop(false),
+                      ),
+                    ),
+                    SizedBox(width: 12.w),
+                    Expanded(
+                      child: PrimaryButton(
+                        label: 'Check In',
+                        customPadding: EdgeInsets.symmetric(
+                          horizontal: 12.w,
+                          vertical: 12.h,
+                        ),
+                        onPressed: () => Navigator.of(context).pop(true),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

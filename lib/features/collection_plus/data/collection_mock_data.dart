@@ -1,6 +1,7 @@
 import 'package:sales_sphere_erp/features/collection_plus/domain/cheque_status.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/collection.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/collection_allocation.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/collection_invoice.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/collection_party.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/payment_mode.dart';
 
@@ -58,6 +59,109 @@ const kMockBankNames = <String>[
   'Siddhartha Bank',
   'Kumari Bank',
   'Laxmi Sunrise Bank',
+];
+
+/// Posted invoices a collection can be booked against — the outstanding
+/// pool the form allocates payments across.
+///
+/// Collection Plus is still mock-only while orders/catalog have moved to
+/// the live backend. The orders history now carries real server ids, so it
+/// can no longer supply invoices whose ids/parties match the mock
+/// collections below. This self-contained corpus keeps that linkage:
+/// every [CollectionPlusAllocation.invoiceId] in [kMockCollectionPlusList]
+/// (`inv_1002`, `inv_1006`, `inv_1007`, `inv_1008`) resolves here, and each
+/// invoice's `partyId` matches the collection's party. Grand totals sit
+/// above the seeded part-payments so each still shows an outstanding
+/// balance, and a few fully-unpaid invoices give every party a realistic
+/// list to collect against. Swap for a repository read when the feature is
+/// wired to the backend.
+final kMockCollectionPlusInvoices = <CollectionPlusInvoice>[
+  // Everest Hardware — inv_1002 is the target of col_1004 + col_1005.
+  CollectionPlusInvoice(
+    id: 'inv_1002',
+    number: 'ORD-2026-0002',
+    amount: 18000,
+    invoiceDate: DateTime(2026, 5, 10),
+    partyId: kMockCollectionPlusParties[1].id,
+    partyName: kMockCollectionPlusParties[1].name,
+  ),
+  CollectionPlusInvoice(
+    id: 'inv_1012',
+    number: 'ORD-2026-0012',
+    amount: 9000,
+    invoiceDate: DateTime(2026, 6, 5),
+    partyId: kMockCollectionPlusParties[1].id,
+    partyName: kMockCollectionPlusParties[1].name,
+  ),
+  // Himalayan Traders — inv_1006 is the target of col_1003.
+  CollectionPlusInvoice(
+    id: 'inv_1006',
+    number: 'ORD-2026-0006',
+    amount: 15000,
+    invoiceDate: DateTime(2026, 5, 12),
+    partyId: kMockCollectionPlusParties[0].id,
+    partyName: kMockCollectionPlusParties[0].name,
+  ),
+  CollectionPlusInvoice(
+    id: 'inv_1010',
+    number: 'ORD-2026-0010',
+    amount: 22000,
+    invoiceDate: DateTime(2026, 6, 2),
+    partyId: kMockCollectionPlusParties[0].id,
+    partyName: kMockCollectionPlusParties[0].name,
+  ),
+  // Sagarmatha Suppliers — inv_1007 is the target of col_1002.
+  CollectionPlusInvoice(
+    id: 'inv_1007',
+    number: 'ORD-2026-0007',
+    amount: 75000,
+    invoiceDate: DateTime(2026, 5, 15),
+    partyId: kMockCollectionPlusParties[2].id,
+    partyName: kMockCollectionPlusParties[2].name,
+  ),
+  CollectionPlusInvoice(
+    id: 'inv_1013',
+    number: 'ORD-2026-0013',
+    amount: 30000,
+    invoiceDate: DateTime(2026, 6, 7),
+    partyId: kMockCollectionPlusParties[2].id,
+    partyName: kMockCollectionPlusParties[2].name,
+  ),
+  // Machhapuchhre Cement — inv_1008 is the target of col_1001.
+  CollectionPlusInvoice(
+    id: 'inv_1008',
+    number: 'ORD-2026-0008',
+    amount: 12000,
+    invoiceDate: DateTime(2026, 5, 18),
+    partyId: kMockCollectionPlusParties[4].id,
+    partyName: kMockCollectionPlusParties[4].name,
+  ),
+  CollectionPlusInvoice(
+    id: 'inv_1011',
+    number: 'ORD-2026-0011',
+    amount: 5000,
+    invoiceDate: DateTime(2026, 6, 3),
+    partyId: kMockCollectionPlusParties[4].id,
+    partyName: kMockCollectionPlusParties[4].name,
+  ),
+  // Annapurna Builders — no seeded collection, but give it an outstanding
+  // list so picking it in the Add form has something to allocate against.
+  CollectionPlusInvoice(
+    id: 'inv_1009',
+    number: 'ORD-2026-0009',
+    amount: 40000,
+    invoiceDate: DateTime(2026, 5, 20),
+    partyId: kMockCollectionPlusParties[3].id,
+    partyName: kMockCollectionPlusParties[3].name,
+  ),
+  CollectionPlusInvoice(
+    id: 'inv_1014',
+    number: 'ORD-2026-0014',
+    amount: 18000,
+    invoiceDate: DateTime(2026, 6, 9),
+    partyId: kMockCollectionPlusParties[3].id,
+    partyName: kMockCollectionPlusParties[3].name,
+  ),
 ];
 
 /// Seed collections so the list screen isn't empty on first open. Dates

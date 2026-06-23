@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/core/constants/app_sizes.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/tour_plans/domain/tour_plan.dart';
 import 'package:sales_sphere_erp/features/tour_plans/presentation/providers/tour_plans_providers.dart';
@@ -290,33 +291,38 @@ class _TourPlanCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Icon(
-                      Icons.location_on_outlined,
-                      color: AppColors.textPrimary,
-                      size: 18.sp,
-                    ),
-                    SizedBox(width: 8.w),
-                    Expanded(
-                      child: Text(
-                        plan.placeOfVisit,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w600,
-                          height: 1.2,
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: AppSizes.listRowHeaderHeight.h,
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      Icon(
+                        Icons.location_on_outlined,
+                        color: AppColors.textPrimary,
+                        size: 18.sp,
+                      ),
+                      SizedBox(width: 8.w),
+                      Expanded(
+                        child: Text(
+                          plan.placeOfVisit,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.w600,
+                            height: 1.2,
+                          ),
                         ),
                       ),
-                    ),
-                    SizedBox(width: 8.w),
-                    StatusBadge(
-                      label: tourPlanStatusLabel(plan.status),
-                      color: _statusPalette(plan.status).fg,
-                    ),
-                  ],
+                      SizedBox(width: 8.w),
+                      StatusBadge(
+                        label: tourPlanStatusLabel(plan.status),
+                        color: _statusPalette(plan.status).fg,
+                      ),
+                    ],
+                  ),
                 ),
                 SizedBox(height: 6.h),
                 Row(
