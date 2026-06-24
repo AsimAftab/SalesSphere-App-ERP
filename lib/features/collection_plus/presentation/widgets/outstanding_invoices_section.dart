@@ -64,6 +64,15 @@ class OutstandingInvoicesSection extends StatelessWidget {
     }
 
     final applied = allocatedById.values.fold<double>(0, (s, v) => s + v);
+    // Selected invoices the current amount doesn't reach — FIFO leaves them
+    // at zero (e.g. after lowering the amount below what the selection
+    // covers). Only meaningful once some amount is actually applied; before
+    // that every row is naturally unallocated.
+    final unusedCount = applied > 0.0001
+        ? dues
+            .where((d) => (allocatedById[d.invoice.id] ?? 0) <= 0.0001)
+            .length
+        : 0;
 
     return Container(
       decoration: BoxDecoration(
@@ -143,7 +152,9 @@ class OutstandingInvoicesSection extends StatelessWidget {
             padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 12.h),
             child: unallocated > 0.0001
                 ? _FooterPrompt(unallocated: unallocated)
-                : _FooterTotal(applied: applied, due: totalOutstanding),
+                : unusedCount > 0
+                    ? _OverSelectedPrompt(count: unusedCount)
+                    : _FooterTotal(applied: applied, due: totalOutstanding),
           ),
         ],
       ),
@@ -298,6 +309,40 @@ class _FooterPrompt extends StatelessWidget {
             'another invoice to cover it.',
             style: TextStyle(
               color: AppColors.error,
+              fontSize: 12.sp,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Soft heads-up when the selection includes invoices the current amount
+/// doesn't reach (they show "Not applied" above). Distinct from the red
+/// [_FooterPrompt] "need more" error — this one is non-blocking; the unused
+/// rows are simply dropped on save.
+class _OverSelectedPrompt extends StatelessWidget {
+  const _OverSelectedPrompt({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Icon(Icons.info_outline, size: 16.sp, color: AppColors.textOrange),
+        SizedBox(width: 8.w),
+        Expanded(
+          child: Text(
+            count == 1
+                ? "1 selected invoice isn't settled at this amount — raise "
+                    'the amount or remove it.'
+                : "$count selected invoices aren't settled at this amount — "
+                    'raise the amount or remove them.',
+            style: TextStyle(
+              color: AppColors.textOrange,
               fontSize: 12.sp,
               fontWeight: FontWeight.w500,
             ),

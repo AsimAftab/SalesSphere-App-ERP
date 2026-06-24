@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/core/constants/app_sizes.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/prospects/domain/prospect.dart';
 import 'package:sales_sphere_erp/features/prospects/presentation/providers/prospects_providers.dart';
@@ -222,6 +223,10 @@ class _ProspectCard extends StatelessWidget {
             padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
             child: Row(
               children: <Widget>[
+                // Zero-width spacer that floors the row to the shared
+                // card-content height, so every avatar card matches the
+                // leaves / tour / notes cards regardless of avatar size.
+                SizedBox(height: AppSizes.listCardContentHeight.h),
                 Skeleton.replace(
                   replacement: Bone.circle(size: 52.r),
                   child: CircleAvatar(

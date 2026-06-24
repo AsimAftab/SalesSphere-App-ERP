@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/core/constants/app_sizes.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/expenses/domain/expense_claim.dart';
 import 'package:sales_sphere_erp/features/expenses/presentation/providers/expenses_providers.dart';
@@ -510,29 +511,34 @@ class _ClaimCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        claim.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w600,
-                          height: 1.2,
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: AppSizes.listRowHeaderHeight.h,
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          claim.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.w600,
+                            height: 1.2,
+                          ),
                         ),
                       ),
-                    ),
-                    SizedBox(width: 8.w),
-                    StatusBadge(
-                      label: expenseClaimStatusLabel(claim.status),
-                      color: _statusColor(claim.status),
-                    ),
-                  ],
+                      SizedBox(width: 8.w),
+                      StatusBadge(
+                        label: expenseClaimStatusLabel(claim.status),
+                        color: _statusColor(claim.status),
+                      ),
+                    ],
+                  ),
                 ),
-                SizedBox(height: 8.h),
+                SizedBox(height: 6.h),
                 Row(
                   children: <Widget>[
                     Text(

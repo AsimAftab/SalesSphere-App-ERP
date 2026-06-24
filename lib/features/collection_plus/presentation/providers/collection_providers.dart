@@ -5,8 +5,6 @@ import 'package:sales_sphere_erp/features/collection_plus/domain/collection.dart
 import 'package:sales_sphere_erp/features/collection_plus/domain/collection_invoice.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/collection_party.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/invoice_due.dart';
-import 'package:sales_sphere_erp/features/orders/domain/order.dart';
-import 'package:sales_sphere_erp/features/orders/presentation/providers/order_providers.dart';
 
 part 'collection_providers.g.dart';
 
@@ -21,34 +19,19 @@ List<CollectionPlusParty> collectionPlusParties(Ref ref) => kMockCollectionPlusP
 @riverpod
 List<String> bankNames(Ref ref) => kMockBankNames;
 
-/// Posted invoices a collection can be booked against, projected from
-/// the orders corpus. Only a delivery-`completed` order (`kind: order`)
-/// is collectible — estimates aren't invoices, and orders still in the
-/// delivery pipeline (pending / in-progress / in-transit) or rejected
-/// are excluded. Most recent first.
+/// Posted invoices a collection can be booked against — the outstanding
+/// pool the form allocates payments across.
 ///
-/// Synchronous off the orders history's current value — watching this
-/// provider warms `orderHistoryProvider`, so the list fills in once that
-/// resolves (and stays warm, as it's keepAlive). When a backend lands,
-/// swap for a real "outstanding invoices" read filtered server-side.
+/// Collection Plus is still mock-only while orders/catalog moved to the
+/// live backend. The backend orders history now carries real server ids
+/// that no longer match the mock collections' allocations, so this returns
+/// the module's self-contained [kMockCollectionPlusInvoices] corpus
+/// instead — keeping invoice ids and parties aligned with
+/// [kMockCollectionPlusList]. Swap for a real "outstanding invoices" read
+/// when the collection feature is wired to the backend.
 @riverpod
-List<CollectionPlusInvoice> collectionPlusInvoices(Ref ref) {
-  final orders = ref.watch(orderHistoryProvider).value ?? const <Order>[];
-  return <CollectionPlusInvoice>[
-    for (final o in orders)
-      if (o.kind == OrderKind.order && o.status == OrderStatus.completed)
-        CollectionPlusInvoice(
-          id: o.id,
-          number: o.number,
-          amount: o.grandTotal,
-          // The invoice is posted on delivery; fall back to created-at for
-          // any order missing a delivery date.
-          invoiceDate: o.deliveryDate ?? o.createdAt,
-          partyId: o.party?.id,
-          partyName: o.party?.name ?? '',
-        ),
-  ];
-}
+List<CollectionPlusInvoice> collectionPlusInvoices(Ref ref) =>
+    kMockCollectionPlusInvoices;
 
 /// A party's outstanding invoices, oldest-first — the list the collection
 /// form shows once a party is chosen, and the basis for FIFO allocation.

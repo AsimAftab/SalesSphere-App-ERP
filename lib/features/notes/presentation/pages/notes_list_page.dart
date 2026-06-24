@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/core/constants/app_sizes.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/notes/domain/note.dart';
 import 'package:sales_sphere_erp/features/notes/presentation/providers/notes_providers.dart';
@@ -544,34 +545,39 @@ class _NoteCard extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        note.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w600,
-                          height: 1.25,
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: AppSizes.listRowHeaderHeight.h,
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          note.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.w600,
+                            height: 1.2,
+                          ),
                         ),
                       ),
-                    ),
-                    SizedBox(width: 8.w),
-                    Text(
-                      DateFormat('dd MMM yyyy').format(note.createdAt.toLocal()),
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w500,
+                      SizedBox(width: 8.w),
+                      Text(
+                        DateFormat('dd MMM yyyy')
+                            .format(note.createdAt.toLocal()),
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-                SizedBox(height: 8.h),
+                SizedBox(height: 6.h),
                 _LinkChip(
                   icon: palette.icon,
                   accent: palette.accent,
