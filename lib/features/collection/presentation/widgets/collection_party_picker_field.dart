@@ -1,0 +1,45 @@
+import 'package:flutter/material.dart';
+
+import 'package:sales_sphere_erp/features/collection/domain/collection_party.dart';
+import 'package:sales_sphere_erp/shared/widgets/party_picker.dart';
+
+/// Party selection field built on the shared [PartyPickerField] — the
+/// searchable bottom-sheet the collection form opens to pick who paid.
+///
+/// The picker carries no `validator`; required-ness is enforced by the
+/// add/edit pages on submit (they guard on a null party).
+class CollectionPartyPickerField extends StatelessWidget {
+  const CollectionPartyPickerField({
+    required this.value,
+    required this.onChanged,
+    required this.parties,
+    this.enabled = true,
+    super.key,
+  });
+
+  final CollectionParty? value;
+  final ValueChanged<CollectionParty?> onChanged;
+  final List<CollectionParty> parties;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return PartyPickerField<CollectionParty>(
+      value: value,
+      onChanged: onChanged,
+      items: parties,
+      enabled: enabled,
+      titleOf: (p) => p.name,
+      subtitleOf: (p) => p.address.isNotEmpty
+          ? p.address
+          : (p.ownerName.isEmpty ? '' : p.ownerName),
+      searchTextOf: (p) => '${p.name} ${p.ownerName} ${p.address}',
+      label: 'Party',
+      hintText: 'Select the party who paid',
+      sheetTitle: 'Select party',
+      searchHint: 'Search parties',
+      emptyText: 'No parties found.',
+      noMatchText: 'No parties match your search.',
+    );
+  }
+}

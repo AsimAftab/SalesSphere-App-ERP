@@ -67,14 +67,14 @@ class FieldOpsPage extends StatelessWidget {
       icon: Icons.storefront_outlined,
       title: 'Parties',
       subtitle: 'Manage business partners',
-      iconColor: AppColors.secondary,
+      iconColor: AppColors.blue500,
       onTap: () => context.push(Routes.parties),
     ),
     _TileSpec(
       icon: Icons.person_search_outlined,
       title: 'Prospects',
       subtitle: 'Manage potential customers',
-      iconColor: AppColors.warning,
+      iconColor: AppColors.orange500,
       onTap: () => context.push(Routes.prospects),
     ),
     _TileSpec(
@@ -88,7 +88,7 @@ class FieldOpsPage extends StatelessWidget {
       icon: Icons.add_location_alt_outlined,
       title: 'Unplanned Visits',
       subtitle: 'Log ad-hoc visits',
-      iconColor: AppColors.blue500,
+      iconColor: AppColors.purple500,
       onTap: () => context.push(Routes.unplannedVisits),
     ),
     _TileSpec(
@@ -97,6 +97,13 @@ class FieldOpsPage extends StatelessWidget {
       subtitle: 'Record payments collected from parties',
       iconColor: AppColors.yellow500,
       onTap: () => context.push(Routes.collectionPlus),
+    ),
+    _TileSpec(
+      icon: Icons.account_balance_wallet_outlined,
+      title: 'Collection',
+      subtitle: 'Record payments collected from parties',
+      iconColor: AppColors.yellow500,
+      onTap: () => context.push(Routes.collection),
     ),
     _TileSpec(
       icon: Icons.event_note_outlined,
@@ -109,7 +116,7 @@ class FieldOpsPage extends StatelessWidget {
       icon: Icons.work_outline_rounded,
       title: 'Miscellaneous Work',
       subtitle: 'Log odd tasks',
-      iconColor: AppColors.purple500,
+      iconColor: AppColors.secondaryDark,
       onTap: () => context.push(Routes.miscellaneousWorks),
     ),
   ];

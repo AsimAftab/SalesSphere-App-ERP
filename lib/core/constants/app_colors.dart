@@ -54,6 +54,11 @@ class AppColors {
   static const Color blue500 = Color(0xFF3B82F6); // Weekly Off (W)
   static const Color yellow500 = Color(0xFFEAB308); // Leave (L)
   static const Color purple500 = Color(0xFFA855F7); // Half Day (H)
+  static const Color orange500 = Color(0xFFF97316);
+  static const Color indigo500 = Color(0xFF6366F1);
+  static const Color cyan500 = Color(0xFF06B6D4);
+  static const Color rose600 = Color(0xFFE11D48);
+  static const Color fuchsia600 = Color(0xFFC026D3);
 
   // Border Colors
   static const Color border = Color(0xFFE0E0E0);
