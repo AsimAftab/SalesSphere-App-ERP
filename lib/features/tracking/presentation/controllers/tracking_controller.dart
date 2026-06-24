@@ -5,12 +5,12 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:sales_sphere_erp/core/db/app_database.dart';
+import 'package:sales_sphere_erp/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:sales_sphere_erp/features/beat_plan/data/repositories/beat_plan_repository_impl.dart';
 import 'package:sales_sphere_erp/features/beat_plan/domain/beat_plan.dart';
 import 'package:sales_sphere_erp/features/tracking/domain/tracking_live_state.dart';
 import 'package:sales_sphere_erp/features/tracking/domain/usecases/start_tracking_usecase.dart';
 import 'package:sales_sphere_erp/features/tracking/service/tracking_ipc.dart';
-import 'package:sales_sphere_erp/features/tracking/service/tracking_service.dart';
 
 part 'tracking_controller.g.dart';
 
@@ -46,7 +46,10 @@ class TrackingController extends _$TrackingController {
           .listen((a) => unawaited(_onEnded(a))))
       ..add(service
           .on(TrackingIpc.evtStopped)
-          .listen((a) => unawaited(_onEnded(a))));
+          .listen((a) => unawaited(_onEnded(a))))
+      ..add(service
+          .on(TrackingIpc.evtAuthExpired)
+          .listen((_) => unawaited(_onAuthExpired())));
 
     ref.onDispose(() {
       for (final sub in _subs) {
@@ -114,6 +117,14 @@ class TrackingController extends _$TrackingController {
     }
 
     state = const TrackingLiveState.idle();
+  }
+
+  /// The background service's refresh token is itself dead (rotated / revoked /
+  /// expired), so it can't recover on its own. Clear auth and route to /login;
+  /// the next successful login pushes a fresh token back to the service via
+  /// `cmd.reauth`.
+  Future<void> _onAuthExpired() async {
+    await ref.read(authControllerProvider.notifier).logout();
   }
 
   /// Permission gauntlet → REST start → launch the foreground service. This is

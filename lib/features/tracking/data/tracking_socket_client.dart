@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:sales_sphere_erp/features/tracking/domain/tracking_models.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
@@ -148,14 +149,18 @@ class TrackingSocketClient {
         _emitEvent(ConnectionStateEvent(connected: false, reason: '$reason'));
       })
       ..onConnectError((dynamic err) {
-        final message = _errorMessage(err);
-        _log?.call('tracking connect_error: $message');
-        // The handshake rejected us. UNAUTHORIZED/AUTH_EXPIRED → ask the
-        // runtime to refresh + reconnect; other codes surface as errors.
-        if (message == 'UNAUTHORIZED' || message == 'AUTH_EXPIRED') {
+        final code = _errorCode(err);
+        _log?.call('tracking connect_error: $code');
+        // The handshake rejected us. Treat it as an auth-expiry trigger when the
+        // server flags it (UNAUTHORIZED/AUTH_EXPIRED via message or data.code) —
+        // OR, deterministically, whenever our in-memory access token is already
+        // expired, so we never again hinge on parsing the server's error string.
+        // A connect_error with a still-valid token stays a transient error and
+        // does NOT burn a refresh.
+        if (code == 'UNAUTHORIZED' || code == 'AUTH_EXPIRED' || _tokenExpired()) {
           _emitEvent(const AuthExpiredEvent());
         } else {
-          _emitEvent(TrackingErrorEvent(code: 'CONNECT_ERROR', message: message));
+          _emitEvent(TrackingErrorEvent(code: 'CONNECT_ERROR', message: code));
         }
       })
       ..on('location-update', (dynamic data) {
@@ -263,13 +268,56 @@ class TrackingSocketClient {
   /// `as String?` cast would raise a runtime `TypeError`.
   static String? _asString(Object? v) => v is String ? v : null;
 
-  static String _errorMessage(dynamic err) {
+  /// Extract a comparable error code from a socket `connect_error` payload,
+  /// which may arrive as a bare String, a `{message}` map, or a
+  /// `{message, data:{code}}` map — the backend attaches `data.code` for
+  /// structured failures (e.g. `AUTH_EXPIRED`), so prefer it, then a top-level
+  /// `code`, then `message`.
+  static String _errorCode(dynamic err) {
     if (err is String) return err;
     final map = _asMap(err);
     if (map != null) {
-      return _asString(map['message']) ?? _asString(map['code']) ?? '$err';
+      final data = _asMap(map['data']);
+      return _asString(data?['code']) ??
+          _asString(map['code']) ??
+          _asString(map['message']) ??
+          '$err';
     }
     return '$err';
+  }
+
+  /// True when the in-memory access [_token] is at/near expiry. Lets a handshake
+  /// rejection trigger a refresh deterministically, without relying on the
+  /// server's error payload being parseable. Returns false when the token can't
+  /// be decoded (don't force a needless refresh on an opaque token).
+  bool _tokenExpired() {
+    final exp = _jwtExp(_token);
+    if (exp == null) return false;
+    return DateTime.now()
+        .toUtc()
+        .isAfter(exp.subtract(const Duration(seconds: 5)));
+  }
+
+  /// Decode a JWT's `exp` claim (seconds since epoch) to a UTC [DateTime]
+  /// without verifying the signature. Returns null on any malformed input.
+  static DateTime? _jwtExp(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      final payload = jsonDecode(
+        utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+      );
+      final exp = payload is Map ? payload['exp'] : null;
+      if (exp is num) {
+        return DateTime.fromMillisecondsSinceEpoch(
+          (exp * 1000).round(),
+          isUtc: true,
+        );
+      }
+      return null;
+    } on Object {
+      return null;
+    }
   }
 
   static String _normaliseOrigin(String raw) {

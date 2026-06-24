@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:sales_sphere_erp/core/api/dio_client.dart';
@@ -10,6 +12,7 @@ import 'package:sales_sphere_erp/features/auth/domain/usecases/logout_usecase.da
 import 'package:sales_sphere_erp/features/auth/domain/usecases/refresh_session_usecase.dart';
 import 'package:sales_sphere_erp/features/auth/domain/usecases/refresh_tokens_usecase.dart';
 import 'package:sales_sphere_erp/features/auth/domain/usecases/restore_session_usecase.dart';
+import 'package:sales_sphere_erp/features/tracking/service/tracking_service.dart';
 
 /// Owns the auth lifecycle. Drives the router-visible [authStateProvider]
 /// and the dio interceptor's refresh handler. Depends only on use cases.
@@ -114,6 +117,13 @@ class AuthController extends Notifier<AsyncValue<AuthUser?>> {
   void _emit(AuthState routerState, AuthUser? user) {
     ref.read(authStateProvider.notifier).set(routerState);
     state = AsyncValue<AuthUser?>.data(user);
+    // On every authenticated transition (login / session restore / biometric
+    // unlock) push the freshest token into a running tracking isolate, so a
+    // background session that was looping on a stale/expired token recovers at
+    // once. No-op when the service isn't running.
+    if (user != null) {
+      unawaited(reauthTrackingService());
+    }
   }
 }
 
