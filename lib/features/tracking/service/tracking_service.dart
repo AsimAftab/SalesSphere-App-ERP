@@ -142,6 +142,17 @@ Future<void> ensureTrackingRunning({
   }
 }
 
+/// Tell a running tracking service to re-authenticate its socket with the
+/// freshest token in secure storage. Call after a (re)login so a background
+/// session that was looping on an expired token recovers immediately. No-op
+/// when the service isn't running.
+Future<void> reauthTrackingService() async {
+  final service = FlutterBackgroundService();
+  if (await service.isRunning()) {
+    service.invoke(TrackingIpc.cmdReauth);
+  }
+}
+
 // ── Background-isolate entrypoint ───────────────────────────────────────────
 
 @pragma('vm:entry-point')
@@ -190,6 +201,7 @@ class _TrackingRuntime {
   bool _started = false;
   bool _connected = false;
   bool _refreshing = false;
+  DateTime? _lastRefreshAt;
   TrackingStatus _status = TrackingStatus.active;
 
   DateTime? _startedAt;
@@ -258,6 +270,9 @@ class _TrackingRuntime {
     _service.on(TrackingIpc.cmdSync).listen((_) {
       _pushState();
       unawaited(_updateNotification());
+    });
+    _service.on(TrackingIpc.cmdReauth).listen((_) {
+      unawaited(_reauth());
     });
     _service.on(TrackingIpc.cmdProgress).listen((args) {
       if (args == null) return;
@@ -686,10 +701,23 @@ class _TrackingRuntime {
 
   Future<void> _refreshToken() async {
     if (_refreshing) return;
+    // De-dupe the burst of AuthExpiredEvents the reconnect loop emits while a
+    // token is expired — at most one refresh attempt every few seconds.
+    final now = DateTime.now();
+    final last = _lastRefreshAt;
+    if (last != null && now.difference(last) < const Duration(seconds: 3)) {
+      return;
+    }
+    _lastRefreshAt = now;
     _refreshing = true;
     try {
       final refresh = await _tokens.readRefreshToken();
-      if (refresh == null || refresh.isEmpty) return;
+      if (refresh == null || refresh.isEmpty) {
+        // Tokens already cleared (e.g. the UI logged out, or the HTTP
+        // interceptor hit a terminal refresh failure and signalled the UI).
+        // Nothing to do here — don't re-trigger a logout.
+        return;
+      }
       final resp = await _refreshDio.post<Map<String, dynamic>>(
         Endpoints.refresh,
         data: <String, String>{'refreshToken': refresh},
@@ -702,11 +730,38 @@ class _TrackingRuntime {
       await _tokens.save(accessToken: access, refreshToken: newRefresh);
       _socket?.updateToken(access);
       _socket?.reconnect();
+    } on DioException catch (e) {
+      // A 4xx means the refresh token itself is dead (rotated / revoked /
+      // 7-day expiry) — the background isolate can't recover. Nudge the UI to
+      // clear auth and route to /login; the next login pushes a fresh token
+      // back here via cmd.reauth. Network/5xx errors are transient: keep
+      // buffering and let a later connect_error / tick retry.
+      final status = e.response?.statusCode;
+      if (status != null && status >= 400 && status < 500) {
+        _service.invoke(TrackingIpc.evtAuthExpired);
+      }
     } on Object {
-      // Refresh failed — keep buffering; the UI's auth flow handles logout.
+      // Unexpected — keep buffering; a later retry or the UI auth flow recovers.
     } finally {
       _refreshing = false;
     }
+  }
+
+  /// Re-read the freshest access token from secure storage and reconnect the
+  /// socket. Sent by the UI (via `cmd.reauth`) after a (re)login so a session
+  /// that was looping on a stale/expired token recovers at once. No-op when not
+  /// tracking or when no token is available yet.
+  Future<void> _reauth() async {
+    if (!_started) return;
+    final token = await _tokens.readAccessToken();
+    if (token == null || token.isEmpty) return;
+    final socket = _socket;
+    if (socket == null) {
+      await _connectSocket();
+      return;
+    }
+    socket.updateToken(token);
+    socket.reconnect();
   }
 
   Future<void> _tick() async {

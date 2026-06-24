@@ -15,11 +15,20 @@ class TrackingIpc {
   /// the UI re-opens the tracking screen instead of waiting for the next tick).
   static const String cmdSync = 'cmd.sync';
 
+  /// Ask the running service to re-read the freshest access token from secure
+  /// storage and reconnect its socket. Sent after a (re)login so a background
+  /// session that was looping on a stale/expired token recovers immediately.
+  static const String cmdReauth = 'cmd.reauth';
+
   // ── service → UI events ────────────────────────────────────────────────
   static const String evtState = 'evt.state';
   static const String evtSession = 'evt.session';
   static const String evtForceStopped = 'evt.forceStopped';
   static const String evtStopped = 'evt.stopped';
+
+  /// The session's refresh token is itself expired/invalid — the background
+  /// service can't recover on its own. The UI clears auth and routes to /login.
+  static const String evtAuthExpired = 'evt.authExpired';
 
   // ── payload keys ───────────────────────────────────────────────────────
   static const String kBeatPlanId = 'beatPlanId';
