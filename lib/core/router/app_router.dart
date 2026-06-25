@@ -15,6 +15,10 @@ import 'package:sales_sphere_erp/features/auth/presentation/pages/login_page.dar
 import 'package:sales_sphere_erp/features/beat_plan/presentation/pages/beat_plan_detail_page.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/pages/catalog_page.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/pages/category_selection_page.dart';
+import 'package:sales_sphere_erp/features/collection/domain/collection.dart';
+import 'package:sales_sphere_erp/features/collection/presentation/pages/add_collection_page.dart';
+import 'package:sales_sphere_erp/features/collection/presentation/pages/collection_list_page.dart';
+import 'package:sales_sphere_erp/features/collection/presentation/pages/edit_collection_detail_page.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/collection.dart';
 import 'package:sales_sphere_erp/features/collection_plus/presentation/pages/add_collection_plus_page.dart';
 import 'package:sales_sphere_erp/features/collection_plus/presentation/pages/collection_plus_list_page.dart';
@@ -360,6 +364,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return EditCollectionPlusDetailPage(
             id: id,
             initial: extra is CollectionPlus ? extra : null,
+          );
+        },
+      ),
+      GoRoute(
+        path: Routes.collection,
+        name: Routes.collectionName,
+        builder: (_, __) => const CollectionListPage(),
+      ),
+      GoRoute(
+        path: Routes.addCollection,
+        name: Routes.addCollectionName,
+        builder: (_, __) => const AddCollectionPage(),
+      ),
+      GoRoute(
+        path: Routes.collectionDetail,
+        name: Routes.collectionDetailName,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          final extra = state.extra;
+          return EditCollectionDetailPage(
+            id: id,
+            initial: extra is Collection ? extra : null,
           );
         },
       ),

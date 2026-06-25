@@ -70,6 +70,12 @@ class Routes {
   static String collectionPlusDetailPath(String id) =>
       '/collection-plus/detail/$id';
 
+  static const collection = '/collection';
+  static const addCollection = '/collection/add';
+  static const collectionDetail = '/collection/detail/:id';
+
+  static String collectionDetailPath(String id) => '/collection/detail/$id';
+
   static const attendance = '/attendance';
   static const attendanceDetails = '/attendance/details';
   static const attendanceDayDetail = '/attendance/:date';
@@ -129,6 +135,9 @@ class Routes {
   static const collectionPlusName = 'collectionPlus';
   static const addCollectionPlusName = 'addCollectionPlus';
   static const collectionPlusDetailName = 'collectionPlusDetail';
+  static const collectionName = 'collection';
+  static const addCollectionName = 'addCollection';
+  static const collectionDetailName = 'collectionDetail';
   static const odometerName = 'odometer';
   static const odometerHistoryName = 'odometerHistory';
   static const odometerTripDetailName = 'odometerTripDetail';
