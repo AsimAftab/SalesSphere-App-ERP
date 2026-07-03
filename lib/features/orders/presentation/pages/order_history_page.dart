@@ -8,6 +8,7 @@ import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/orders/domain/order.dart';
 import 'package:sales_sphere_erp/features/orders/presentation/controllers/order_controller.dart';
+import 'package:sales_sphere_erp/features/orders/presentation/pdf_export.dart';
 import 'package:sales_sphere_erp/features/orders/presentation/providers/order_providers.dart';
 import 'package:sales_sphere_erp/features/orders/presentation/widgets/order_status_visuals.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
@@ -405,12 +406,6 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-/// Stub PDF export — the real generator lands with the backend. For now
-/// it just acknowledges the action.
-void _downloadPdf(BuildContext context, Order order) {
-  SnackbarUtils.showSuccess(context, 'Preparing ${order.number}.pdf…');
-}
-
 final _dateFmt = DateFormat('dd MMM yyyy');
 
 /// Rich history card: a leading document tile + number/status header, the
@@ -617,7 +612,7 @@ class _OrderCard extends ConsumerWidget {
                     borderColor: AppColors.primary,
                     customIconSize: 16.sp,
                     customPadding: EdgeInsets.symmetric(horizontal: 8.w),
-                    onPressed: () => _downloadPdf(context, order),
+                    onPressed: () => downloadOrderPdf(context, ref, order),
                   ),
                 ),
                 SizedBox(width: 12.w),

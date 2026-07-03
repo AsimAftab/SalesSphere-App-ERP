@@ -12,6 +12,7 @@ import 'package:sales_sphere_erp/features/orders/domain/order_line_item.dart';
 import 'package:sales_sphere_erp/features/orders/domain/order_organization.dart';
 import 'package:sales_sphere_erp/features/orders/domain/order_party.dart';
 import 'package:sales_sphere_erp/features/orders/presentation/controllers/order_controller.dart';
+import 'package:sales_sphere_erp/features/orders/presentation/pdf_export.dart';
 import 'package:sales_sphere_erp/features/orders/presentation/providers/order_providers.dart';
 import 'package:sales_sphere_erp/features/orders/presentation/widgets/convert_to_order_dialog.dart';
 import 'package:sales_sphere_erp/features/orders/presentation/widgets/order_status_visuals.dart';
@@ -68,10 +69,6 @@ class _Body extends ConsumerWidget {
   final VoidCallback onBack;
 
   bool get _isEstimate => order.kind == OrderKind.estimate;
-
-  void _downloadPdf(BuildContext context) {
-    SnackbarUtils.showSuccess(context, 'Preparing ${order.number}.pdf…');
-  }
 
   Future<void> _convertToOrder(BuildContext context, WidgetRef ref) async {
     final deliveryDate = await ConvertToOrderDialog.show(context);
@@ -291,13 +288,13 @@ class _Body extends ConsumerWidget {
                     OutlinedCustomButton(
                       label: 'Download PDF',
                       leadingIcon: Icons.download_rounded,
-                      onPressed: () => _downloadPdf(context),
+                      onPressed: () => downloadOrderPdf(context, ref, order),
                     ),
                   ] else
                     PrimaryButton(
                       label: 'Download PDF',
                       leadingIcon: Icons.download_rounded,
-                      onPressed: () => _downloadPdf(context),
+                      onPressed: () => downloadOrderPdf(context, ref, order),
                     ),
                 ],
               ),
