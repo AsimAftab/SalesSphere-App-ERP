@@ -362,15 +362,21 @@ class _SummaryHeaderCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  Text(
-                    order.number,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: AppColors.primary,
-                      fontSize: 18.sp,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.3,
+                  // Order numbers (e.g. ORD-ACMETR-HO-82-0004) can be long;
+                  // scale the text down to fit rather than truncate it.
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      order.number,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 18.sp,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.3,
+                      ),
                     ),
                   ),
                   Text(
