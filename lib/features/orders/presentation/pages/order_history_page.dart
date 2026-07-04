@@ -488,14 +488,21 @@ class _OrderCard extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      Text(
-                        order.number,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w700,
+                      // Order numbers (e.g. ORD-ACMETR-HO-82-0004) can be
+                      // long; scale the text down to fit the card width
+                      // instead of truncating it with an ellipsis.
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          order.number,
+                          maxLines: 1,
+                          softWrap: false,
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                       Text(
