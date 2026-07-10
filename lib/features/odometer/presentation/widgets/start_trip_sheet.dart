@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
+
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
@@ -17,6 +17,7 @@ import 'package:sales_sphere_erp/shared/utils/error_messages.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/check_in_required_dialog.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
+import 'package:sales_sphere_erp/shared/widgets/primary_image_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 
 class StartTripSheet extends ConsumerStatefulWidget {
@@ -34,7 +35,6 @@ class _StartTripSheetState extends ConsumerState<StartTripSheet> {
   bool _isLoading = false;
   String? _photoPath;
   bool _imageError = false;
-  final _picker = ImagePicker();
 
   @override
   void dispose() {
@@ -44,9 +44,10 @@ class _StartTripSheetState extends ConsumerState<StartTripSheet> {
   }
 
   Future<void> _pickImage() async {
-    final pickedFile = await _picker.pickImage(
-      source: ImageSource.camera,
+    final pickedFile = await showImagePickerSheet(
+      context,
       imageQuality: 80,
+      cameraOnly: true,
     );
     if (pickedFile != null) {
       setState(() {

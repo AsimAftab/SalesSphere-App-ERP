@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
@@ -36,7 +35,6 @@ class _StopTripSheetState extends ConsumerState<StopTripSheet> {
   bool _isLoading = false;
   String? _photoPath;
   bool _imageError = false;
-  final _picker = ImagePicker();
 
   @override
   void dispose() {
@@ -46,9 +44,10 @@ class _StopTripSheetState extends ConsumerState<StopTripSheet> {
   }
 
   Future<void> _pickImage() async {
-    final pickedFile = await _picker.pickImage(
-      source: ImageSource.camera,
+    final pickedFile = await showImagePickerSheet(
+      context,
       imageQuality: 80,
+      cameraOnly: true,
     );
     if (pickedFile != null) {
       setState(() {

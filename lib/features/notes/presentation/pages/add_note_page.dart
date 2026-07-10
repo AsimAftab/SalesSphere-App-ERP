@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/features/notes/domain/note.dart';
 import 'package:sales_sphere_erp/features/notes/domain/repositories/notes_repository.dart';
@@ -51,9 +50,8 @@ class _AddNotePageState extends ConsumerState<AddNotePage> {
   Future<void> _pickImage() async {
     if (_imagePaths.length >= _maxImages) return;
     try {
-      final picker = ImagePicker();
-      final file = await picker.pickImage(
-        source: ImageSource.gallery,
+      final file = await showImagePickerSheet(
+        context,
         imageQuality: 80,
       );
       if (file == null) return;

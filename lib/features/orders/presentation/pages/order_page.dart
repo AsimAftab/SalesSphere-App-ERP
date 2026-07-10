@@ -227,6 +227,9 @@ class _OrderPageState extends ConsumerState<OrderPage> {
                       PrimaryButton(
                         label: 'Create Order',
                         leadingIcon: Icons.check_circle_outline,
+                        size: ButtonSize.medium,
+                        height: 50.h,
+                        width: double.infinity,
                         isLoading: _submitting,
                         // Nothing to create without items — keep both actions
                         // disabled until the first product is added.
@@ -241,15 +244,21 @@ class _OrderPageState extends ConsumerState<OrderPage> {
                       // Order button exactly. Once items exist it returns to
                       // its normal outlined style.
                       if (draft.isEmpty)
-                        const PrimaryButton(
+                        PrimaryButton(
                           label: 'Create Estimate',
                           leadingIcon: Icons.description_outlined,
+                          size: ButtonSize.medium,
+                          height: 50.h,
+                          width: double.infinity,
                           isDisabled: true,
                         )
                       else
                         OutlinedCustomButton(
                           label: 'Create Estimate',
                           leadingIcon: Icons.description_outlined,
+                          size: ButtonSize.medium,
+                          height: 50.h,
+                          width: double.infinity,
                           isLoading: _submitting,
                           onPressed: _submitting
                               ? null

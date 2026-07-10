@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
@@ -186,9 +185,8 @@ class _EditCollectionPlusDetailPageState
   Future<void> _pickImage() async {
     if (!_editing || _imagePaths.length >= _maxImages) return;
     try {
-      final picker = ImagePicker();
-      final file = await picker.pickImage(
-        source: ImageSource.gallery,
+      final file = await showImagePickerSheet(
+        context,
         imageQuality: 80,
       );
       if (file == null) return;
@@ -336,6 +334,9 @@ class _EditCollectionPlusDetailPageState
               excludeCollectionId: widget.id,
             ),
           );
+    final dueByInvoiceId = <String, InvoiceDue>{
+      for (final d in dues) d.invoice.id: d,
+    };
     final totalOutstanding = PaymentAllocator.totalOutstanding(dues);
     final selectedDues = dues
         .where((d) => _selectedInvoiceIds.contains(d.invoice.id))
@@ -471,6 +472,7 @@ class _EditCollectionPlusDetailPageState
                                   _AllocationBreakdown(
                                     allocations: _allocations,
                                     invoiceById: invoiceById,
+                                    dueByInvoiceId: dueByInvoiceId,
                                   ),
                                 SizedBox(height: 12.h),
                                 CustomDatePicker(
@@ -610,10 +612,12 @@ class _AllocationBreakdown extends StatelessWidget {
   const _AllocationBreakdown({
     required this.allocations,
     required this.invoiceById,
+    required this.dueByInvoiceId,
   });
 
   final List<CollectionPlusAllocation> allocations;
   final Map<String, CollectionPlusInvoice> invoiceById;
+  final Map<String, InvoiceDue> dueByInvoiceId;
 
   @override
   Widget build(BuildContext context) {
@@ -670,6 +674,7 @@ class _AllocationBreakdown extends StatelessWidget {
             _SettledInvoiceRow(
               allocation: allocations[i],
               invoice: invoiceById[allocations[i].invoiceId],
+              due: dueByInvoiceId[allocations[i].invoiceId],
               dateFmt: dateFmt,
             ),
           ],
@@ -708,16 +713,24 @@ class _SettledInvoiceRow extends StatelessWidget {
   const _SettledInvoiceRow({
     required this.allocation,
     required this.invoice,
+    required this.due,
     required this.dateFmt,
   });
 
   final CollectionPlusAllocation allocation;
   final CollectionPlusInvoice? invoice;
+  final InvoiceDue? due;
   final DateFormat dateFmt;
 
   @override
   Widget build(BuildContext context) {
     final inv = invoice;
+    final d = due;
+    final remaining = inv == null
+        ? 0.0
+        : (inv.amount - (d?.paid ?? 0) - allocation.amount)
+            .clamp(0.0, double.infinity);
+    final isSettled = inv != null && remaining <= 0.0001;
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 11.h),
       child: Row(
@@ -727,36 +740,45 @@ class _SettledInvoiceRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        allocation.invoiceNumber,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: AppColors.textSecondary.withValues(alpha: 0.6),
-                          fontSize: 13.sp,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    if (inv != null) ...<Widget>[
-                      SizedBox(width: 8.w),
-                      Text(
-                        dateFmt.format(inv.invoiceDate),
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 11.sp,
-                        ),
-                      ),
-                    ],
-                  ],
+                Text(
+                  allocation.invoiceNumber,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppColors.textSecondary.withValues(alpha: 0.6),
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 if (inv != null) ...<Widget>[
                   SizedBox(height: 3.h),
                   Text(
-                    'Invoice total ${_currency.format(inv.amount)}',
+                    'Total ${_currency.format(inv.amount)} · ${dateFmt.format(inv.invoiceDate)}',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11.sp,
+                    ),
+                  ),
+                ],
+                if (d != null && d.paid > 0.0001) ...<Widget>[
+                  SizedBox(height: 2.h),
+                  Text(
+                    d.lastPaidOn == null
+                        ? 'Paid ${_currency.format(d.paid)}'
+                        : 'Paid ${_currency.format(d.paid)} · '
+                            'last on ${dateFmt.format(d.lastPaidOn!)}',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11.sp,
+                    ),
+                  ),
+                ],
+                if (inv != null) ...<Widget>[
+                  SizedBox(height: 2.h),
+                  Text(
+                    isSettled
+                        ? 'Bill settled'
+                        : 'Outstanding ${_currency.format(remaining)}',
                     style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 11.sp,

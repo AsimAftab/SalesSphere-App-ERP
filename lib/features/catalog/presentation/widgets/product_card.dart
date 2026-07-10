@@ -24,19 +24,19 @@ class CatalogProductCard extends ConsumerWidget {
     final quantity = ref.watch(cartProvider)[product.id] ?? 0;
     final remaining = product.stock - quantity;
     final canAdd = remaining > 0;
-    final soldOut = product.stock <= 0;
-
-    return DecoratedBox(
+    final soldOut = product.stock <= 0;    return DecoratedBox(
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16.r),
-        // Refined hero-card shadow: a soft branded primary glow plus a
-        // tight ambient shadow to seat the card on the page.
+        border: Border.all(
+          color: AppColors.border.withValues(alpha: 0.6),
+          width: 1,
+        ),
         boxShadow: <BoxShadow>[
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.06),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+            color: AppColors.primary.withValues(alpha: 0.05),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
           ),
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -48,106 +48,129 @@ class CatalogProductCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          // Hero image fills the space the stacked content below doesn't
-          // need, so a one-line name simply gives the image more room.
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
-              child: Stack(
-                fit: StackFit.expand,
-                children: <Widget>[
-                  ProductImage(
-                    name: product.name,
-                    imageUrl: product.imageUrl,
-                    borderRadius: BorderRadius.zero,
+          // Hero image area with subtle background for transparent logos
+          // Compact, professionally sized image container (105.h)
+          SizedBox(
+            height: 105.h,
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8F9FB),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(15.r)),
+                border: Border(
+                  bottom: BorderSide(
+                    color: AppColors.border.withValues(alpha: 0.4),
                   ),
-                  if (soldOut) ...<Widget>[
-                    // Dim the image + a small ribbon so unavailability reads
-                    // at a glance without hunting for the stock line.
-                    Positioned.fill(
-                      child: ColoredBox(
-                        color: AppColors.surface.withValues(alpha: 0.55),
-                      ),
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(15.r)),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: <Widget>[
+                    ProductImage(
+                      name: product.name,
+                      imageUrl: product.imageUrl,
+                      borderRadius: BorderRadius.zero,
                     ),
-                    Positioned(
-                      top: 8.h,
-                      left: 8.w,
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 8.w,
-                          vertical: 3.h,
+                    if (soldOut) ...<Widget>[
+                      Positioned.fill(
+                        child: ColoredBox(
+                          color: AppColors.surface.withValues(alpha: 0.65),
                         ),
-                        decoration: BoxDecoration(
-                          color: AppColors.red500,
-                          borderRadius: BorderRadius.circular(6.r),
-                        ),
-                        child: Text(
-                          'Out of stock',
-                          style: TextStyle(
-                            fontSize: 10.sp,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                            letterSpacing: 0.2,
+                      ),
+                      Positioned(
+                        top: 8.h,
+                        left: 8.w,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 8.w,
+                            vertical: 3.h,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.red500,
+                            borderRadius: BorderRadius.circular(6.r),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.red500.withValues(alpha: 0.3),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            'Out of stock',
+                            style: TextStyle(
+                              fontSize: 10.sp,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                              letterSpacing: 0.2,
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 12.h),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Text(
-                  product.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w600,
-                    height: 1.25,
-                    color: AppColors.textPrimary,
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 10.h),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: <Widget>[
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text(
+                        product.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w600,
+                          height: 1.25,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      SizedBox(height: 5.h),
+                      Text(
+                        'Rs ${product.price.toStringAsFixed(0)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.3,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      SizedBox(height: 4.h),
+                      _StockBadge(remaining: remaining),
+                    ],
                   ),
-                ),
-                SizedBox(height: 6.h),
-                // Hero price — the figure that should anchor the card.
-                Text(
-                  'Rs ${product.price.toStringAsFixed(0)}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.3,
-                    color: AppColors.primary,
-                  ),
-                ),
-                SizedBox(height: 6.h),
-                _StockLine(remaining: remaining),
-                SizedBox(height: 10.h),
-                if (quantity > 0)
-                  _QuantityStepper(
-                    quantity: quantity,
-                    canAdd: canAdd,
-                    onRemove: () =>
-                        ref.read(cartProvider.notifier).decrement(product.id),
-                    onAdd: canAdd
-                        ? () => ref.read(cartProvider.notifier).add(product.id)
-                        : null,
-                  )
-                else
-                  _AddButton(
-                    enabled: canAdd,
-                    onTap: canAdd
-                        ? () => ref.read(cartProvider.notifier).add(product.id)
-                        : null,
-                  ),
-              ],
+                  if (quantity > 0)
+                    _QuantityStepper(
+                      quantity: quantity,
+                      canAdd: canAdd,
+                      onRemove: () =>
+                          ref.read(cartProvider.notifier).decrement(product.id),
+                      onAdd: canAdd
+                          ? () => ref.read(cartProvider.notifier).add(product.id)
+                          : null,
+                    )
+                  else
+                    _AddButton(
+                      enabled: canAdd,
+                      onTap: canAdd
+                          ? () => ref.read(cartProvider.notifier).add(product.id)
+                          : null,
+                    ),
+                ],
+              ),
             ),
           ),
         ],
@@ -156,50 +179,63 @@ class CatalogProductCard extends ConsumerWidget {
   }
 }
 
-/// A small colour-coded dot + label conveying availability: calm green
-/// when comfortably stocked, amber when running low, red when out.
-class _StockLine extends StatelessWidget {
-  const _StockLine({required this.remaining});
+/// A clean pill badge conveying availability: soft green when comfortably
+/// stocked, amber when running low, red when out.
+class _StockBadge extends StatelessWidget {
+  const _StockBadge({required this.remaining});
 
   final int remaining;
 
   @override
   Widget build(BuildContext context) {
-    final (Color dot, Color text, String label) = switch (remaining) {
-      <= 0 => (AppColors.red500, AppColors.red500, 'Out of stock'),
+    final (Color bg, Color dot, Color text, String label) = switch (remaining) {
+      <= 0 => (
+        const Color(0xFFFFEBEE),
+        AppColors.red500,
+        AppColors.red500,
+        'Sold out',
+      ),
       <= _lowStockThreshold => (
+        const Color(0xFFFFF8E1),
         AppColors.warning,
-        AppColors.warning,
+        const Color(0xFFE65100),
         'Only $remaining left',
       ),
       _ => (
+        const Color(0xFFE8F5E9),
         AppColors.green500,
-        AppColors.textSecondary,
-        'In stock · $remaining',
+        const Color(0xFF2E7D32),
+        '$remaining in stock',
       ),
     };
 
-    return Row(
-      children: <Widget>[
-        Container(
-          width: 7.r,
-          height: 7.r,
-          decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
-        ),
-        SizedBox(width: 6.w),
-        Flexible(
-          child: Text(
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 3.h),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(6.r),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Container(
+            width: 5.5.r,
+            height: 5.5.r,
+            decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+          ),
+          SizedBox(width: 4.w),
+          Text(
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 12.sp,
-              fontWeight: FontWeight.w500,
+              fontSize: 10.5.sp,
+              fontWeight: FontWeight.w700,
               color: text,
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -215,14 +251,27 @@ class _AddButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fg = enabled ? Colors.white : AppColors.textHint;
-    return Material(
-      color: enabled ? AppColors.secondary : AppColors.greyLight,
-      borderRadius: BorderRadius.circular(12.r),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12.r),
-        child: SizedBox(
-          height: 34.h,
+    return Container(
+      height: 34.h,
+      decoration: BoxDecoration(
+        color: enabled ? AppColors.secondary : AppColors.greyLight,
+        borderRadius: BorderRadius.circular(10.r),
+        boxShadow: enabled
+            ? [
+                BoxShadow(
+                  color: AppColors.secondary.withValues(alpha: 0.25),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ]
+            : null,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(10.r),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10.r),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
@@ -263,7 +312,14 @@ class _QuantityStepper extends StatelessWidget {
       height: 34.h,
       decoration: BoxDecoration(
         color: AppColors.secondary,
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(10.r),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.secondary.withValues(alpha: 0.25),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,

@@ -82,15 +82,32 @@ class ProductImage extends StatelessWidget {
 
   Widget _initialsBox(BorderRadius radius) {
     return DecoratedBox(
-      decoration: BoxDecoration(color: _background, borderRadius: radius),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            _background.withValues(alpha: 0.85),
+            _background,
+          ],
+        ),
+        borderRadius: radius,
+      ),
       child: Center(
         child: Text(
           _initials,
           style: TextStyle(
-            fontSize: 28.sp,
-            fontWeight: FontWeight.w700,
+            fontSize: 26.sp,
+            fontWeight: FontWeight.w800,
             color: Colors.white,
-            letterSpacing: 1.2,
+            letterSpacing: 1.5,
+            shadows: [
+              Shadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                offset: const Offset(0, 2),
+                blurRadius: 4,
+              ),
+            ],
           ),
         ),
       ),

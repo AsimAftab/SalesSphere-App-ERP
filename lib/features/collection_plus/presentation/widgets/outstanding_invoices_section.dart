@@ -173,6 +173,10 @@ class _AllocationRow extends StatelessWidget {
     final hasAllocation = allocated > 0.0001;
     final settles = allocated >= due.outstanding - 0.0001;
     final color = settles ? Colors.green.shade700 : AppColors.secondary;
+    final remaining = hasAllocation
+        ? (due.outstanding - allocated).clamp(0.0, double.infinity)
+        : due.outstanding;
+    final isSettled = remaining <= 0.0001;
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 11.h),
@@ -183,33 +187,42 @@ class _AllocationRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        due.invoice.number,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 13.sp,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 8.w),
-                    Text(
-                      _dateFmt.format(due.invoice.invoiceDate),
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 11.sp,
-                      ),
-                    ),
-                  ],
+                Text(
+                  due.invoice.number,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 SizedBox(height: 3.h),
                 Text(
-                  'Outstanding ${_currency.format(due.outstanding)}',
+                  'Total ${_currency.format(due.invoice.amount)} · ${_dateFmt.format(due.invoice.invoiceDate)}',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11.sp,
+                  ),
+                ),
+                if (due.paid > 0.0001) ...<Widget>[
+                  SizedBox(height: 2.h),
+                  Text(
+                    due.lastPaidOn == null
+                        ? 'Paid ${_currency.format(due.paid)}'
+                        : 'Paid ${_currency.format(due.paid)} · '
+                            'last on ${_dateFmt.format(due.lastPaidOn!)}',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11.sp,
+                    ),
+                  ),
+                ],
+                SizedBox(height: 2.h),
+                Text(
+                  isSettled
+                      ? 'Bill settled'
+                      : 'Outstanding ${_currency.format(remaining)}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(

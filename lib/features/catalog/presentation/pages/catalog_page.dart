@@ -81,10 +81,10 @@ class _CatalogPageState extends ConsumerState<CatalogPage> {
       physics: const AlwaysScrollableScrollPhysics(
         parent: ClampingScrollPhysics(),
       ),
-      padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 140.h),
+      padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 160.h),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.60,
+        childAspectRatio: 0.63,
         crossAxisSpacing: 14.w,
         mainAxisSpacing: 14.h,
       ),
