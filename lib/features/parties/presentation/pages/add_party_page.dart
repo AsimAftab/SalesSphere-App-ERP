@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/features/parties/domain/party.dart';
@@ -71,9 +70,8 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
   Future<void> _pickImage() async {
     if (_imagePaths.length >= _maxImages) return;
     try {
-      final picker = ImagePicker();
-      final file = await picker.pickImage(
-        source: ImageSource.gallery,
+      final file = await showImagePickerSheet(
+        context,
         imageQuality: 80,
         // Cap the longest side so a 12MP phone photo doesn't land
         // above the backend's 5MB ceiling. Native resize on device.

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
@@ -562,44 +563,108 @@ void showPrimaryImagePreview(BuildContext context, ImageProvider provider) {
 /// Gallery + camera bottom sheet that returns the picked file. Use as
 /// `final file = await showImagePickerSheet(context);`. Returns `null`
 /// when the user dismisses the sheet without picking. Quality is capped
-/// at 70 to keep upload sizes reasonable.
-Future<XFile?> showImagePickerSheet(BuildContext context) {
-  final picker = ImagePicker();
-  return showModalBottomSheet<XFile?>(
-    context: context,
-    builder: (BuildContext sheetContext) {
-      return SafeArea(
-        child: Wrap(
-          children: <Widget>[
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Gallery'),
-              onTap: () async {
-                final image = await picker.pickImage(
-                  source: ImageSource.gallery,
-                  imageQuality: 70,
-                );
-                if (sheetContext.mounted) {
-                  Navigator.of(sheetContext).pop(image);
-                }
-              },
+/// at 70 by default to keep upload sizes reasonable.
+Future<XFile?> showImagePickerSheet(
+  BuildContext context, {
+  int imageQuality = 70,
+  double? maxWidth,
+  double? maxHeight,
+  bool cameraOnly = false,
+}) async {
+  final source = cameraOnly
+      ? ImageSource.camera
+      : await showModalBottomSheet<ImageSource>(
+          context: context,
+          backgroundColor: AppColors.surface,
+          barrierColor: Colors.black.withValues(alpha: 0.55),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(26.r)),
+          ),
+          builder: (BuildContext sheetContext) => SafeArea(
+            top: false,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(30.w, 26.h, 30.w, 36.h),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    'Choose Image Source',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  SizedBox(height: 28.h),
+                  _ImageSourceOptionTile(
+                    icon: Icons.camera_alt_rounded,
+                    label: 'Camera',
+                    onTap: () => sheetContext.pop(ImageSource.camera),
+                  ),
+                  SizedBox(height: 20.h),
+                  _ImageSourceOptionTile(
+                    icon: Icons.photo_library_rounded,
+                    label: 'Gallery',
+                    onTap: () => sheetContext.pop(ImageSource.gallery),
+                  ),
+                ],
+              ),
             ),
-            ListTile(
-              leading: const Icon(Icons.photo_camera),
-              title: const Text('Camera'),
-              onTap: () async {
-                final image = await picker.pickImage(
-                  source: ImageSource.camera,
-                  imageQuality: 70,
-                );
-                if (sheetContext.mounted) {
-                  Navigator.of(sheetContext).pop(image);
-                }
-              },
+          ),
+        );
+
+  if (source == null) return null;
+
+  return ImagePicker().pickImage(
+    source: source,
+    imageQuality: imageQuality,
+    maxWidth: maxWidth,
+    maxHeight: maxHeight,
+  );
+}
+
+class _ImageSourceOptionTile extends StatelessWidget {
+  const _ImageSourceOptionTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14.r),
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 2.h),
+        child: Row(
+          children: <Widget>[
+            Container(
+              width: 44.r,
+              height: 44.r,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE9EEF4),
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+              child: Icon(icon, color: AppColors.primary, size: 20.sp),
+            ),
+            SizedBox(width: 16.w),
+            Text(
+              label,
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w400,
+              ),
             ),
           ],
         ),
-      );
-    },
-  );
+      ),
+    );
+  }
 }

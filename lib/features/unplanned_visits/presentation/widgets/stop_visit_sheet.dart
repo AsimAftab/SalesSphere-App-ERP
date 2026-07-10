@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
+
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/features/unplanned_visits/domain/unplanned_visit.dart';
@@ -14,6 +14,7 @@ import 'package:sales_sphere_erp/features/unplanned_visits/presentation/provider
 import 'package:sales_sphere_erp/shared/utils/error_messages.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
+import 'package:sales_sphere_erp/shared/widgets/primary_image_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 
 /// Bottom sheet to complete the active visit: capture the proof photo
@@ -30,7 +31,6 @@ class StopVisitSheet extends ConsumerStatefulWidget {
 class _StopVisitSheetState extends ConsumerState<StopVisitSheet> {
   final _formKey = GlobalKey<FormState>();
   final _descController = TextEditingController();
-  final _picker = ImagePicker();
   String? _photoPath;
   bool _imageError = false;
   DateTime? _followUpDate;
@@ -43,9 +43,10 @@ class _StopVisitSheetState extends ConsumerState<StopVisitSheet> {
   }
 
   Future<void> _pickImage() async {
-    final picked = await _picker.pickImage(
-      source: ImageSource.camera,
+    final picked = await showImagePickerSheet(
+      context,
       imageQuality: 80,
+      cameraOnly: true,
     );
     if (picked != null) {
       setState(() {

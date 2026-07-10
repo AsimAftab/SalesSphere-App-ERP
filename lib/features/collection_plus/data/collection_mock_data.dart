@@ -264,4 +264,53 @@ final kMockCollectionPlusList = <CollectionPlus>[
     chequeStatus: ChequeStatus.cleared,
     createdAt: DateTime(2026, 6, 12, 13),
   ),
+  CollectionPlus(
+    id: 'col_1006',
+    allocations: const <CollectionPlusAllocation>[
+      CollectionPlusAllocation(
+        invoiceId: 'inv_1008',
+        invoiceNumber: 'ORD-2026-0008',
+        amount: 3000,
+      ),
+    ],
+    party: kMockCollectionPlusParties[4],
+    amount: 3000,
+    receivedDate: DateTime(2026, 6, 10),
+    paymentMode: PaymentMode.cash,
+    description: 'Initial cash deposit for cement order.',
+    createdAt: DateTime(2026, 6, 10, 14, 0),
+  ),
+  CollectionPlus(
+    id: 'col_1007',
+    allocations: const <CollectionPlusAllocation>[
+      CollectionPlusAllocation(
+        invoiceId: 'inv_1007',
+        invoiceNumber: 'ORD-2026-0007',
+        amount: 20000,
+      ),
+    ],
+    party: kMockCollectionPlusParties[2],
+    amount: 20000,
+    receivedDate: DateTime(2026, 6, 8),
+    paymentMode: PaymentMode.bankTransfer,
+    bankName: 'Nabil Bank',
+    description: 'First advance transfer.',
+    createdAt: DateTime(2026, 6, 8, 11, 30),
+  ),
+  CollectionPlus(
+    id: 'col_1008',
+    allocations: const <CollectionPlusAllocation>[
+      CollectionPlusAllocation(
+        invoiceId: 'inv_1006',
+        invoiceNumber: 'ORD-2026-0006',
+        amount: 4000,
+      ),
+    ],
+    party: kMockCollectionPlusParties[0],
+    amount: 4000,
+    receivedDate: DateTime(2026, 6, 11),
+    paymentMode: PaymentMode.qrPay,
+    description: 'QR payment for marble advance.',
+    createdAt: DateTime(2026, 6, 11, 16, 15),
+  ),
 ];

@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
@@ -164,9 +163,8 @@ class _EditCollectionDetailPageState
   Future<void> _pickImage() async {
     if (!_editing || _imagePaths.length >= _maxImages) return;
     try {
-      final picker = ImagePicker();
-      final file = await picker.pickImage(
-        source: ImageSource.gallery,
+      final file = await showImagePickerSheet(
+        context,
         imageQuality: 80,
       );
       if (file == null) return;

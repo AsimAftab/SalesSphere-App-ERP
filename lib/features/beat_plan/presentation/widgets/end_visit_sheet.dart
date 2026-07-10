@@ -2,10 +2,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:image_picker/image_picker.dart';
+
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
+import 'package:sales_sphere_erp/shared/widgets/primary_image_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 
 class EndVisitSheet extends StatefulWidget {
@@ -32,7 +33,6 @@ class EndVisitSheet extends StatefulWidget {
 class _EndVisitSheetState extends State<EndVisitSheet> {
   String? _photoPath;
   DateTime? _followUpDate;
-  final _picker = ImagePicker();
   final _notesController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _imageError = false;
@@ -44,7 +44,11 @@ class _EndVisitSheetState extends State<EndVisitSheet> {
   }
 
   Future<void> _pickImage() async {
-    final picked = await _picker.pickImage(source: ImageSource.camera, imageQuality: 80);
+    final picked = await showImagePickerSheet(
+      context,
+      imageQuality: 80,
+      cameraOnly: true,
+    );
     if (picked != null) {
       setState(() {
         _photoPath = picked.path;

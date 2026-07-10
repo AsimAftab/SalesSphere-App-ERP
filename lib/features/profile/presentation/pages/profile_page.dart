@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
@@ -28,51 +27,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   String? _avatarPath;
 
   Future<void> _chooseAvatar() async {
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      backgroundColor: AppColors.surface,
-      barrierColor: Colors.black.withValues(alpha: 0.55),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(26.r)),
-      ),
-      builder: (context) => SafeArea(
-        top: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(30.w, 26.h, 30.w, 36.h),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Text(
-                'Choose Image Source',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              SizedBox(height: 28.h),
-              _ImageSourceOption(
-                icon: Icons.camera_alt_rounded,
-                label: 'Camera',
-                onTap: () => context.pop(ImageSource.camera),
-              ),
-              SizedBox(height: 20.h),
-              _ImageSourceOption(
-                icon: Icons.photo_library_rounded,
-                label: 'Gallery',
-                onTap: () => context.pop(ImageSource.gallery),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (source == null) return;
-
     try {
-      final image = await ImagePicker().pickImage(
-        source: source,
+      final image = await showImagePickerSheet(
+        context,
         imageQuality: 82,
       );
       if (image == null || !mounted) return;
@@ -128,50 +85,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   }
 }
 
-class _ImageSourceOption extends StatelessWidget {
-  const _ImageSourceOption({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14.r),
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 2.h),
-        child: Row(
-          children: <Widget>[
-            Container(
-              width: 44.r,
-              height: 44.r,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE9EEF4),
-                borderRadius: BorderRadius.circular(8.r),
-              ),
-              child: Icon(icon, color: AppColors.primary, size: 20.sp),
-            ),
-            SizedBox(width: 16.w),
-            Text(
-              label,
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _ProfileAppBar extends StatelessWidget {
   const _ProfileAppBar({required this.onBack, required this.onLogout});
