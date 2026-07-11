@@ -3,6 +3,7 @@ import 'package:drift_flutter/drift_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:sales_sphere_erp/core/db/daos/beat_plan_dao.dart';
+import 'package:sales_sphere_erp/core/db/daos/collections_dao.dart';
 import 'package:sales_sphere_erp/core/db/daos/outbox_dao.dart';
 import 'package:sales_sphere_erp/core/db/daos/parties_dao.dart';
 import 'package:sales_sphere_erp/core/db/daos/sync_state_dao.dart';
@@ -11,6 +12,7 @@ import 'package:sales_sphere_erp/core/db/daos/tracking_pings_dao.dart';
 import 'package:sales_sphere_erp/core/db/daos/users_dao.dart';
 import 'package:sales_sphere_erp/core/db/tables/beat_plan_stops_table.dart';
 import 'package:sales_sphere_erp/core/db/tables/beat_plans_table.dart';
+import 'package:sales_sphere_erp/core/db/tables/collections_table.dart';
 import 'package:sales_sphere_erp/core/db/tables/mutation_outbox_table.dart';
 import 'package:sales_sphere_erp/core/db/tables/parties_table.dart';
 import 'package:sales_sphere_erp/core/db/tables/sync_state_table.dart';
@@ -32,6 +34,8 @@ part 'app_database.g.dart';
     TrackingSessions,
     TrackingPings,
     TrackingSummaries,
+    Collections,
+    CollectionAllocations,
   ],
   daos: <Type>[
     UsersDao,
@@ -41,6 +45,7 @@ part 'app_database.g.dart';
     BeatPlanDao,
     TrackingDao,
     TrackingPingsDao,
+    CollectionsDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -48,7 +53,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.test(super.connection);
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -134,6 +139,16 @@ class AppDatabase extends _$AppDatabase {
             // this column — so re-adding it would raise a duplicate-column error.
             await _addColumnIfMissing(m, beatPlanStops, beatPlanStops.skippedAt);
           }
+          if (from < 11) {
+            // v11 adds the collections cache shared by both collection
+            // modules (`kind` discriminates on-account vs invoice-allocated),
+            // plus the child allocation table Collection Plus writes into.
+            //
+            // New tables use `createTable`, not `_addColumnIfMissing` — that
+            // guard exists for `addColumn`, which has no IF NOT EXISTS form.
+            await m.createTable(collections);
+            await m.createTable(collectionAllocations);
+          }
         },
       );
 
@@ -199,4 +214,11 @@ final trackingDaoProvider = Provider<TrackingDao>(
 
 final trackingPingsDaoProvider = Provider<TrackingPingsDao>(
   (ref) => ref.watch(appDatabaseProvider).trackingPingsDao,
+);
+
+/// Shared by both collection modules — rows are discriminated by
+/// `CollectionKind`, so `/collections` and `/collection-plus` never see each
+/// other's cache entries.
+final collectionsDaoProvider = Provider<CollectionsDao>(
+  (ref) => ref.watch(appDatabaseProvider).collectionsDao,
 );

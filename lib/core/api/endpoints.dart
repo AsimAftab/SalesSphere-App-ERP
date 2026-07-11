@@ -131,8 +131,44 @@ class Endpoints {
       '/unplanned-visits/my-monthly-report';
   static String unplannedVisitById(String id) => '/unplanned-visits/$id';
 
-  // ── Collection Plus ───────────────────────────────────────────────────────
+  // ── Collections (on-account receipts — every plan) ────────────────────────
+  //
+  // Note there is deliberately **no `post` and no `cancel`** here. Unlike
+  // Collection Plus, the plain module never touches the ledger — the backend
+  // ships no such routes and no `collections:post` / `collections:cancel`
+  // permission keys exist. A plain collection is a CRM record of money
+  // received, its `status` stays DRAFT, and its cheque status is metadata.
+  // (The mobile brief listed those two endpoints; the implementation doesn't
+  // have them.)
+  static const collections = '/collections';
+  static const collectionBankNames = '/collections/bank-names';
+  static const collectionSummary = '/collections/summary';
+  static String collectionById(String id) => '/collections/$id';
+  static String collectionChequeStatus(String id) =>
+      '/collections/$id/cheque-status';
+  static String collectionImages(String id) => '/collections/$id/images';
+  static String collectionImageSlot(String id, int slot) =>
+      '/collections/$id/images/$slot';
+
+  // ── Collection Plus (invoice-allocated receipts — ACCOUNTING plans) ───────
+  // Note the singular path segment: the backend serves `/collection-plus`,
+  // NOT `/collections-plus`.
   static const collectionPlus = '/collection-plus';
+  static const collectionPlusBankNames = '/collection-plus/bank-names';
+  static const collectionPlusSummary = '/collection-plus/summary';
+  static const collectionPlusInvoiceMeta = '/collection-plus/invoice-meta';
+  static String collectionPlusById(String id) => '/collection-plus/$id';
+  static String collectionPlusPost(String id) => '/collection-plus/$id/post';
+  static String collectionPlusCancel(String id) =>
+      '/collection-plus/$id/cancel';
+  static String collectionPlusChequeStatus(String id) =>
+      '/collection-plus/$id/cheque-status';
+  static String collectionPlusImages(String id) =>
+      '/collection-plus/$id/images';
+  static String collectionPlusImageSlot(String id, int slot) =>
+      '/collection-plus/$id/images/$slot';
+  static String collectionPlusOutstanding(String partyId) =>
+      '/collection-plus/parties/$partyId/outstanding';
 
   // ── Expense claims ────────────────────────────────────────────────────────
   static const expenseClaims = '/expense-claims';

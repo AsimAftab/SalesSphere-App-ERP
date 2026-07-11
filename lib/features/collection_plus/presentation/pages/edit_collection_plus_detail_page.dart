@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
+import 'package:sales_sphere_erp/features/collection/domain/collection_status.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/cheque_status.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/collection.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/collection_allocation.dart';
@@ -15,6 +17,7 @@ import 'package:sales_sphere_erp/features/collection_plus/domain/collection_part
 import 'package:sales_sphere_erp/features/collection_plus/domain/invoice_due.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/payment_allocator.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/payment_mode.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/repositories/collection_plus_repository.dart';
 import 'package:sales_sphere_erp/features/collection_plus/presentation/controllers/collection_controller.dart';
 import 'package:sales_sphere_erp/features/collection_plus/presentation/providers/collection_providers.dart';
 import 'package:sales_sphere_erp/features/collection_plus/presentation/widgets/bank_name_field.dart';
@@ -79,17 +82,25 @@ class _EditCollectionPlusDetailPageState
 
   bool _editing = false;
   bool _saving = false;
-  bool _notFound = false;
+
+  /// Whether the form has been seeded from a resolved row. The row arrives
+  /// either through `extra` (from the list, instant) or asynchronously on a
+  /// cold-start deep link — so "not found" can't be decided until the read
+  /// settles.
+  bool _populated = false;
+
+  /// The saved row, so Cancel can restore it and the chrome can reflect
+  /// status / sync state.
+  CollectionPlus? _saved;
 
   @override
   void initState() {
     super.initState();
-    final collection =
-        widget.initial ?? ref.read(collectionPlusByIdProvider(widget.id));
-    if (collection != null) {
-      _populate(collection);
-    } else {
-      _notFound = true;
+    final initial = widget.initial;
+    if (initial != null) {
+      _saved = initial;
+      _populate(initial);
+      _populated = true;
     }
   }
 
@@ -150,8 +161,7 @@ class _EditCollectionPlusDetailPageState
   }
 
   void _cancelEdit() {
-    final saved =
-        ref.read(collectionPlusByIdProvider(widget.id)) ?? widget.initial;
+    final saved = _saved ?? widget.initial;
     if (saved != null) _populate(saved);
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _editing = false);
@@ -262,18 +272,23 @@ class _EditCollectionPlusDetailPageState
       );
       return;
     }
-    final allocations = PaymentAllocator.allocate(amount, selectedDues);
-
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _saving = true);
     try {
+      // Allocations stay empty here: the client sends the *selection*, and the
+      // server re-runs FIFO against live balances. On an edit it first releases
+      // this receipt's own allocations back into the pool — which is exactly
+      // what `excludeCollectionId` mirrors on the outstanding read — then
+      // re-splits the new amount.
       final updated = CollectionPlus(
         id: widget.id,
-        allocations: allocations,
+        collectionNo: _saved?.collectionNo ?? '',
+        allocations: const <CollectionPlusAllocation>[],
         party: party,
         amount: amount,
         receivedDate: receivedDate,
         paymentMode: mode,
+        status: _saved?.status ?? CollectionStatus.draft,
         bankName: mode.requiresBank ? _bankName : null,
         chequeNumber: mode.requiresChequeDetails
             ? _chequeNumberController.text.trim()
@@ -284,18 +299,41 @@ class _EditCollectionPlusDetailPageState
         imagePaths: List<String>.unmodifiable(_imagePaths),
         createdAt: _createdAt ?? DateTime.now(),
       );
-      await ref
+      final saved = await ref
           .read(collectionPlusControllerProvider.notifier)
-          .updateCollection(updated);
+          .updateCollection(
+            updated,
+            invoiceIds: selectedDues
+                .map((d) => d.invoice.id)
+                .toList(growable: false),
+          );
       if (!mounted) return;
       setState(() {
         _saving = false;
         _editing = false;
         _amount = amount;
-        _allocations = allocations;
+        // The server's split, not the preview's.
+        _allocations = saved.allocations;
         _amountController.text = _currency.format(amount);
       });
       SnackbarUtils.showSuccess(context, 'Collection updated.');
+    } on PartialImageUploadException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _editing = false;
+      });
+      SnackbarUtils.showError(
+        context,
+        'Collection updated, but the payment proof failed to upload: '
+        '${e.firstMessage}',
+      );
+    } on ApiException catch (e) {
+      // Surfaces the coverage-short 422 and the "Only DRAFT collections can be
+      // updated" 409 verbatim.
+      if (!mounted) return;
+      setState(() => _saving = false);
+      SnackbarUtils.showError(context, e.message);
     } on Exception catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
@@ -309,31 +347,71 @@ class _EditCollectionPlusDetailPageState
 
   @override
   Widget build(BuildContext context) {
-    if (_notFound) return const _NotFoundScaffold();
-    // Keep the provider warm so cancelEdit reads the saved snapshot.
-    ref.watch(collectionPlusByIdProvider(widget.id));
+    final rowAsync = ref.watch(collectionPlusByIdProvider(widget.id));
+
+    rowAsync.whenData((row) {
+      if (row == null) return;
+      _saved = row;
+      // Seed on first resolve (cold-start deep link), and re-seed on later
+      // emissions only while the user isn't mid-edit — clobbering a half-typed
+      // form because a sync landed would be hostile.
+      if (!_populated || !_editing) {
+        _populate(row);
+        _populated = true;
+      }
+    });
+
+    if (rowAsync.hasValue && rowAsync.value == null && widget.initial == null) {
+      return const _NotFoundScaffold();
+    }
+    if (!_populated) return const _LoadingScaffold();
 
     final mode = _paymentMode;
     final showBank = mode?.requiresBank ?? false;
     final showCheque = mode?.requiresChequeDetails ?? false;
 
-    // Invoice lookup so the read-mode breakdown can show each settled
-    // invoice's date and total alongside the amount collected against it.
-    final invoiceById = <String, CollectionPlusInvoice>{
-      for (final inv in ref.watch(collectionPlusInvoicesProvider)) inv.id: inv,
-    };
-
     final party = _party;
-    // Outstanding with THIS collection released, so its own amount is
-    // available to re-allocate while editing.
+
+    // Outstanding with THIS receipt's own allocations released, so its money is
+    // available to re-allocate. Without `excludeCollectionId` the collection
+    // being edited still holds down the very amount it's about to re-spend, and
+    // re-saving it unchanged fails validation every single time.
     final dues = party == null
         ? const <InvoiceDue>[]
-        : ref.watch(
-            outstandingInvoicesForPartyProvider(
-              party.id,
-              excludeCollectionId: widget.id,
-            ),
-          );
+        : ref
+                  .watch(
+                    outstandingInvoicesForPartyProvider(
+                      party.id,
+                      excludeCollectionId: widget.id,
+                    ),
+                  )
+                  .value ??
+              const <InvoiceDue>[];
+
+    // Invoice lookup for the read-mode breakdown, so each settled invoice shows
+    // its date and total alongside what this receipt put against it.
+    //
+    // Uses `invoice-meta` rather than the outstanding read: an invoice this
+    // receipt *fully settled* has no outstanding balance left and so is absent
+    // from that list — but it still has to render here.
+    final settledIds = _allocations
+        .map((a) => a.invoiceId)
+        .toList(growable: false);
+    final invoiceById = <String, CollectionPlusInvoice>{
+      for (final d
+          in settledIds.isEmpty
+              ? const <InvoiceDue>[]
+              : ref
+                        .watch(
+                          invoiceMetaProvider(
+                            settledIds,
+                            excludeCollectionId: widget.id,
+                          ),
+                        )
+                        .value ??
+                    const <InvoiceDue>[])
+        d.invoice.id: d.invoice,
+    };
     final dueByInvoiceId = <String, InvoiceDue>{
       for (final d in dues) d.invoice.id: d,
     };
@@ -362,14 +440,22 @@ class _EditCollectionPlusDetailPageState
         ? 'Exceeds total outstanding of ${_currency.format(totalOutstanding)}'
         : null;
 
+    // Editable only while it's a DRAFT that has reached the server: a posted
+    // receipt is 409'd by any PATCH, and a row still queued in the outbox has
+    // no server id to address. Withdraw the affordance rather than offer it and
+    // then have the server refuse.
+    final canEdit = _saved?.isEditable ?? true;
+
     return DarkStatusBar(
       child: Scaffold(
         backgroundColor: AppColors.background,
-        bottomNavigationBar: _SubmitBar(
-          editing: _editing,
-          isLoading: _saving,
-          onPressed: _editing ? () => _save(selectedDues) : _toggleEdit,
-        ),
+        bottomNavigationBar: (canEdit || _editing)
+            ? _SubmitBar(
+                editing: _editing,
+                isLoading: _saving,
+                onPressed: _editing ? () => _save(selectedDues) : _toggleEdit,
+              )
+            : null,
         body: Stack(
           children: <Widget>[
             const _CurvedHeader(),
@@ -501,7 +587,9 @@ class _EditCollectionPlusDetailPageState
                                   BankNameField(
                                     value: _bankName,
                                     enabled: _editing,
-                                    banks: ref.watch(bankNamesProvider),
+                                    banks:
+                                        ref.watch(bankNamesProvider).value ??
+                                        const <String>[],
                                     onChanged: (next) =>
                                         setState(() => _bankName = next),
                                   ),
@@ -954,6 +1042,26 @@ class _NotFoundScaffold extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Shown while a cold-start deep link resolves the receipt from the server.
+class _LoadingScaffold extends StatelessWidget {
+  const _LoadingScaffold();
+
+  @override
+  Widget build(BuildContext context) {
+    return DarkStatusBar(
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.background,
+          foregroundColor: AppColors.primary,
+          title: const Text('Collection Details'),
+        ),
+        body: const Center(child: CircularProgressIndicator()),
       ),
     );
   }

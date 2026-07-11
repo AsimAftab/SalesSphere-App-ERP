@@ -95,13 +95,21 @@ class OutsideGeofenceException extends ApiException {
 /// non-2xx envelope:
 ///
 /// ```
-/// { "success": false, "error": { "message": "...", "code": "..." } }
+/// { "success": false, "error": { "message": "...", "code": "...",
+///                                "details": [{ "path": "...", "message": "..." }] } }
 /// ```
 ///
 /// Returns `null` when the response body doesn't carry one — call
 /// sites should fall back to a generic copy in that case. Lives next
 /// to the exception hierarchy because every error UI surface needs
 /// it eventually.
+///
+/// Precedence must stay in lockstep with `ErrorInterceptor._extractMessage`:
+/// a Zod failure always sets `error.message` to the literal
+/// `"Validation failed"` and puts the useful copy in `error.details`, so the
+/// first detail wins. Repositories compare this against the mapped
+/// exception's message and overwrite on mismatch — if the two disagreed,
+/// the specific message would be clobbered by the generic one.
 String? extractBackendErrorMessage(Object? error) {
   // Cheap import-free duck-type — avoids dragging dio into this file's
   // import graph just to read `.response.data`.
@@ -110,6 +118,14 @@ String? extractBackendErrorMessage(Object? error) {
   if (data is Map<String, dynamic>) {
     final dynamic inner = data['error'];
     if (inner is Map<String, dynamic>) {
+      final dynamic details = inner['details'];
+      if (details is List) {
+        for (final dynamic d in details) {
+          if (d is! Map) continue;
+          final dynamic message = d['message'];
+          if (message is String && message.isNotEmpty) return message;
+        }
+      }
       final dynamic message = inner['message'];
       if (message is String && message.isNotEmpty) return message;
     }

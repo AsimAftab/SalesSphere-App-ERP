@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -9,8 +11,10 @@ import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collection.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collection_party.dart';
+import 'package:sales_sphere_erp/features/collection/domain/collection_status.dart';
 import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/providers/collection_providers.dart';
+import 'package:sales_sphere_erp/features/collection/presentation/widgets/collection_sync_badge.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_search_filter.dart';
@@ -22,6 +26,12 @@ import 'package:skeletonizer/skeletonizer.dart';
 /// `Rs 12,500` style formatter for collected amounts.
 final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 0);
 
+/// Pixel buffer above `maxScrollExtent` at which we kick off the next page.
+const double _kLoadMoreTriggerPx = 300;
+
+/// Search debounce — 300ms is the house value.
+const Duration _kSearchDebounce = Duration(milliseconds: 300);
+
 class CollectionListPage extends ConsumerStatefulWidget {
   const CollectionListPage({super.key});
 
@@ -31,16 +41,51 @@ class CollectionListPage extends ConsumerStatefulWidget {
 
 class _CollectionListPageState extends ConsumerState<CollectionListPage> {
   final _searchController = TextEditingController();
-  String _query = '';
+  final _scrollController = ScrollController();
+  Timer? _searchDebounce;
 
-  /// `null` means "All" — no payment-mode filter applied. Otherwise the
-  /// list narrows to collections whose [Collection.paymentMode] matches.
-  PaymentMode? _modeFilter;
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    if (pos.pixels < pos.maxScrollExtent - _kLoadMoreTriggerPx) return;
+    final state = ref.read(collectionListProvider).value;
+    if (state == null || !state.hasMore || state.isLoadingMore) return;
+    ref.read(collectionListProvider.notifier).loadMore();
+  }
+
+  /// Search and the payment-mode filter are both applied **server-side** —
+  /// the list is cursor-paginated, so filtering the loaded page in Dart would
+  /// silently hide matches that live on a later page.
+  void _onSearchChanged(String value) {
+    setState(() {});
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(_kSearchDebounce, () {
+      if (!mounted) return;
+      ref.read(collectionListProvider.notifier).setSearch(value);
+    });
+  }
+
+  void _clearSearch() {
+    _searchDebounce?.cancel();
+    _searchController.clear();
+    setState(() {});
+    ref.read(collectionListProvider.notifier).setSearch('');
   }
 
   void _back() {
@@ -51,24 +96,14 @@ class _CollectionListPageState extends ConsumerState<CollectionListPage> {
     }
   }
 
-  /// Apply the in-page search query + payment-mode filter against the
-  /// loaded collections.
-  List<Collection> _applyFilters(List<Collection> source) {
-    final q = _query.trim().toLowerCase();
-    return source.where((c) {
-      if (_modeFilter != null && c.paymentMode != _modeFilter) return false;
-      if (q.isEmpty) return true;
-      return c.party.name.toLowerCase().contains(q) ||
-          c.paymentMode.label.toLowerCase().contains(q);
-    }).toList(growable: false);
-  }
-
-  bool get _hasActiveFilter =>
-      _query.trim().isNotEmpty || _modeFilter != null;
-
   @override
   Widget build(BuildContext context) {
-    final collectionsAsync = ref.watch(collectionListProvider);
+    final listState = ref.watch(collectionListProvider);
+    final rows = ref.watch(collectionsListVisibleProvider);
+    final modeFilter = listState.value?.paymentModeFilter;
+    final hasActiveFilter =
+        (listState.value?.searchQuery.isNotEmpty ?? false) ||
+        modeFilter != null;
 
     return DarkStatusBar(
       child: Scaffold(
@@ -100,8 +135,8 @@ class _CollectionListPageState extends ConsumerState<CollectionListPage> {
                       controller: _searchController,
                       hintText: 'Search',
                       prefixIcon: Icons.search,
-                      onChanged: (v) => setState(() => _query = v),
-                      suffixWidget: _query.isEmpty
+                      onChanged: _onSearchChanged,
+                      suffixWidget: _searchController.text.isEmpty
                           ? null
                           : IconButton(
                               icon: Icon(
@@ -110,8 +145,7 @@ class _CollectionListPageState extends ConsumerState<CollectionListPage> {
                                 color: AppColors.textSecondary,
                               ),
                               onPressed: () {
-                                _searchController.clear();
-                                setState(() => _query = '');
+                                _clearSearch();
                                 FocusManager.instance.primaryFocus?.unfocus();
                               },
                               tooltip: 'Clear search',
@@ -122,8 +156,10 @@ class _CollectionListPageState extends ConsumerState<CollectionListPage> {
                   Padding(
                     padding: EdgeInsets.symmetric(horizontal: 20.w),
                     child: PrimarySearchFilter<PaymentMode?>(
-                      selected: _modeFilter,
-                      onChanged: (next) => setState(() => _modeFilter = next),
+                      selected: modeFilter,
+                      onChanged: (next) => ref
+                          .read(collectionListProvider.notifier)
+                          .setPaymentModeFilter(next),
                       options: <SearchFilterOption<PaymentMode?>>[
                         const SearchFilterOption<PaymentMode?>(
                           value: null,
@@ -156,7 +192,13 @@ class _CollectionListPageState extends ConsumerState<CollectionListPage> {
                     ),
                   ),
                   SizedBox(height: 12.h),
-                  Expanded(child: _buildBody(collectionsAsync)),
+                  Expanded(
+                    child: _buildBody(
+                      listState: listState,
+                      rows: rows,
+                      hasActiveFilter: hasActiveFilter,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -166,20 +208,23 @@ class _CollectionListPageState extends ConsumerState<CollectionListPage> {
     );
   }
 
-  Widget _buildBody(AsyncValue<List<Collection>> collectionsAsync) {
+  Widget _buildBody({
+    required AsyncValue<CollectionListState> listState,
+    required AsyncValue<List<Collection>> rows,
+    required bool hasActiveFilter,
+  }) {
     final padding = EdgeInsets.fromLTRB(20.w, 0, 20.w, 140.h);
 
     Widget wrapRefresh(Widget child) => RefreshIndicator(
-          onRefresh: () =>
-              ref.read(collectionListProvider.notifier).refresh(),
-          color: AppColors.primary,
-          backgroundColor: AppColors.surface,
-          child: child,
-        );
+      onRefresh: () => ref.read(collectionListProvider.notifier).refresh(),
+      color: AppColors.primary,
+      backgroundColor: AppColors.surface,
+      child: child,
+    );
 
-    // First load — paint a skeleton list. Pull-to-refresh is still
-    // available so a stuck initial fetch can be retried.
-    if (collectionsAsync.isLoading && !collectionsAsync.hasValue) {
+    // First load — paint a skeleton. Pull-to-refresh stays available so a
+    // stuck initial fetch can be retried.
+    if (listState.isLoading && !listState.hasValue) {
       return wrapRefresh(
         Skeletonizer(
           child: ListView.separated(
@@ -196,7 +241,7 @@ class _CollectionListPageState extends ConsumerState<CollectionListPage> {
       );
     }
 
-    if (collectionsAsync.hasError && !collectionsAsync.hasValue) {
+    if (listState.hasError && !listState.hasValue) {
       return wrapRefresh(
         ListView(
           physics: const AlwaysScrollableScrollPhysics(
@@ -208,7 +253,11 @@ class _CollectionListPageState extends ConsumerState<CollectionListPage> {
       );
     }
 
-    final items = _applyFilters(collectionsAsync.requireValue);
+    // Rows stream out of drift, so a background sync landing (or a cheque
+    // status change) re-renders without a refetch.
+    final items = rows.value ?? const <Collection>[];
+    final state = listState.value;
+
     if (items.isEmpty) {
       return wrapRefresh(
         ListView(
@@ -216,22 +265,32 @@ class _CollectionListPageState extends ConsumerState<CollectionListPage> {
             parent: ClampingScrollPhysics(),
           ),
           padding: EdgeInsets.fromLTRB(20.w, 80.h, 20.w, 140.h),
-          children: <Widget>[
-            _EmptyState(hasActiveFilter: _hasActiveFilter),
-          ],
+          children: <Widget>[_EmptyState(hasActiveFilter: hasActiveFilter)],
         ),
       );
     }
 
+    final showFooter =
+        (state?.isLoadingMore ?? false) || (state?.loadMoreError != null);
+
     return wrapRefresh(
       ListView.separated(
+        controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(
           parent: ClampingScrollPhysics(),
         ),
         padding: padding,
-        itemCount: items.length,
+        itemCount: items.length + (showFooter ? 1 : 0),
         separatorBuilder: (_, __) => SizedBox(height: 12.h),
         itemBuilder: (context, index) {
+          if (index >= items.length) {
+            return _LoadMoreFooter(
+              isLoading: state?.isLoadingMore ?? false,
+              error: state?.loadMoreError,
+              onRetry: () =>
+                  ref.read(collectionListProvider.notifier).loadMore(),
+            );
+          }
           final collection = items[index];
           return _CollectionCard(
             collection: collection,
@@ -258,11 +317,7 @@ class _AppBar extends StatelessWidget {
       child: Row(
         children: <Widget>[
           IconButton(
-            icon: Icon(
-              Icons.arrow_back,
-              color: AppColors.textdark,
-              size: 20.sp,
-            ),
+            icon: Icon(Icons.arrow_back, color: AppColors.textdark, size: 20.sp),
             onPressed: onBack,
             tooltip: 'Back',
           ),
@@ -282,8 +337,8 @@ class _AppBar extends StatelessWidget {
   }
 }
 
-/// Minimal collection row — who the money came from (party), how it was
-/// paid (payment-mode chip), how much (amount) and when (date).
+/// Collection row — who the money came from, how it was paid, how much, when,
+/// and whether it has made it to the server yet.
 class _CollectionCard extends StatelessWidget {
   const _CollectionCard({required this.collection, required this.onTap});
 
@@ -364,6 +419,32 @@ class _CollectionCard extends StatelessWidget {
                     ),
                   ],
                 ),
+                SizedBox(height: 8.h),
+                Row(
+                  children: <Widget>[
+                    // The receipt number is the row's server identity. While a
+                    // create is still queued the server hasn't issued one, so
+                    // the slot carries the sync badge instead.
+                    if (collection.hasServerIdentity)
+                      Text(
+                        collection.collectionNo,
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    CollectionSyncBadge(
+                      syncPending: collection.syncPending,
+                      syncError: collection.syncError,
+                    ),
+                    const Spacer(),
+                    StatusBadge(
+                      label: collection.status.label,
+                      color: collection.status.color,
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -374,9 +455,9 @@ class _CollectionCard extends StatelessWidget {
 }
 
 /// Sample collection fed to [_CollectionCard] while the list is loading.
-/// Skeletonizer paints bones over the rendered party / amount / date.
 final _placeholder = Collection(
   id: '',
+  collectionNo: 'RCPT-00-0000',
   party: const CollectionParty(
     id: '',
     name: 'Loading party name',
@@ -387,6 +468,47 @@ final _placeholder = Collection(
   paymentMode: PaymentMode.cash,
   createdAt: DateTime(2026),
 );
+
+class _LoadMoreFooter extends StatelessWidget {
+  const _LoadMoreFooter({
+    required this.isLoading,
+    required this.error,
+    required this.onRetry,
+  });
+
+  final bool isLoading;
+  final Object? error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (error != null) {
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 16.h),
+        child: Center(
+          child: TextButton(
+            onPressed: onRetry,
+            child: Text(
+              "Couldn't load more. Tap to retry.",
+              style: TextStyle(color: AppColors.primary, fontSize: 13.sp),
+            ),
+          ),
+        ),
+      );
+    }
+    if (!isLoading) return const SizedBox.shrink();
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 20.h),
+      child: Center(
+        child: SizedBox(
+          width: 22.w,
+          height: 22.w,
+          child: const CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+    );
+  }
+}
 
 class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.hasActiveFilter});

@@ -6,11 +6,13 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/cheque_status.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/collection_party.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/invoice_due.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/payment_allocator.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/payment_mode.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/repositories/collection_plus_repository.dart';
 import 'package:sales_sphere_erp/features/collection_plus/presentation/controllers/collection_controller.dart';
 import 'package:sales_sphere_erp/features/collection_plus/presentation/providers/collection_providers.dart';
 import 'package:sales_sphere_erp/features/collection_plus/presentation/widgets/bank_name_field.dart';
@@ -195,14 +197,21 @@ class _AddCollectionPlusPageState extends ConsumerState<AddCollectionPlusPage> {
       );
       return;
     }
-    // FIFO split across the selected invoices (oldest-first).
-    final allocations = PaymentAllocator.allocate(amount, selectedDues);
-
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _submitting = true);
     try {
-      await ref.read(collectionPlusControllerProvider.notifier).addCollection(
-            allocations: allocations,
+      // Send the **selection, not the split**. The FIFO preview above is a
+      // courtesy for the user; the server re-runs the same algorithm against
+      // live balances and returns the allocation it actually booked. Sending a
+      // client-computed split would be asking it to trust arithmetic done
+      // against a balance that may already be stale — which, offline, it
+      // almost certainly is.
+      final created = await ref
+          .read(collectionPlusControllerProvider.notifier)
+          .addCollection(
+            invoiceIds: selectedDues
+                .map((d) => d.invoice.id)
+                .toList(growable: false),
             party: party,
             amount: amount,
             receivedDate: receivedDate,
@@ -217,8 +226,29 @@ class _AddCollectionPlusPageState extends ConsumerState<AddCollectionPlusPage> {
             imagePaths: List<String>.unmodifiable(_imagePaths),
           );
       if (!mounted) return;
-      SnackbarUtils.showSuccess(context, 'Collection recorded.');
+      SnackbarUtils.showSuccess(
+        context,
+        created.syncPending
+            ? 'Collection saved offline. It will sync when you reconnect.'
+            : 'Collection recorded.',
+      );
       context.pop();
+    } on PartialImageUploadException catch (e) {
+      if (!mounted) return;
+      SnackbarUtils.showError(
+        context,
+        'Collection saved, but the payment proof failed to upload: '
+        '${e.firstMessage}',
+      );
+      context.pop();
+    } on ApiException catch (e) {
+      // The message that matters here is the server's coverage-short 422:
+      // "Selected invoices cover only Rs X. Select more to cover Rs Y." It
+      // means another rep settled that invoice first, and the rep needs to
+      // read it — a generic "Could not save" would leave them re-trying
+      // forever.
+      if (!mounted) return;
+      SnackbarUtils.showError(context, e.message);
     } on Exception catch (_) {
       if (!mounted) return;
       SnackbarUtils.showError(context, 'Could not save. Please try again.');
@@ -234,9 +264,15 @@ class _AddCollectionPlusPageState extends ConsumerState<AddCollectionPlusPage> {
     final showCheque = mode?.requiresChequeDetails ?? false;
 
     final party = _party;
+    // Read from the server — never derived on-device. An empty list means the
+    // party has nothing POSTED to settle yet (a rep's order stays DRAFT until
+    // the web app posts it), which is a normal state, not a bug.
     final dues = party == null
         ? const <InvoiceDue>[]
-        : ref.watch(outstandingInvoicesForPartyProvider(party.id));
+        : ref
+                  .watch(outstandingInvoicesForPartyProvider(party.id))
+                  .value ??
+              const <InvoiceDue>[];
     // Party-level cap: a collection can never exceed everything the party
     // owes. The selected invoices must then *cover* the entered amount.
     final totalOutstanding = PaymentAllocator.totalOutstanding(dues);
@@ -401,7 +437,12 @@ class _AddCollectionPlusPageState extends ConsumerState<AddCollectionPlusPage> {
                           SizedBox(height: 16.h),
                           BankNameField(
                             value: _bankName,
-                            banks: ref.watch(bankNamesProvider),
+                            // A suggestion list, not an enum — the picker keeps
+                            // its "add a different bank" escape hatch, so an
+                            // empty catalogue is survivable.
+                            banks:
+                                ref.watch(bankNamesProvider).value ??
+                                const <String>[],
                             onChanged: (next) =>
                                 setState(() => _bankName = next),
                           ),
