@@ -27,7 +27,7 @@ class MorePage extends ConsumerWidget {
       child: Scaffold(
         backgroundColor: AppColors.background,
         body: SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 24.h),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -100,6 +100,13 @@ class MorePage extends ConsumerWidget {
           subtitle: 'Plan and manage daily field visits',
           iconColor: AppColors.rose600,
           onTap: () => context.push(Routes.tourPlans),
+        ),
+        _TileSpec(
+          icon: Icons.track_changes_outlined,
+          title: 'My Targets',
+          subtitle: 'Track daily and monthly goals',
+          iconColor: AppColors.tertiary,
+          onTap: () => context.push(Routes.targets),
         ),
         _TileSpec(
           icon: Icons.settings_outlined,

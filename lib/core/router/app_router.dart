@@ -66,6 +66,8 @@ import 'package:sales_sphere_erp/features/sites/presentation/pages/add_site_page
 import 'package:sales_sphere_erp/features/sites/presentation/pages/edit_site_detail_page.dart';
 import 'package:sales_sphere_erp/features/sites/presentation/pages/sites_list_page.dart';
 import 'package:sales_sphere_erp/features/splash/splash_page.dart';
+import 'package:sales_sphere_erp/features/targets/presentation/pages/target_drill_down_page.dart';
+import 'package:sales_sphere_erp/features/targets/presentation/pages/targets_page.dart';
 import 'package:sales_sphere_erp/features/tour_plans/domain/tour_plan.dart';
 import 'package:sales_sphere_erp/features/tour_plans/presentation/pages/add_tour_plan_page.dart';
 import 'package:sales_sphere_erp/features/tour_plans/presentation/pages/edit_tour_plan_detail_page.dart';
@@ -526,6 +528,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final id = state.pathParameters['id']!;
           return BeatPlanDetailPage(id: id);
+        },
+      ),
+      GoRoute(
+        path: Routes.targets,
+        name: Routes.targetsName,
+        builder: (_, __) => const TargetsPage(),
+      ),
+      GoRoute(
+        path: Routes.targetDrillDown,
+        name: Routes.targetDrillDownName,
+        builder: (context, state) {
+          final args = state.extra as TargetDrillDownArgs;
+          return TargetDrillDownPage(
+            target: args.target,
+            periodLabel: args.periodLabel,
+          );
         },
       ),
     ],
