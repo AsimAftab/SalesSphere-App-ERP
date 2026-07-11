@@ -109,9 +109,11 @@ flutter build apk --flavor dev -t lib/main_dev.dart --dart-define-from-file=env/
 Three generators run via `build_runner`: `freezed`, `json_serializable`, `riverpod_generator`, `drift_dev`.
 
 ```bash
-dart run build_runner build --delete-conflicting-outputs
-dart run build_runner watch --delete-conflicting-outputs   # incremental
+dart run build_runner build
+dart run build_runner watch   # incremental
 ```
+
+`--delete-conflicting-outputs` was removed in `build_runner` 2.15 — the AOT runner resolves conflicts itself, and passing the flag only prints a warning.
 
 ### Wire DTOs from OpenAPI (hybrid pattern)
 
@@ -210,8 +212,8 @@ flutter format lib/ test/
 flutter pub get
 flutter pub upgrade --major-versions
 
-dart run build_runner build --delete-conflicting-outputs
-dart run build_runner watch --delete-conflicting-outputs
+dart run build_runner build
+dart run build_runner watch
 
 flutter gen-l10n
 ./tool/gen_dto.sh

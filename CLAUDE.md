@@ -118,11 +118,13 @@ lib/
 ## Codegen
 
 ```bash
-dart run build_runner build --delete-conflicting-outputs   # one-shot
-dart run build_runner watch --delete-conflicting-outputs   # incremental
-./tool/gen_dto.sh                                          # regenerate wire DTOs
-flutter gen-l10n                                           # regenerate ARB → AppL10n
+dart run build_runner build   # one-shot
+dart run build_runner watch   # incremental
+./tool/gen_dto.sh             # regenerate wire DTOs
+flutter gen-l10n              # regenerate ARB → AppL10n
 ```
+
+`--delete-conflicting-outputs` was removed in `build_runner` 2.15 (the AOT runner resolves conflicts itself). Passing it now only prints a warning.
 
 Generated files (under `lib/`) are **not committed** — `.gitignore` excludes them. Run codegen after every fresh clone or pull that touches a freezed model, drift schema, OpenAPI spec, or ARB file. Patterns excluded:
 
@@ -136,9 +138,20 @@ Generated files (under `lib/`) are **not committed** — `.gitignore` excludes t
 
 Pin majors; let `^X.Y.Z` ranges pull minor/patch. Major bumps require code review and ship as separate work.
 
-**Current analyzer ceiling: `custom_lint 0.8.1`** holds analyzer at ^8.0.0. That gates the whole codegen toolchain — `freezed >=3.2.5`, `json_serializable >=6.13.x`, `drift_dev >=2.32.x` all need analyzer 9+/10+/13+. We accept the ceiling so `riverpod_lint` keeps working. Bumps unlock when `custom_lint` releases an analyzer-9-compatible version.
+**Current analyzer ceiling: `custom_lint 0.8.1`** holds analyzer at ^8.0.0. That gates the whole codegen toolchain — `freezed >=3.2.5`, `json_serializable >=6.13.x`, `drift_dev >=2.32.x` all need analyzer 9+/10+/13+. We accept the ceiling so `riverpod_lint` keeps working.
 
-`flutter pub outdated` reports ~59 transitive packages behind latest. Most are gated by the same ceiling. **Don't bump piecemeal.**
+Confirm the blocker before re-investigating — `flutter pub add analyzer:^9.0.0 --dev --dry-run` names it:
+
+```
+Because sales_sphere_erp depends on custom_lint ^0.8.1
+which depends on analyzer ^8.0.0, analyzer ^8.0.0 is required.
+```
+
+Note the split: **`custom_lint_core` 0.8.2 already moved to `analyzer: ^9.0.0`**, but the `custom_lint` *runner* — the package we actually depend on — is still 0.8.1 and is the real pin. The ceiling lifts when the **runner** ships, not the core.
+
+`flutter pub outdated` reports ~114 packages behind latest. In its output the **Resolvable** column is the tell: where it equals Current (`drift`, `drift_dev`, `freezed`, `json_serializable`), the package is hard-blocked by the ceiling, not merely un-bumped. **Don't bump piecemeal.**
+
+When the ceiling does lift, it won't be a clean version bump: `sqlite3_flutter_libs` (a direct dep, backs drift's native SQLite) is now published as `0.6.0+eol` — *"Not used anymore, update to version 3.x of package:sqlite3 instead."* Budget for that migration as part of the same unblock.
 
 ---
 
