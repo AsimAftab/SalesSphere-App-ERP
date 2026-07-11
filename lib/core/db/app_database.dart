@@ -53,7 +53,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.test(super.connection);
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -148,6 +148,20 @@ class AppDatabase extends _$AppDatabase {
             // guard exists for `addColumn`, which has no IF NOT EXISTS form.
             await m.createTable(collections);
             await m.createTable(collectionAllocations);
+          }
+          if (from == 11) {
+            // v12: the backend made `status` and `voucherId` Collection Plus
+            // only — a plain collection is a pure CRM record with no ledger and
+            // no lifecycle, so `/collections` stopped returning either field.
+            // `status` was NOT NULL; it has to become nullable so on-account
+            // rows can leave it empty.
+            //
+            // SQLite can't relax a NOT NULL in place, so drift rebuilds the
+            // table and copies the rows across. Guarded to exactly v11→v12: the
+            // `from < 11` block above already creates `collections` with the
+            // current (v12) schema, so a fresh install or a v10→v12 hop must
+            // not rebuild a table that's already correct.
+            await m.alterTable(TableMigration(collections));
           }
         },
       );

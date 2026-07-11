@@ -9,7 +9,7 @@ import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
-import 'package:sales_sphere_erp/features/collection/domain/collection_status.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/collection_status.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/widgets/collection_sync_badge.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/collection.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/collection_allocation.dart';

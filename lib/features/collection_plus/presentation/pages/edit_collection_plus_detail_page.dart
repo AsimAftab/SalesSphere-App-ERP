@@ -8,7 +8,7 @@ import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
-import 'package:sales_sphere_erp/features/collection/domain/collection_status.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/collection_status.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/cheque_status.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/collection.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/collection_allocation.dart';
@@ -27,6 +27,7 @@ import 'package:sales_sphere_erp/features/collection_plus/presentation/widgets/o
 import 'package:sales_sphere_erp/features/collection_plus/presentation/widgets/payment_mode_field.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
+import 'package:sales_sphere_erp/shared/widgets/cheque_status_action.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_date_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_image_picker.dart';
@@ -341,6 +342,55 @@ class _EditCollectionPlusDetailPageState
     }
   }
 
+  /// Advance the cheque through its clearing lifecycle.
+  ///
+  /// Unlike the plain module, these transitions do **real accounting** once the
+  /// receipt is posted: clearing writes a contra entry moving the money out of
+  /// Cheque-in-Hand into the bank, and bouncing writes a reversal that cancels
+  /// the receipt and puts every invoice it settled back to outstanding.
+  ///
+  /// That is why it goes through the dedicated endpoint and behind a
+  /// confirmation naming the entries — not through a generic form save.
+  Future<void> _advanceChequeStatus() async {
+    final current = _chequeStatus;
+    if (current == null || current.isTerminal) return;
+
+    final next = await showChequeStatusSheet<ChequeStatus>(
+      context: context,
+      currentLabel: current.label,
+      transitions: current.nextStates
+          .map(
+            (s) => ChequeTransition<ChequeStatus>(
+              value: s,
+              label: s.label,
+              icon: s.icon,
+              color: s.color,
+              confirmationCopy: s.confirmationCopy,
+            ),
+          )
+          .toList(growable: false),
+    );
+    if (next == null || !mounted) return;
+
+    try {
+      final updated = await ref
+          .read(collectionPlusControllerProvider.notifier)
+          .updateChequeStatus(id: widget.id, status: next);
+      if (!mounted) return;
+      setState(() {
+        _chequeStatus = updated.chequeStatus;
+        _allocations = updated.allocations;
+      });
+      SnackbarUtils.showSuccess(context, 'Cheque marked as ${next.label}.');
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      SnackbarUtils.showError(context, e.message);
+    } on Exception catch (_) {
+      if (!mounted) return;
+      SnackbarUtils.showError(context, 'Could not update the cheque status.');
+    }
+  }
+
   void _back() {
     if (context.canPop()) context.pop();
   }
@@ -625,6 +675,27 @@ class _EditCollectionPlusDetailPageState
                                     onChanged: (next) =>
                                         setState(() => _chequeStatus = next),
                                   ),
+                                  // Goes through the dedicated cheque-status
+                                  // endpoint: on a POSTED receipt these moves
+                                  // write real vouchers, so they must not ride
+                                  // in on a generic form save.
+                                  if (!_editing &&
+                                      _chequeStatus != null &&
+                                      !_chequeStatus!.isTerminal &&
+                                      (_saved?.syncPending ?? false) == false)
+                                    Padding(
+                                      padding: EdgeInsets.only(top: 12.h),
+                                      child: OutlinedButton.icon(
+                                        onPressed: _advanceChequeStatus,
+                                        icon: Icon(
+                                          Icons.sync_alt_rounded,
+                                          size: 18.sp,
+                                        ),
+                                        label: const Text(
+                                          'Update cheque status',
+                                        ),
+                                      ),
+                                    ),
                                 ],
                                 SizedBox(height: 12.h),
                                 PrimaryTextField(

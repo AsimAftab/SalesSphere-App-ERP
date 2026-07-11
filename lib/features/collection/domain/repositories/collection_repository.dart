@@ -1,6 +1,5 @@
 import 'package:sales_sphere_erp/features/collection/domain/cheque_status.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collection.dart';
-import 'package:sales_sphere_erp/features/collection/domain/collection_status.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collections_page.dart';
 import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart';
 
@@ -49,7 +48,6 @@ abstract class CollectionRepository {
     PaymentMode? paymentMode,
     PaymentMode? excludePaymentMode,
     ChequeStatus? chequeStatus,
-    CollectionStatus? status,
     String? createdById,
     DateTime? fromDate,
     DateTime? toDate,
@@ -70,12 +68,12 @@ abstract class CollectionRepository {
   /// image didn't.
   Future<Collection> addCollection(Collection draft);
 
-  /// Edit a draft. The server 409s once the row is POSTED or CANCELLED, and
-  /// the party is immutable.
+  /// Edit a collection. Always allowed (there's no posted state to protect);
+  /// only the party is immutable.
   Future<Collection> updateCollection(Collection collection);
 
-  /// Delete a draft. The server refuses anything else — a posted receipt must
-  /// be cancelled, which writes a reversal voucher.
+  /// Delete a collection. Always allowed — a plain Collection has no posted
+  /// ledger entry to protect.
   Future<void> deleteCollection(String id);
 
   /// Advance a cheque through its clearing lifecycle.
@@ -84,9 +82,10 @@ abstract class CollectionRepository {
   /// `deposited → cleared | bounced`. `cleared` and `bounced` are terminal;
   /// anything else is refused.
   ///
-  /// On a POSTED receipt this moves real money: clearing writes a contra
-  /// voucher (cheque-in-hand → bank), and bouncing writes a reversal that
-  /// cancels the receipt and restores the customer's outstanding balance.
+  /// **Metadata only.** On a plain Collection this writes no voucher and moves
+  /// no money — it records what the cheque did in the real world. (Collection
+  /// Plus is the module with real PDC accounting.) One consequence that matters
+  /// to the rep: a bounced receipt stops counting towards collection targets.
   Future<Collection> updateChequeStatus({
     required String id,
     required ChequeStatus status,

@@ -1,6 +1,5 @@
 import 'package:sales_sphere_erp/features/collection/domain/cheque_status.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collection_party.dart';
-import 'package:sales_sphere_erp/features/collection/domain/collection_status.dart';
 import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart';
 
 /// UI-facing collection model — one recorded payment received from a
@@ -13,14 +12,15 @@ import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart';
 /// populated when [paymentMode] calls for them ([PaymentModeX.requiresBank] /
 /// [PaymentModeX.requiresChequeDetails]).
 ///
-/// Two independent axes of state, easy to confuse:
+/// **There is no `status` here, and that is deliberate.** A plain Collection is
+/// a pure CRM / field-ops record: it says a rep collected money, and nothing
+/// else. It never posts to a ledger, emits no voucher, and has no
+/// DRAFT/POSTED lifecycle — so it is *always* editable. Everything
+/// ledger-backed lives in `CollectionPlus`.
 ///
-///  * [status] — where the receipt sits in the **ledger**. Always starts
-///    `DRAFT`; an accountant posts it from the web. A CRM-only org has no
-///    ledger and never grants `collections:post`, so its receipts stay
-///    `DRAFT` forever. That is normal, not broken.
-///  * [syncPending] / [syncError] — whether the **device** has managed to
-///    hand the row to the server yet. Nothing to do with accounting.
+/// The only state it carries is [syncPending] / [syncError]: whether the device
+/// has managed to hand the row to the server yet. That is device state, not
+/// accounting state.
 class Collection {
   const Collection({
     required this.id,
@@ -30,7 +30,6 @@ class Collection {
     required this.paymentMode,
     required this.createdAt,
     this.collectionNo = '',
-    this.status = CollectionStatus.draft,
     this.bankName,
     this.chequeNumber,
     this.chequeDate,
@@ -62,10 +61,6 @@ class Collection {
 
   final PaymentMode paymentMode;
 
-  /// Where the receipt sits in the ledger lifecycle. See the class doc — this
-  /// is *not* a sync state.
-  final CollectionStatus status;
-
   /// Bank the money moved through. Present only for cheque / bank
   /// transfer ([PaymentModeX.requiresBank]); `null` otherwise. Free text —
   /// the bank catalogue is a suggestion list, not an enum.
@@ -78,8 +73,14 @@ class Collection {
   final DateTime? chequeDate;
 
   /// Clearing state of the cheque — present only for a cheque collection.
-  /// Moves `PENDING → DEPOSITED → CLEARED`, or to `BOUNCED` from either.
-  /// Both end states are terminal.
+  /// Moves `pending → deposited → cleared`, or to `bounced` from either. Both
+  /// end states are terminal.
+  ///
+  /// **Metadata only on a plain Collection.** It records what the cheque did in
+  /// the real world and writes no voucher; no money moves. (On Collection Plus
+  /// the same transitions drive real PDC accounting.) One consequence the rep
+  /// needs to know: a bounced receipt stops counting towards collection
+  /// targets.
   final ChequeStatus? chequeStatus;
 
   /// Optional free-text note describing the collection.
@@ -114,9 +115,11 @@ class Collection {
   /// remotely. Local-only rows render the number slot as the sync badge.
   bool get hasServerIdentity => collectionNo.isNotEmpty;
 
-  /// The server refuses `PATCH` / `DELETE` on anything but a draft, and a row
-  /// still in flight has no server id to address. Both gate the edit button.
-  bool get isEditable => status.isEditable && !syncPending;
+  /// A plain Collection has no posted ledger entry to protect, so the server
+  /// allows edit and delete at any time. The only thing that blocks the edit
+  /// button is a row still queued in the outbox — it has no server id to
+  /// address yet.
+  bool get isEditable => !syncPending;
 
   /// Convenience copy used by the edit flow. The `clear*` flags null
   /// out the bank / cheque fields when switching to a payment mode that
@@ -129,7 +132,6 @@ class Collection {
     double? amount,
     DateTime? receivedDate,
     PaymentMode? paymentMode,
-    CollectionStatus? status,
     String? bankName,
     bool clearBankName = false,
     String? chequeNumber,
@@ -153,7 +155,6 @@ class Collection {
       amount: amount ?? this.amount,
       receivedDate: receivedDate ?? this.receivedDate,
       paymentMode: paymentMode ?? this.paymentMode,
-      status: status ?? this.status,
       bankName: clearBankName ? null : (bankName ?? this.bankName),
       chequeNumber: clearChequeNumber
           ? null
