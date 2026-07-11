@@ -11,7 +11,6 @@ import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
 import 'package:sales_sphere_erp/features/collection/domain/cheque_status.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collection.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collection_party.dart';
-import 'package:sales_sphere_erp/features/collection/domain/collection_status.dart';
 import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart';
 import 'package:sales_sphere_erp/features/collection/domain/repositories/collection_repository.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/controllers/collection_controller.dart';
@@ -21,6 +20,7 @@ import 'package:sales_sphere_erp/features/collection/presentation/widgets/cheque
 import 'package:sales_sphere_erp/features/collection/presentation/widgets/payment_mode_field.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
+import 'package:sales_sphere_erp/shared/widgets/cheque_status_action.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_date_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_image_picker.dart';
@@ -247,7 +247,6 @@ class _EditCollectionDetailPageState
         amount: amount,
         receivedDate: receivedDate,
         paymentMode: mode,
-        status: _saved?.status ?? CollectionStatus.draft,
         bankName: mode.requiresBank ? _bankName : null,
         chequeNumber: mode.requiresChequeDetails
             ? _chequeNumberController.text.trim()
@@ -283,9 +282,8 @@ class _EditCollectionDetailPageState
         '${e.firstMessage}',
       );
     } on ApiException catch (e) {
-      // Surface the server's own copy. The one that matters most here is the
-      // 409 — "Only DRAFT collections can be updated" — which happens when an
-      // accountant posted the receipt while this page was open.
+      // Surface the server's own copy rather than a generic "Could not save" —
+      // e.g. "Received date cannot be in the future."
       if (!mounted) return;
       setState(() => _saving = false);
       SnackbarUtils.showError(context, e.message);
@@ -293,6 +291,55 @@ class _EditCollectionDetailPageState
       if (!mounted) return;
       setState(() => _saving = false);
       SnackbarUtils.showError(context, 'Could not save. Please try again.');
+    }
+  }
+
+  /// Advance the cheque through its clearing lifecycle.
+  ///
+  /// Goes through `PATCH /collections/:id/cheque-status` rather than the form's
+  /// generic update, because only that route enforces the state machine — and
+  /// only this flow tells the user what the move actually means.
+  ///
+  /// On a plain Collection these transitions are **metadata**: no voucher is
+  /// written and no money moves. They record what the cheque did in the real
+  /// world. The one consequence worth stating is the bounce: the receipt stops
+  /// counting towards collection targets.
+  Future<void> _advanceChequeStatus() async {
+    final current = _chequeStatus;
+    if (current == null || current.isTerminal) return;
+
+    final next = await showChequeStatusSheet<ChequeStatus>(
+      context: context,
+      currentLabel: current.label,
+      transitions: current.nextStates
+          .map(
+            (s) => ChequeTransition<ChequeStatus>(
+              value: s,
+              label: s.label,
+              icon: s.icon,
+              color: s.color,
+              confirmationCopy: s.confirmationCopy,
+            ),
+          )
+          .toList(growable: false),
+    );
+    if (next == null || !mounted) return;
+
+    try {
+      final updated = await ref
+          .read(collectionControllerProvider.notifier)
+          .updateChequeStatus(id: widget.id, status: next);
+      if (!mounted) return;
+      setState(() => _chequeStatus = updated.chequeStatus);
+      SnackbarUtils.showSuccess(context, 'Cheque marked as ${next.label}.');
+    } on ApiException catch (e) {
+      // A 409 here means someone else already moved the cheque on — surface the
+      // server's own copy rather than a generic failure.
+      if (!mounted) return;
+      SnackbarUtils.showError(context, e.message);
+    } on Exception catch (_) {
+      if (!mounted) return;
+      SnackbarUtils.showError(context, 'Could not update the cheque status.');
     }
   }
 
@@ -328,11 +375,10 @@ class _EditCollectionDetailPageState
     final showBank = mode?.requiresBank ?? false;
     final showCheque = mode?.requiresChequeDetails ?? false;
 
-    // A receipt is only editable while it's a DRAFT that has actually reached
-    // the server. Once an accountant posts it the server 409s any PATCH, and a
-    // row still queued in the outbox has no server id to address — so in both
-    // cases the Edit affordance is withdrawn rather than offered and then
-    // rejected.
+    // A plain Collection has no posted ledger entry to protect, so the server
+    // allows edit and delete at any time. The only thing that withdraws the
+    // Edit affordance is a row still queued in the outbox — it has no server id
+    // to address yet.
     final canEdit = _saved?.isEditable ?? true;
 
     return DarkStatusBar(
@@ -468,6 +514,30 @@ class _EditCollectionDetailPageState
                                     onChanged: (next) =>
                                         setState(() => _chequeStatus = next),
                                   ),
+                                  // Advancing a cheque goes through the
+                                  // dedicated endpoint, not the form: only that
+                                  // route enforces the state machine, and it's
+                                  // the one place the user is told what the
+                                  // move actually does. Hidden while editing
+                                  // (the picker is live then) and once the
+                                  // cheque reaches a terminal state.
+                                  if (!_editing &&
+                                      _chequeStatus != null &&
+                                      !_chequeStatus!.isTerminal &&
+                                      (_saved?.syncPending ?? false) == false)
+                                    Padding(
+                                      padding: EdgeInsets.only(top: 12.h),
+                                      child: OutlinedButton.icon(
+                                        onPressed: _advanceChequeStatus,
+                                        icon: Icon(
+                                          Icons.sync_alt_rounded,
+                                          size: 18.sp,
+                                        ),
+                                        label: const Text(
+                                          'Update cheque status',
+                                        ),
+                                      ),
+                                    ),
                                 ],
                                 SizedBox(height: 12.h),
                                 PrimaryTextField(

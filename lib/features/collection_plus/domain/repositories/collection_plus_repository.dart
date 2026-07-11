@@ -1,4 +1,4 @@
-import 'package:sales_sphere_erp/features/collection/domain/collection_status.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/collection_status.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/cheque_status.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/collection.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/collections_page.dart';

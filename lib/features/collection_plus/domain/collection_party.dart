@@ -1,9 +1,13 @@
 import 'package:flutter/foundation.dart';
 
 /// Lightweight party reference used by the "Select party" picker on the
-/// collection form. The real parties feature is backend-backed; while
-/// the collection feature is mock-only it carries its own slim party
-/// shape so the picker doesn't depend on the live parties data layer.
+/// collection form.
+///
+/// Deliberately slim, and deliberately not `Party`. The rows are mapped from
+/// the live customers feature (`partiesListVisibleProvider`), but the picker
+/// only needs four fields — and keeping a per-feature shape means the picker
+/// doesn't drag in the whole parties data layer. Same pattern as
+/// `ExpenseParty`.
 ///
 /// Equality is by [id] so a selected option can be matched back to its
 /// list entry inside the picker regardless of instance identity.

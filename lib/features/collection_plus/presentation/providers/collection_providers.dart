@@ -1,7 +1,7 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:sales_sphere_erp/core/db/app_database.dart';
-import 'package:sales_sphere_erp/features/collection/domain/collection_status.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/collection_status.dart';
 import 'package:sales_sphere_erp/features/collection_plus/data/repositories/collection_plus_repository_impl.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/collection.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/collection_party.dart';

@@ -4,8 +4,8 @@ import 'package:http_parser/http_parser.dart';
 
 import 'package:sales_sphere_erp/core/api/dio_client.dart';
 import 'package:sales_sphere_erp/features/collection/data/collection_api.dart';
-import 'package:sales_sphere_erp/features/collection/data/dto/collection_dto.dart';
-import 'package:sales_sphere_erp/features/collection/data/dto/collections_page_dto.dart';
+import 'package:sales_sphere_erp/features/collection_plus/data/dto/collection_plus_dto.dart';
+import 'package:sales_sphere_erp/features/collection_plus/data/dto/collection_plus_page_dto.dart';
 
 const int _kCollectionPlusPageSize = 15;
 
@@ -16,16 +16,17 @@ const int _kCollectionPlusPageSize = 15;
 /// don't exist in a CRM-only tenant's session, so every route here 403s for
 /// them. That's the whole feature gate; the UI just hides the tile.
 ///
-/// Reuses [CollectionDto] — on the wire, a Collection Plus row is exactly a
-/// Collection plus an `allocations[]` array, so duplicating twenty fields of
-/// parsing would only create something to drift out of sync.
+/// Speaks [CollectionPlusDto], which extends the plain `CollectionDto` with the
+/// three things only a ledger-backed receipt has: `status`, `voucherId` and
+/// `allocations`. `/collections` returns none of them — sharing one DTO across
+/// both endpoints is what made `status` a required field the server never sent.
 class CollectionPlusApi {
   CollectionPlusApi(this._dio);
 
   final Dio _dio;
 
   /// `GET /collection-plus` — cursor-paginated, newest first.
-  Future<CollectionsPageDto> list({
+  Future<CollectionPlusPageDto> list({
     int limit = _kCollectionPlusPageSize,
     String? cursor,
     String? search,
@@ -56,11 +57,11 @@ class CollectionPlusApi {
     return _pageFrom(_unwrapMap(response.data));
   }
 
-  Future<CollectionDto> getById(String id) async {
+  Future<CollectionPlusDto> getById(String id) async {
     final response = await _dio.get<Map<String, dynamic>>(
       Endpoints.collectionPlusById(id),
     );
-    return CollectionDto.fromJson(_unwrapMap(response.data));
+    return CollectionPlusDto.fromJson(_unwrapMap(response.data));
   }
 
   /// `POST /collection-plus`.
@@ -70,27 +71,27 @@ class CollectionPlusApi {
   /// selection no longer covers the amount — because another rep collected
   /// against the same invoice while this one was offline — it refuses with a
   /// 422 rather than re-allocating.
-  Future<CollectionDto> create(
-    CollectionDto draft, {
+  Future<CollectionPlusDto> create(
+    CollectionPlusDto draft, {
     required List<String> invoiceIds,
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       Endpoints.collectionPlus,
       data: draft.toCreateJson(invoiceIds: invoiceIds),
     );
-    return CollectionDto.fromJson(_unwrapMap(response.data));
+    return CollectionPlusDto.fromJson(_unwrapMap(response.data));
   }
 
   /// `PATCH /collection-plus/{id}` — DRAFT only.
-  Future<CollectionDto> update(
-    CollectionDto collection, {
+  Future<CollectionPlusDto> update(
+    CollectionPlusDto collection, {
     required List<String> invoiceIds,
   }) async {
     final response = await _dio.patch<Map<String, dynamic>>(
       Endpoints.collectionPlusById(collection.id),
       data: collection.toUpdateJson(invoiceIds: invoiceIds),
     );
-    return CollectionDto.fromJson(_unwrapMap(response.data));
+    return CollectionPlusDto.fromJson(_unwrapMap(response.data));
   }
 
   Future<void> delete(String id) async {
@@ -98,7 +99,7 @@ class CollectionPlusApi {
   }
 
   /// `PATCH /collection-plus/{id}/cheque-status`. Body key is `status`.
-  Future<CollectionDto> updateChequeStatus({
+  Future<CollectionPlusDto> updateChequeStatus({
     required String id,
     required String status,
   }) async {
@@ -106,7 +107,7 @@ class CollectionPlusApi {
       Endpoints.collectionPlusChequeStatus(id),
       data: <String, dynamic>{'status': status},
     );
-    return CollectionDto.fromJson(_unwrapMap(response.data));
+    return CollectionPlusDto.fromJson(_unwrapMap(response.data));
   }
 
   /// `GET /collection-plus/parties/{partyId}/outstanding`.
@@ -224,7 +225,7 @@ class CollectionPlusApi {
 
   // ── Envelope helpers ──────────────────────────────────────────────────────
 
-  CollectionsPageDto _pageFrom(Map<String, dynamic> data) {
+  CollectionPlusPageDto _pageFrom(Map<String, dynamic> data) {
     final rawItems = data['items'];
     if (rawItems is! List<dynamic>) {
       throw const FormatException(
@@ -232,11 +233,11 @@ class CollectionPlusApi {
       );
     }
     final items = rawItems
-        .map((j) => CollectionDto.fromJson(j as Map<String, dynamic>))
+        .map((j) => CollectionPlusDto.fromJson(j as Map<String, dynamic>))
         .toList(growable: false);
     final hasMore = (data['hasMore'] as bool?) ?? false;
     final nextCursor = hasMore ? data['nextCursor'] as String? : null;
-    return CollectionsPageDto(items: items, nextCursor: nextCursor);
+    return CollectionPlusPageDto(items: items, nextCursor: nextCursor);
   }
 
   List<OutstandingInvoiceDto> _outstandingFrom(List<dynamic> raw) => raw

@@ -17,7 +17,6 @@ import 'package:sales_sphere_erp/features/collection/data/dto/collection_dto.dar
 import 'package:sales_sphere_erp/features/collection/domain/cheque_status.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collection.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collection_party.dart';
-import 'package:sales_sphere_erp/features/collection/domain/collection_status.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collections_page.dart';
 import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart';
 import 'package:sales_sphere_erp/features/collection/domain/repositories/collection_repository.dart';
@@ -50,7 +49,6 @@ class CollectionRepositoryImpl implements CollectionRepository {
     PaymentMode? paymentMode,
     PaymentMode? excludePaymentMode,
     ChequeStatus? chequeStatus,
-    CollectionStatus? status,
     String? createdById,
     DateTime? fromDate,
     DateTime? toDate,
@@ -66,7 +64,6 @@ class CollectionRepositoryImpl implements CollectionRepository {
       chequeStatus: chequeStatus == null
           ? null
           : chequeStatusToWire(chequeStatus),
-      status: status == null ? null : collectionStatusToWire(status),
       createdById: createdById,
       fromDate: fromDate,
       toDate: toDate,
@@ -323,7 +320,6 @@ class CollectionRepositoryImpl implements CollectionRepository {
     amount: dto.amount,
     receivedDate: dto.receivedDate,
     paymentMode: paymentModeFromWire(dto.paymentMode),
-    status: collectionStatusFromWire(dto.status),
     bankName: dto.bankName,
     chequeNumber: dto.chequeNumber,
     chequeDate: dto.chequeDate,
@@ -350,7 +346,6 @@ class CollectionRepositoryImpl implements CollectionRepository {
     amount: c.amount,
     receivedDate: c.receivedDate,
     paymentMode: paymentModeToWire(c.paymentMode),
-    status: collectionStatusToWire(c.status),
     bankName: c.bankName,
     chequeNumber: c.chequeNumber,
     chequeDate: c.chequeDate,
@@ -384,7 +379,6 @@ Collection collectionRowToDomain(CollectionRow row) => Collection(
   amount: row.amount,
   receivedDate: row.receivedDate,
   paymentMode: paymentModeFromWire(row.paymentMode),
-  status: collectionStatusFromWire(row.status),
   bankName: row.bankName,
   chequeNumber: row.chequeNumber,
   chequeDate: row.chequeDate,
@@ -434,19 +428,6 @@ ChequeStatus chequeStatusFromWire(String wire) => switch (wire) {
   'CLEARED' => ChequeStatus.cleared,
   'BOUNCED' => ChequeStatus.bounced,
   _ => throw FormatException('Unsupported cheque status: $wire'),
-};
-
-String collectionStatusToWire(CollectionStatus status) => switch (status) {
-  CollectionStatus.draft => 'DRAFT',
-  CollectionStatus.posted => 'POSTED',
-  CollectionStatus.cancelled => 'CANCELLED',
-};
-
-CollectionStatus collectionStatusFromWire(String wire) => switch (wire) {
-  'DRAFT' => CollectionStatus.draft,
-  'POSTED' => CollectionStatus.posted,
-  'CANCELLED' => CollectionStatus.cancelled,
-  _ => throw FormatException('Unsupported collection status: $wire'),
 };
 
 /// Exposes the abstract type so consumers depend on the contract, not the

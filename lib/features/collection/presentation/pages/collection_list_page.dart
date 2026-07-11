@@ -11,7 +11,6 @@ import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collection.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collection_party.dart';
-import 'package:sales_sphere_erp/features/collection/domain/collection_status.dart';
 import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/providers/collection_providers.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/widgets/collection_sync_badge.dart';
@@ -434,15 +433,14 @@ class _CollectionCard extends StatelessWidget {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
+                    // No status badge here, unlike Collection Plus. A plain
+                    // Collection has no ledger lifecycle to report — the only
+                    // state it carries is whether it has reached the server.
                     CollectionSyncBadge(
                       syncPending: collection.syncPending,
                       syncError: collection.syncError,
                     ),
                     const Spacer(),
-                    StatusBadge(
-                      label: collection.status.label,
-                      color: collection.status.color,
-                    ),
                   ],
                 ),
               ],

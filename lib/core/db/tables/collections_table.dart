@@ -52,11 +52,17 @@ class Collections extends Table {
 
   TextColumn get description => text().nullable()();
 
-  /// `DRAFT | POSTED | CANCELLED`. Distinct from [syncPending] — DRAFT means
-  /// "not committed to a ledger", which is the permanent resting state for a
-  /// CRM-only org. It is not an error and not a pending-sync marker.
-  TextColumn get status => text()();
+  /// `DRAFT | POSTED | CANCELLED` — **Collection Plus only.**
+  ///
+  /// Null for every `onAccount` row: a plain Collection is a pure CRM record
+  /// that never posts to a ledger, so it has no lifecycle to sit in. Only the
+  /// invoice-allocated module carries a status.
+  ///
+  /// Distinct from [syncPending], which is device state — whether the row has
+  /// reached the server at all.
+  TextColumn get status => text().nullable()();
 
+  /// Set once a Collection Plus receipt posts. Always null for `onAccount`.
   TextColumn get voucherId => text().nullable()();
 
   /// The rep who collected. Two columns, not one: the list filter sends the

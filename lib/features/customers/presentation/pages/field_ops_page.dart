@@ -16,11 +16,16 @@ import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 /// Tiles share a flat white surface; identity comes from a per-module
 /// icon colour (blue / orange / green / red) tinted into a soft
 /// rounded icon block.
-/// NOTE: tiles are currently ungated. Permission gating for every module —
-/// including hiding Collection Plus for CRM-only tenants, which lack the
-/// `collection-plus:*` keys entirely — is being done in one pass across the
-/// whole app. The keys and the `hasAnyPermission` helper are already in
-/// `core/auth/permissions.dart` and ready for it.
+/// NOTE: tiles are ungated. Permission gating for every module is being done in
+/// one pass across the whole app; the keys and the `hasAnyPermission` helper in
+/// `core/auth/permissions.dart` are already in place for it.
+///
+/// **Collection Plus is the one to get right in that pass.** It's an
+/// ACCOUNTING-plan feature, so a CRM-only tenant's session doesn't carry the
+/// `collection-plus:*` keys at all — today they see the tile, tap it, and 403
+/// on every call. Gate it on `collection-plus:view` OR `:view-own` (a rep holds
+/// the latter; gating on `view` alone would hide it from every rep who can
+/// legitimately use it).
 class FieldOpsPage extends StatelessWidget {
   const FieldOpsPage({super.key});
 

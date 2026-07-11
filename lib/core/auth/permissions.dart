@@ -16,17 +16,20 @@ abstract final class Permissions {
   static const unplannedVisitRecord = 'unplanned-visits:record';
   static const unplannedVisitDelete = 'unplanned-visits:delete';
 
-  // Collections — granted on every plan, including CRM-only orgs that have
-  // no ledger at all. A rep typically holds `view-own` rather than `view`;
-  // the server narrows their list reads either way, so the UI gates on
-  // whichever of the two is present ([canViewCollections]).
+  // Collections — granted on every plan, including CRM-only orgs that have no
+  // ledger at all. A rep typically holds `view-own` rather than `view`; the
+  // server narrows their list reads either way, so the UI gates on whichever
+  // of the two is present.
+  //
+  // There is no `collections:post` / `collections:cancel`. A plain Collection
+  // is a pure CRM record that never touches a ledger, so the backend has no
+  // such routes and those keys have been deleted from the catalog — a role can
+  // never hold them again. Posting and cancelling live only in Collection Plus.
   static const collectionsView = 'collections:view';
   static const collectionsViewOwn = 'collections:view-own';
   static const collectionsCreate = 'collections:create';
   static const collectionsUpdate = 'collections:update';
   static const collectionsDelete = 'collections:delete';
-  static const collectionsPost = 'collections:post';
-  static const collectionsCancel = 'collections:cancel';
   static const collectionsChequeStatus = 'collections:cheque-status';
   static const collectionsManageImages = 'collections:manage-images';
 

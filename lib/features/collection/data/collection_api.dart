@@ -38,6 +38,11 @@ class CollectionApi {
   /// [createdById] takes a **user id**, and the row renders `createdBy.name`.
   /// [fromDate] / [toDate] filter on `createdAt` (the UI labels read
   /// "Created From / To"), *not* on the received date.
+  ///
+  /// There is deliberately **no `status` param**. A plain Collection has no
+  /// ledger lifecycle, so the server dropped the field — and because the query
+  /// schema is `.strict()`, sending it is a hard 400 rather than a silently
+  /// ignored key. (`/collection-plus` still accepts it.)
   Future<CollectionsPageDto> list({
     int limit = _kCollectionsPageSize,
     String? cursor,
@@ -45,7 +50,6 @@ class CollectionApi {
     String? paymentMode,
     String? excludePaymentMode,
     String? chequeStatus,
-    String? status,
     String? createdById,
     DateTime? fromDate,
     DateTime? toDate,
@@ -60,7 +64,6 @@ class CollectionApi {
         if (excludePaymentMode != null)
           'excludePaymentMode': excludePaymentMode,
         if (chequeStatus != null) 'chequeStatus': chequeStatus,
-        if (status != null) 'status': status,
         if (createdById != null) 'createdById': createdById,
         if (fromDate != null) 'fromDate': _dateToWire(fromDate),
         if (toDate != null) 'toDate': _dateToWire(toDate),

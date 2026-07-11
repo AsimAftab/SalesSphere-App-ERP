@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 import 'package:sales_sphere_erp/core/db/app_database.dart';
 import 'package:sales_sphere_erp/core/db/tables/collections_table.dart';
 import 'package:sales_sphere_erp/features/collection/data/dto/collection_dto.dart';
+import 'package:sales_sphere_erp/features/collection_plus/data/dto/collection_plus_dto.dart';
 
 part 'collections_dao.g.dart';
 
@@ -65,7 +66,7 @@ class CollectionsDao extends DatabaseAccessor<AppDatabase>
         await into(collections).insertOnConflictUpdate(
           _companion(kind, dto, syncPending: false, clearSyncError: true),
         );
-        await _replaceAllocations(dto.id, dto.allocations);
+        await _replaceAllocations(dto.id, _allocationsOf(dto));
       }
     });
   }
@@ -77,7 +78,7 @@ class CollectionsDao extends DatabaseAccessor<AppDatabase>
       await into(collections).insertOnConflictUpdate(
         _companion(kind, draft, syncPending: true),
       );
-      await _replaceAllocations(draft.id, draft.allocations);
+      await _replaceAllocations(draft.id, _allocationsOf(draft));
     });
   }
 
@@ -100,7 +101,7 @@ class CollectionsDao extends DatabaseAccessor<AppDatabase>
       await into(collections).insertOnConflictUpdate(
         _companion(kind, serverDto, syncPending: false, clearSyncError: true),
       );
-      await _replaceAllocations(serverDto.id, serverDto.allocations);
+      await _replaceAllocations(serverDto.id, _allocationsOf(serverDto));
     });
   }
 
@@ -135,6 +136,13 @@ class CollectionsDao extends DatabaseAccessor<AppDatabase>
     return delete(collections).go();
   }
 
+  /// Allocations exist only on a Collection Plus row. A plain Collection is an
+  /// on-account receipt booked against the party, not against any invoice.
+  static List<CollectionAllocationDto> _allocationsOf(CollectionDto dto) =>
+      dto is CollectionPlusDto
+      ? dto.allocations
+      : const <CollectionAllocationDto>[];
+
   /// Allocations are a pure mirror of the server's answer, so replace rather
   /// than merge — a re-post can move money between invoices, and a stale slice
   /// left behind would silently double-count.
@@ -163,12 +171,17 @@ class CollectionsDao extends DatabaseAccessor<AppDatabase>
 
   /// Sync columns default to [Value.absent] so a network upsert can't clobber
   /// the pending/error flags of a row that still has a queued mutation.
+  ///
+  /// `status` / `voucherId` / allocations are **Collection Plus only** — a plain
+  /// Collection is a CRM record with no ledger, so `/collections` doesn't return
+  /// them and those columns stay null for `onAccount` rows.
   CollectionsCompanion _companion(
     CollectionKind kind,
     CollectionDto dto, {
     bool? syncPending,
     bool clearSyncError = false,
   }) {
+    final plus = dto is CollectionPlusDto ? dto : null;
     return CollectionsCompanion(
       id: Value<String>(dto.id),
       kind: Value<CollectionKind>(kind),
@@ -186,8 +199,8 @@ class CollectionsDao extends DatabaseAccessor<AppDatabase>
       chequeDate: Value<DateTime?>(dto.chequeDate),
       chequeStatus: Value<String?>(dto.chequeStatus),
       description: Value<String?>(dto.description),
-      status: Value<String>(dto.status),
-      voucherId: Value<String?>(dto.voucherId),
+      status: Value<String?>(plus?.status),
+      voucherId: Value<String?>(plus?.voucherId),
       createdById: Value<String?>(dto.createdBy?.id),
       createdByName: Value<String?>(dto.createdBy?.name),
       createdAt: Value<DateTime>(dto.createdAt),

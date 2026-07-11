@@ -13,13 +13,9 @@ import 'package:sales_sphere_erp/core/db/tables/mutation_outbox_table.dart';
 import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
 import 'package:sales_sphere_erp/core/utils/uuid.dart';
 import 'package:sales_sphere_erp/features/collection/data/dto/collection_dto.dart';
-// `CollectionStatus` and its codecs are genuinely shared: the ledger lifecycle
-// is the backend's, identical for both modules, and duplicating a
-// DRAFT/POSTED/CANCELLED enum per feature would buy nothing.
-import 'package:sales_sphere_erp/features/collection/data/repositories/collection_repository_impl.dart'
-    show collectionStatusFromWire, collectionStatusToWire;
-import 'package:sales_sphere_erp/features/collection/domain/collection_status.dart';
 import 'package:sales_sphere_erp/features/collection_plus/data/collection_plus_api.dart';
+import 'package:sales_sphere_erp/features/collection_plus/data/dto/collection_plus_dto.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/collection_status.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/cheque_status.dart'
     as plus;
 import 'package:sales_sphere_erp/features/collection_plus/domain/collection.dart';
@@ -94,7 +90,7 @@ class CollectionPlusRepositoryImpl implements CollectionPlusRepository {
     if (id.startsWith('local_')) return null;
     try {
       final dto = await _api.getById(id);
-      await _dao.upsertPage(CollectionKind.allocated, <CollectionDto>[dto]);
+      await _dao.upsertPage(CollectionKind.allocated, <CollectionPlusDto>[dto]);
       return _toDomain(dto);
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) return null;
@@ -142,7 +138,7 @@ class CollectionPlusRepositoryImpl implements CollectionPlusRepository {
     final Map<int, String> failures;
     try {
       final created = await _api.create(dto, invoiceIds: invoiceIds);
-      await _dao.upsertPage(CollectionKind.allocated, <CollectionDto>[created]);
+      await _dao.upsertPage(CollectionKind.allocated, <CollectionPlusDto>[created]);
 
       failures = await _uploadProofs(
         collectionId: created.id,
@@ -173,7 +169,7 @@ class CollectionPlusRepositoryImpl implements CollectionPlusRepository {
   /// have moved; if they have, this mutation comes back 422 and the row gets a
   /// red badge carrying the server's coverage message.
   Future<CollectionPlus> _queueOfflineCreate(
-    CollectionDto dto,
+    CollectionPlusDto dto,
     String requestId,
     List<String> invoiceIds,
   ) async {
@@ -208,7 +204,7 @@ class CollectionPlusRepositoryImpl implements CollectionPlusRepository {
         _toDto(collection),
         invoiceIds: invoiceIds,
       );
-      await _dao.upsertPage(CollectionKind.allocated, <CollectionDto>[updated]);
+      await _dao.upsertPage(CollectionKind.allocated, <CollectionPlusDto>[updated]);
 
       final failures = await _uploadProofs(
         collectionId: updated.id,
@@ -250,7 +246,7 @@ class CollectionPlusRepositoryImpl implements CollectionPlusRepository {
         id: id,
         status: _chequeToWire(status),
       );
-      await _dao.upsertPage(CollectionKind.allocated, <CollectionDto>[updated]);
+      await _dao.upsertPage(CollectionKind.allocated, <CollectionPlusDto>[updated]);
       return _toDomain(updated);
     } on DioException catch (e) {
       _throwWriteError(e);
@@ -299,7 +295,7 @@ class CollectionPlusRepositoryImpl implements CollectionPlusRepository {
   Future<CollectionPlus?> _refetch(String id) async {
     try {
       final fresh = await _api.getById(id);
-      await _dao.upsertPage(CollectionKind.allocated, <CollectionDto>[fresh]);
+      await _dao.upsertPage(CollectionKind.allocated, <CollectionPlusDto>[fresh]);
       return _toDomain(fresh);
     } on DioException {
       return null;
@@ -351,7 +347,7 @@ class CollectionPlusRepositoryImpl implements CollectionPlusRepository {
     lastPaidOn: dto.lastPaidOn,
   );
 
-  CollectionPlus _toDomain(CollectionDto dto) => CollectionPlus(
+  CollectionPlus _toDomain(CollectionPlusDto dto) => CollectionPlus(
     id: dto.id,
     collectionNo: dto.collectionNo,
     allocations: dto.allocations
@@ -385,8 +381,8 @@ class CollectionPlusRepositoryImpl implements CollectionPlusRepository {
     createdAt: dto.createdAt,
   );
 
-  CollectionDto _toDto(CollectionPlus c, {String? clientRequestId}) =>
-      CollectionDto(
+  CollectionPlusDto _toDto(CollectionPlus c, {String? clientRequestId}) =>
+      CollectionPlusDto(
         id: c.id,
         collectionNo: c.collectionNo,
         customer: CollectionCustomerDto(
@@ -438,7 +434,12 @@ CollectionPlus collectionPlusRowToDomain(
   amount: row.amount,
   receivedDate: row.receivedDate,
   paymentMode: _modeFromWire(row.paymentMode),
-  status: collectionStatusFromWire(row.status),
+  // `status` is nullable in drift (on-account rows have none); a Plus row
+  // always carries one, so a missing value means a corrupt cache — default to
+  // draft rather than crashing the list.
+  status: row.status == null
+      ? CollectionStatus.draft
+      : collectionStatusFromWire(row.status!),
   bankName: row.bankName,
   chequeNumber: row.chequeNumber,
   chequeDate: row.chequeDate,
@@ -485,6 +486,21 @@ String _chequeToWire(plus.ChequeStatus status) => switch (status) {
   plus.ChequeStatus.deposited => 'DEPOSITED',
   plus.ChequeStatus.cleared => 'CLEARED',
   plus.ChequeStatus.bounced => 'BOUNCED',
+};
+
+/// Ledger lifecycle codecs — Collection Plus only. A plain Collection has no
+/// status, because it never posts to a ledger.
+String collectionStatusToWire(CollectionStatus status) => switch (status) {
+  CollectionStatus.draft => 'DRAFT',
+  CollectionStatus.posted => 'POSTED',
+  CollectionStatus.cancelled => 'CANCELLED',
+};
+
+CollectionStatus collectionStatusFromWire(String wire) => switch (wire) {
+  'DRAFT' => CollectionStatus.draft,
+  'POSTED' => CollectionStatus.posted,
+  'CANCELLED' => CollectionStatus.cancelled,
+  _ => throw FormatException('Unsupported collection status: $wire'),
 };
 
 plus.ChequeStatus _chequeFromWire(String wire) => switch (wire) {

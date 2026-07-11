@@ -2,12 +2,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sales_sphere_erp/features/collection/data/dto/collection_dto.dart';
 import 'package:sales_sphere_erp/features/collection/data/repositories/collection_repository_impl.dart';
 import 'package:sales_sphere_erp/features/collection/domain/cheque_status.dart';
-import 'package:sales_sphere_erp/features/collection/domain/collection_status.dart';
 import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart';
+import 'package:sales_sphere_erp/features/collection_plus/data/dto/collection_plus_dto.dart';
+import 'package:sales_sphere_erp/features/collection_plus/data/repositories/collection_plus_repository_impl.dart';
+import 'package:sales_sphere_erp/features/collection_plus/domain/collection_status.dart';
 
-/// A full server row as `/collections/{id}` actually returns it — string money,
-/// `yyyy-MM-dd` calendar days, ISO timestamps, SCREAMING_SNAKE enums.
-Map<String, dynamic> _wire({
+/// A `/collections` row as the server actually returns it.
+///
+/// Note what is **absent**: no `status`, no `voucherId`, no `allocations`. A
+/// plain Collection is a pure CRM record with no ledger, so the server doesn't
+/// send them. This shape is the whole reason the DTO had to be split — the old
+/// shared DTO required `status`, so every read threw once the server stopped
+/// sending it.
+Map<String, dynamic> _collectionWire({
   Object? amount = '20000.00',
   String paymentMode = 'CHEQUE',
   Object? chequeStatus = 'PENDING',
@@ -16,7 +23,6 @@ Map<String, dynamic> _wire({
     'id': 'usr_1',
     'name': 'Bikram Agrawal',
   },
-  List<dynamic> allocations = const <dynamic>[],
 }) => <String, dynamic>{
   'id': 'col_1',
   'collectionNo': 'RCPT-82-0001',
@@ -38,70 +44,90 @@ Map<String, dynamic> _wire({
   'images': <dynamic>[
     <String, dynamic>{'imageNumber': 1, 'imageUrl': 'https://cdn/x.jpg'},
   ],
-  'status': 'DRAFT',
-  'voucherId': null,
   'createdBy': createdBy,
   'createdAt': '2026-07-11T09:00:00.000Z',
   'updatedAt': '2026-07-11T09:00:00.000Z',
+};
+
+/// A `/collection-plus` row: everything above **plus** the three ledger fields.
+Map<String, dynamic> _plusWire({
+  String status = 'DRAFT',
+  Object? voucherId,
+  List<dynamic> allocations = const <dynamic>[],
+}) => <String, dynamic>{
+  ..._collectionWire(),
+  'status': status,
+  'voucherId': voucherId,
   'allocations': allocations,
 };
 
 void main() {
-  group('CollectionDto.fromJson', () {
+  group('CollectionDto — the plain, ledger-free shape', () {
+    test('parses a row that carries no status / voucherId / allocations', () {
+      // The regression this whole split exists to prevent: the server stopped
+      // sending `status`, the shared DTO still required it, and every
+      // /collections read threw.
+      final dto = CollectionDto.fromJson(_collectionWire());
+      expect(dto.id, 'col_1');
+      expect(dto.collectionNo, 'RCPT-82-0001');
+    });
+
     test('money arrives as a decimal STRING, not a number', () {
-      // The single easiest thing to get wrong: `amount` goes out as a JSON
-      // number and comes back as `Decimal.toFixed(2)`. A naive `as num` cast
-      // throws on every read.
-      final dto = CollectionDto.fromJson(_wire());
-      expect(dto.amount, 20000.00);
+      // `amount` goes out as a JSON number and comes back as Decimal.toFixed(2).
+      // A naive `as num` cast throws on every read.
+      expect(CollectionDto.fromJson(_collectionWire()).amount, 20000.00);
     });
 
     test('tolerates a raw number too, so a local draft round-trips', () {
-      final dto = CollectionDto.fromJson(_wire(amount: 20000));
-      expect(dto.amount, 20000.00);
+      expect(
+        CollectionDto.fromJson(_collectionWire(amount: 20000)).amount,
+        20000.00,
+      );
     });
 
-    test('receivedDate is a calendar day, not a timestamp', () {
-      // Parsed to local midnight so date formatting can't shift it across a
-      // timezone boundary and render the wrong day.
-      final dto = CollectionDto.fromJson(_wire());
+    test('receivedDate and chequeDate are calendar days, not timestamps', () {
+      final dto = CollectionDto.fromJson(_collectionWire());
       expect(dto.receivedDate, DateTime(2026, 7, 11));
       expect(dto.chequeDate, DateTime(2026, 7, 11));
     });
 
     test('createdAt is a full ISO timestamp — a different codec', () {
-      final dto = CollectionDto.fromJson(_wire());
+      final dto = CollectionDto.fromJson(_collectionWire());
       expect(dto.createdAt.toUtc(), DateTime.utc(2026, 7, 11, 9));
     });
 
     test('createdBy is an {id, name} object — id filters, name renders', () {
-      // The mock compared a picked user id against a display name, so the
-      // "Created By" filter could never match. Two fields, not one.
-      final dto = CollectionDto.fromJson(_wire());
+      final dto = CollectionDto.fromJson(_collectionWire());
       expect(dto.createdBy?.id, 'usr_1');
       expect(dto.createdBy?.name, 'Bikram Agrawal');
     });
 
     test('createdBy is null on rows migrated from the old Payment table', () {
-      final dto = CollectionDto.fromJson(_wire(createdBy: null));
-      expect(dto.createdBy, isNull);
+      expect(
+        CollectionDto.fromJson(_collectionWire(createdBy: null)).createdBy,
+        isNull,
+      );
     });
 
     test('cheque fields are null when the mode is not CHEQUE', () {
       final dto = CollectionDto.fromJson(
-        _wire(paymentMode: 'CASH', chequeStatus: null, chequeDate: null),
+        _collectionWire(
+          paymentMode: 'CASH',
+          chequeStatus: null,
+          chequeDate: null,
+        ),
       );
       expect(dto.chequeStatus, isNull);
       expect(dto.chequeDate, isNull);
     });
+  });
 
-    test('a plain collection has no allocations', () {
-      expect(CollectionDto.fromJson(_wire()).allocations, isEmpty);
-    });
-
-    test('a Collection Plus row carries the server-computed split', () {
-      final dto = CollectionDto.fromJson(
-        _wire(
+  group('CollectionPlusDto — the ledger-backed shape', () {
+    test('carries status, voucherId and the server-computed split', () {
+      final dto = CollectionPlusDto.fromJson(
+        _plusWire(
+          status: 'POSTED',
+          voucherId: 'vch_9',
           allocations: <dynamic>[
             <String, dynamic>{
               'invoiceId': 'inv_a',
@@ -116,37 +142,62 @@ void main() {
           ],
         ),
       );
+      expect(dto.status, 'POSTED');
+      expect(dto.voucherId, 'vch_9');
       expect(dto.allocations, hasLength(2));
-      expect(dto.allocations[0].invoiceNumber, 'INV-A');
       expect(dto.allocations[1].amount, 10000.50);
+    });
+
+    test('is a CollectionDto, so the shared drift cache accepts it', () {
+      // The DAO takes List<CollectionDto> and reads the ledger fields only for
+      // Plus rows. That only works because Plus *is* a Collection.
+      expect(CollectionPlusDto.fromJson(_plusWire()), isA<CollectionDto>());
+    });
+
+    test('a queued row has no allocations — the server hasn\'t split it yet',
+        () {
+      expect(CollectionPlusDto.fromJson(_plusWire()).allocations, isEmpty);
     });
   });
 
-  group('CollectionDto write bodies', () {
-    test('create sends amount as a NUMBER and the date as yyyy-MM-dd', () {
-      final json = CollectionDto.fromJson(_wire()).toCreateJson();
+  group('write bodies', () {
+    test('create sends amount as a NUMBER and dates as yyyy-MM-dd', () {
+      final json = CollectionDto.fromJson(_collectionWire()).toCreateJson();
       expect(json['amount'], isA<num>());
       expect(json['receivedDate'], '2026-07-11');
       expect(json['chequeDate'], '2026-07-11');
     });
 
-    test('create omits clientRequestId unless one was supplied', () {
+    test('a plain Collection never sends invoiceIds', () {
+      // It's booked against the party, not an invoice — there is nothing to
+      // allocate.
+      final json = CollectionDto.fromJson(_collectionWire()).toCreateJson();
+      expect(json, isNot(contains('invoiceIds')));
+    });
+
+    test('Collection Plus sends the selection, never a split', () {
+      final dto = CollectionPlusDto.fromJson(_plusWire());
       expect(
-        CollectionDto.fromJson(_wire()).toCreateJson(),
-        isNot(contains('clientRequestId')),
+        dto.toCreateJson(invoiceIds: <String>['inv_a'])['invoiceIds'],
+        <String>['inv_a'],
       );
+      // The client's own allocations are never serialised — the server owns the
+      // split and recomputes it against live balances.
+      expect(dto.toCreateJson(), isNot(contains('allocations')));
     });
 
     test('update never sends customerId — a receipt cannot be reassigned', () {
-      final json = CollectionDto.fromJson(_wire()).toUpdateJson();
-      expect(json, isNot(contains('customerId')));
+      expect(
+        CollectionDto.fromJson(_collectionWire()).toUpdateJson(),
+        isNot(contains('customerId')),
+      );
     });
 
     test('update always resends the whole payment block, nulls included', () {
       // PATCH is payment-block-atomic server-side: send `paymentMode` and the
       // bank/cheque fields are all renormalised (cleared if the new mode
       // doesn't own them). Omitting a key would leave a stale value behind.
-      final json = CollectionDto.fromJson(_wire()).toUpdateJson();
+      final json = CollectionDto.fromJson(_collectionWire()).toUpdateJson();
       for (final key in <String>[
         'paymentMode',
         'bankName',
@@ -160,13 +211,11 @@ void main() {
       expect(json['description'], isNull);
     });
 
-    test('invoiceIds ride along only for the Collection Plus endpoints', () {
-      final dto = CollectionDto.fromJson(_wire());
-      expect(dto.toCreateJson(), isNot(contains('invoiceIds')));
-      expect(
-        dto.toCreateJson(invoiceIds: <String>['inv_a'])['invoiceIds'],
-        <String>['inv_a'],
-      );
+    test('neither write body ever sends `status`', () {
+      // It's server-owned on Plus and doesn't exist at all on Collection.
+      final plus = CollectionPlusDto.fromJson(_plusWire());
+      expect(plus.toCreateJson(), isNot(contains('status')));
+      expect(plus.toUpdateJson(), isNot(contains('status')));
     });
   });
 
@@ -185,7 +234,7 @@ void main() {
       }
     });
 
-    test('collection statuses round-trip', () {
+    test('collection statuses round-trip (Collection Plus only)', () {
       for (final s in CollectionStatus.values) {
         expect(collectionStatusFromWire(collectionStatusToWire(s)), s);
       }
