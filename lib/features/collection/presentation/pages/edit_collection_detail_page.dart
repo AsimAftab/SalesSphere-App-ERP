@@ -7,10 +7,13 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
 import 'package:sales_sphere_erp/features/collection/domain/cheque_status.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collection.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collection_party.dart';
+import 'package:sales_sphere_erp/features/collection/domain/collection_status.dart';
 import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart';
+import 'package:sales_sphere_erp/features/collection/domain/repositories/collection_repository.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/controllers/collection_controller.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/providers/collection_providers.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/widgets/bank_name_field.dart';
@@ -69,17 +72,29 @@ class _EditCollectionDetailPageState
 
   bool _editing = false;
   bool _saving = false;
-  bool _notFound = false;
+
+  /// Whether the form fields have been seeded from a resolved row.
+  ///
+  /// The row arrives one of two ways: pushed through `extra` from the list
+  /// (the common case, instant), or resolved asynchronously by
+  /// `collectionByIdProvider` on a cold-start deep link. We can't decide
+  /// "not found" until that read has actually settled — doing it in
+  /// `initState`, as the mock version did, would flash a spurious not-found
+  /// screen at anyone opening the app straight onto a receipt.
+  bool _populated = false;
+
+  /// The saved row, kept so the edit lifecycle can render sync/status chrome
+  /// and so Cancel can restore the last-known-good values.
+  Collection? _saved;
 
   @override
   void initState() {
     super.initState();
-    final collection =
-        widget.initial ?? ref.read(collectionByIdProvider(widget.id));
-    if (collection != null) {
-      _populate(collection);
-    } else {
-      _notFound = true;
+    final initial = widget.initial;
+    if (initial != null) {
+      _saved = initial;
+      _populate(initial);
+      _populated = true;
     }
   }
 
@@ -136,8 +151,7 @@ class _EditCollectionDetailPageState
   }
 
   void _cancelEdit() {
-    final saved =
-        ref.read(collectionByIdProvider(widget.id)) ?? widget.initial;
+    final saved = _saved ?? widget.initial;
     if (saved != null) _populate(saved);
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _editing = false);
@@ -228,10 +242,12 @@ class _EditCollectionDetailPageState
     try {
       final updated = Collection(
         id: widget.id,
+        collectionNo: _saved?.collectionNo ?? '',
         party: party,
         amount: amount,
         receivedDate: receivedDate,
         paymentMode: mode,
+        status: _saved?.status ?? CollectionStatus.draft,
         bankName: mode.requiresBank ? _bankName : null,
         chequeNumber: mode.requiresChequeDetails
             ? _chequeNumberController.text.trim()
@@ -239,6 +255,8 @@ class _EditCollectionDetailPageState
         chequeDate: mode.requiresChequeDetails ? _chequeDate : null,
         chequeStatus: mode.requiresChequeDetails ? _chequeStatus : null,
         description: _descriptionController.text.trim(),
+        // Only newly-picked local files are uploaded; already-stored proofs
+        // live in `imageUrls` and aren't re-sent.
         imagePaths: List<String>.unmodifiable(_imagePaths),
         createdAt: _createdAt ?? DateTime.now(),
       );
@@ -253,6 +271,24 @@ class _EditCollectionDetailPageState
         _amountController.text = _currency.format(amount);
       });
       SnackbarUtils.showSuccess(context, 'Collection updated.');
+    } on PartialImageUploadException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _editing = false;
+      });
+      SnackbarUtils.showError(
+        context,
+        'Collection updated, but the payment proof failed to upload: '
+        '${e.firstMessage}',
+      );
+    } on ApiException catch (e) {
+      // Surface the server's own copy. The one that matters most here is the
+      // 409 — "Only DRAFT collections can be updated" — which happens when an
+      // accountant posted the receipt while this page was open.
+      if (!mounted) return;
+      setState(() => _saving = false);
+      SnackbarUtils.showError(context, e.message);
     } on Exception catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
@@ -266,22 +302,49 @@ class _EditCollectionDetailPageState
 
   @override
   Widget build(BuildContext context) {
-    if (_notFound) return const _NotFoundScaffold();
-    // Keep the provider warm so cancelEdit reads the saved snapshot.
-    ref.watch(collectionByIdProvider(widget.id));
+    // Drift-backed stream: the row re-emits when a background sync lands or a
+    // cheque status changes, so the page stays live without a manual refresh.
+    final rowAsync = ref.watch(collectionByIdProvider(widget.id));
+
+    rowAsync.whenData((row) {
+      if (row == null) return;
+      _saved = row;
+      // Seed the form the first time the row resolves (cold-start deep link),
+      // and re-seed on later emissions only while the user isn't mid-edit —
+      // clobbering a half-typed form because a sync landed would be hostile.
+      if (!_populated || !_editing) {
+        _populate(row);
+        _populated = true;
+      }
+    });
+
+    // Only call it missing once the read has actually settled on nothing.
+    if (rowAsync.hasValue && rowAsync.value == null && widget.initial == null) {
+      return const _NotFoundScaffold();
+    }
+    if (!_populated) return const _LoadingScaffold();
 
     final mode = _paymentMode;
     final showBank = mode?.requiresBank ?? false;
     final showCheque = mode?.requiresChequeDetails ?? false;
 
+    // A receipt is only editable while it's a DRAFT that has actually reached
+    // the server. Once an accountant posts it the server 409s any PATCH, and a
+    // row still queued in the outbox has no server id to address — so in both
+    // cases the Edit affordance is withdrawn rather than offered and then
+    // rejected.
+    final canEdit = _saved?.isEditable ?? true;
+
     return DarkStatusBar(
       child: Scaffold(
         backgroundColor: AppColors.background,
-        bottomNavigationBar: _SubmitBar(
-          editing: _editing,
-          isLoading: _saving,
-          onPressed: _editing ? _save : _toggleEdit,
-        ),
+        bottomNavigationBar: (canEdit || _editing)
+            ? _SubmitBar(
+                editing: _editing,
+                isLoading: _saving,
+                onPressed: _editing ? _save : _toggleEdit,
+              )
+            : null,
         body: Stack(
           children: <Widget>[
             const _CurvedHeader(),
@@ -365,9 +428,11 @@ class _EditCollectionDetailPageState
                                   BankNameField(
                                     value: _bankName,
                                     enabled: _editing,
-                                    banks: ref.watch(
-                                      collectionBankNamesProvider,
-                                    ),
+                                    banks:
+                                        ref
+                                            .watch(collectionBankNamesProvider)
+                                            .value ??
+                                        const <String>[],
                                     onChanged: (next) =>
                                         setState(() => _bankName = next),
                                   ),
@@ -609,6 +674,27 @@ class _NotFoundScaffold extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Shown while a cold-start deep link resolves the receipt from the server.
+/// Only reachable when the page wasn't handed the row through `extra`.
+class _LoadingScaffold extends StatelessWidget {
+  const _LoadingScaffold();
+
+  @override
+  Widget build(BuildContext context) {
+    return DarkStatusBar(
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.background,
+          foregroundColor: AppColors.primary,
+          title: const Text('Collection Details'),
+        ),
+        body: const Center(child: CircularProgressIndicator()),
       ),
     );
   }

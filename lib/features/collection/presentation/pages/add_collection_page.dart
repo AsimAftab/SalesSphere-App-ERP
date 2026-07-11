@@ -5,9 +5,11 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
 import 'package:sales_sphere_erp/features/collection/domain/cheque_status.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collection_party.dart';
 import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart';
+import 'package:sales_sphere_erp/features/collection/domain/repositories/collection_repository.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/controllers/collection_controller.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/providers/collection_providers.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/widgets/bank_name_field.dart';
@@ -150,7 +152,9 @@ class _AddCollectionPageState extends ConsumerState<AddCollectionPage> {
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _submitting = true);
     try {
-      await ref.read(collectionControllerProvider.notifier).addCollection(
+      final created = await ref
+          .read(collectionControllerProvider.notifier)
+          .addCollection(
             party: party,
             amount: amount,
             receivedDate: receivedDate,
@@ -165,8 +169,32 @@ class _AddCollectionPageState extends ConsumerState<AddCollectionPage> {
             imagePaths: List<String>.unmodifiable(_imagePaths),
           );
       if (!mounted) return;
-      SnackbarUtils.showSuccess(context, 'Collection recorded.');
+      // Offline is a success, not a failure: the receipt is cached and queued,
+      // and it syncs when the device reconnects. Say so plainly rather than
+      // letting the rep think the money wasn't recorded.
+      SnackbarUtils.showSuccess(
+        context,
+        created.syncPending
+            ? 'Collection saved offline. It will sync when you reconnect.'
+            : 'Collection recorded.',
+      );
       context.pop();
+    } on PartialImageUploadException catch (e) {
+      // The money is recorded; only a proof photo failed. Don't imply the
+      // receipt was lost.
+      if (!mounted) return;
+      SnackbarUtils.showError(
+        context,
+        'Collection saved, but the payment proof failed to upload: '
+        '${e.firstMessage}',
+      );
+      context.pop();
+    } on ApiException catch (e) {
+      // Surface the backend's own copy — "Received date cannot be in the
+      // future.", "Customer not found", and so on. A generic "Could not save"
+      // hides exactly the information the rep needs to fix it.
+      if (!mounted) return;
+      SnackbarUtils.showError(context, e.message);
     } on Exception catch (_) {
       if (!mounted) return;
       SnackbarUtils.showError(context, 'Could not save. Please try again.');
@@ -261,7 +289,15 @@ class _AddCollectionPageState extends ConsumerState<AddCollectionPage> {
                           SizedBox(height: 16.h),
                           BankNameField(
                             value: _bankName,
-                            banks: ref.watch(collectionBankNamesProvider),
+                            // A suggestion list, not an enum — the field is
+                            // free text and the picker keeps its "add a
+                            // different bank" escape hatch, so an empty
+                            // catalogue (offline, say) is survivable.
+                            banks:
+                                ref
+                                    .watch(collectionBankNamesProvider)
+                                    .value ??
+                                const <String>[],
                             onChanged: (next) =>
                                 setState(() => _bankName = next),
                           ),

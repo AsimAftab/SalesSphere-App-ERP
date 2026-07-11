@@ -1,16 +1,23 @@
+import 'package:sales_sphere_erp/features/collection/domain/collection_status.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/cheque_status.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/collection_allocation.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/collection_party.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/payment_mode.dart';
 
-/// UI-facing collection model — one recorded payment received from a
-/// party. Decoupled from any wire DTO so a future backend rename
-/// doesn't ripple into widgets.
+/// UI-facing Collection Plus model — one payment received from a party and
+/// **allocated across specific invoices**, oldest-first.
 ///
-/// A collection is a plain receipt: unlike expense claims / leaves it
-/// carries no approval workflow. The bank / cheque fields are only
-/// populated when [paymentMode] calls for them
-/// ([PaymentModeX.requiresBank] / [PaymentModeX.requiresChequeDetails]).
+/// The invoice-allocated sibling of plain `Collection`. Available on ACCOUNTING
+/// plans only: the `collection-plus:*` permissions don't exist in a CRM-only
+/// tenant's session, so the tile is hidden and every route 403s.
+///
+/// Two independent axes of state, easy to confuse:
+///
+///  * [status] — where the receipt sits in the **ledger**. Always starts
+///    `DRAFT`; an accountant posts it from the web, which writes the voucher
+///    and drops the customer's outstanding balance.
+///  * [syncPending] / [syncError] — whether the **device** has handed the row
+///    to the server yet. Nothing to do with accounting.
 class CollectionPlus {
   const CollectionPlus({
     required this.id,
@@ -20,28 +27,44 @@ class CollectionPlus {
     required this.receivedDate,
     required this.paymentMode,
     required this.createdAt,
+    this.collectionNo = '',
+    this.status = CollectionStatus.draft,
     this.bankName,
     this.chequeNumber,
     this.chequeDate,
     this.chequeStatus,
     this.description = '',
     this.imagePaths = const <String>[],
+    this.imageUrls = const <String>[],
+    this.createdByName,
+    this.syncPending = false,
+    this.syncError,
   });
 
   final String id;
 
+  /// Server-assigned receipt number (`RCPT-82-0001`). Empty while the create
+  /// is still queued — the server hasn't numbered it yet.
+  final String collectionNo;
+
   /// How [amount] was split across the party's outstanding invoices,
-  /// oldest-first (FIFO). Always holds at least one entry; more than one
-  /// when a single payment spilled across invoices. Each entry reflects
-  /// as a credit against its invoice on the accounting side.
+  /// oldest-first (FIFO).
+  ///
+  /// **This is the server's answer, not the client's proposal.** The app sends
+  /// the selected invoice ids and an amount; the server re-runs FIFO against
+  /// live balances and returns this. The on-screen preview is a courtesy — if
+  /// a balance moved while the rep was offline, the booked split is whatever
+  /// comes back here, and a receipt that no longer fits is refused outright.
+  ///
+  /// Empty only for a row still sitting in the outbox, which the server hasn't
+  /// allocated yet.
   final List<CollectionPlusAllocation> allocations;
 
-  /// The party the payment was collected from. Denormalised here so the
-  /// list card can render it without resolving the allocations.
+  /// The party the payment was collected from. Denormalised so the list card
+  /// renders without resolving the allocations.
   final CollectionPlusParty party;
 
-  /// Amount received in NPR. Stored as a raw number; the UI formats it
-  /// with the `Rs` prefix.
+  /// Amount received in NPR. The server stays authoritative on the arithmetic.
   final double amount;
 
   /// The day the payment was received (date-only in intent).
@@ -49,33 +72,62 @@ class CollectionPlus {
 
   final PaymentMode paymentMode;
 
-  /// Bank the money moved through. Present only for cheque / bank
-  /// transfer ([PaymentModeX.requiresBank]); `null` otherwise.
+  /// Where the receipt sits in the ledger lifecycle. See the class doc — this
+  /// is *not* a sync state.
+  final CollectionStatus status;
+
+  /// Bank the money moved through. Present only for cheque / bank transfer.
+  /// Free text — the catalogue is a suggestion list, not an enum.
   final String? bankName;
 
-  /// Cheque number — present only for a cheque collection.
   final String? chequeNumber;
-
-  /// Date written on the cheque — present only for a cheque collection.
   final DateTime? chequeDate;
 
-  /// Clearing state of the cheque — present only for a cheque
-  /// collection.
+  /// Clearing state of the cheque. `pending → deposited → cleared`, or
+  /// `bounced` from either. Both end states are terminal.
+  ///
+  /// On a posted receipt this moves real money: clearing writes a contra
+  /// voucher, and bouncing writes a reversal that cancels the receipt and
+  /// **restores the invoices' outstanding balances**.
   final ChequeStatus? chequeStatus;
 
-  /// Optional free-text note describing the collection.
   final String description;
 
-  /// Up to two attached payment-proof image paths (gallery picks).
-  /// Empty when none have been added.
+  /// Local files picked in the form and not yet uploaded. **Form-only** —
+  /// never populated from the network or drift.
   final List<String> imagePaths;
 
-  /// When the collection row was created locally. Drives list ordering.
+  /// Payment-proof images already stored server-side, in slot order. Max two.
+  final List<String> imageUrls;
+
+  /// Display name of the rep who collected the money.
+  final String? createdByName;
+
+  /// True while a queued mutation for this row hasn't been confirmed.
+  final bool syncPending;
+
+  /// The server's own rejection copy once the sync drain gives up. For this
+  /// module that is typically the coverage-short message — a receipt allocated
+  /// offline against a balance that has since moved.
+  final String? syncError;
+
   final DateTime createdAt;
 
+  /// True once the server has issued a receipt number.
+  bool get hasServerIdentity => collectionNo.isNotEmpty;
+
+  /// The server refuses `PATCH` / `DELETE` on anything but a draft, and a row
+  /// still in flight has no server id to address.
+  bool get isEditable => status.isEditable && !syncPending;
+
+  /// The invoice ids this receipt settled — what the edit flow resends so the
+  /// server can re-derive the split.
+  List<String> get invoiceIds =>
+      allocations.map((a) => a.invoiceId).toList(growable: false);
+
   /// Document numbers this payment settled, for the list / detail cards:
-  /// `ORD-2026-0006` for one invoice, `ORD-2026-0006 +1 more` when the
-  /// payment spilled across several.
+  /// `ORD-2026-0006` for one invoice, `ORD-2026-0006 +1 more` when the payment
+  /// spilled across several.
   String get invoiceSummary {
     if (allocations.isEmpty) return '';
     final first = allocations.first.invoiceNumber;
@@ -83,15 +135,19 @@ class CollectionPlus {
     return '$first +${allocations.length - 1} more';
   }
 
-  /// Convenience copy used by the edit flow. The `clear*` flags null
-  /// out the bank / cheque fields when switching to a payment mode that
-  /// no longer needs them.
+  /// Convenience copy used by the edit flow. The `clear*` flags null out the
+  /// bank / cheque fields when switching to a payment mode that no longer
+  /// needs them — the server renormalises the whole payment block on `PATCH`,
+  /// so the client must send the cleared shape it expects.
   CollectionPlus copyWith({
+    String? id,
+    String? collectionNo,
     List<CollectionPlusAllocation>? allocations,
     CollectionPlusParty? party,
     double? amount,
     DateTime? receivedDate,
     PaymentMode? paymentMode,
+    CollectionStatus? status,
     String? bankName,
     bool clearBankName = false,
     String? chequeNumber,
@@ -102,22 +158,35 @@ class CollectionPlus {
     bool clearChequeStatus = false,
     String? description,
     List<String>? imagePaths,
+    List<String>? imageUrls,
+    String? createdByName,
+    bool? syncPending,
+    String? syncError,
+    bool clearSyncError = false,
   }) {
     return CollectionPlus(
-      id: id,
+      id: id ?? this.id,
+      collectionNo: collectionNo ?? this.collectionNo,
       allocations: allocations ?? this.allocations,
       party: party ?? this.party,
       amount: amount ?? this.amount,
       receivedDate: receivedDate ?? this.receivedDate,
       paymentMode: paymentMode ?? this.paymentMode,
+      status: status ?? this.status,
       bankName: clearBankName ? null : (bankName ?? this.bankName),
-      chequeNumber:
-          clearChequeNumber ? null : (chequeNumber ?? this.chequeNumber),
+      chequeNumber: clearChequeNumber
+          ? null
+          : (chequeNumber ?? this.chequeNumber),
       chequeDate: clearChequeDate ? null : (chequeDate ?? this.chequeDate),
-      chequeStatus:
-          clearChequeStatus ? null : (chequeStatus ?? this.chequeStatus),
+      chequeStatus: clearChequeStatus
+          ? null
+          : (chequeStatus ?? this.chequeStatus),
       description: description ?? this.description,
       imagePaths: imagePaths ?? this.imagePaths,
+      imageUrls: imageUrls ?? this.imageUrls,
+      createdByName: createdByName ?? this.createdByName,
+      syncPending: syncPending ?? this.syncPending,
+      syncError: clearSyncError ? null : (syncError ?? this.syncError),
       createdAt: createdAt,
     );
   }

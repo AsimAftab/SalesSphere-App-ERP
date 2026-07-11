@@ -16,6 +16,11 @@ import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 /// Tiles share a flat white surface; identity comes from a per-module
 /// icon colour (blue / orange / green / red) tinted into a soft
 /// rounded icon block.
+/// NOTE: tiles are currently ungated. Permission gating for every module —
+/// including hiding Collection Plus for CRM-only tenants, which lack the
+/// `collection-plus:*` keys entirely — is being done in one pass across the
+/// whole app. The keys and the `hasAnyPermission` helper are already in
+/// `core/auth/permissions.dart` and ready for it.
 class FieldOpsPage extends StatelessWidget {
   const FieldOpsPage({super.key});
 
@@ -91,10 +96,13 @@ class FieldOpsPage extends StatelessWidget {
       iconColor: AppColors.purple500,
       onTap: () => context.push(Routes.unplannedVisits),
     ),
+    // The two collection modules are genuinely different products, so they no
+    // longer share an icon and a subtitle — identical tiles only ever read as a
+    // duplicate.
     _TileSpec(
-      icon: Icons.account_balance_wallet_outlined,
+      icon: Icons.receipt_long_outlined,
       title: 'Collection Plus',
-      subtitle: 'Record payments collected from parties',
+      subtitle: 'Settle payments against specific invoices',
       iconColor: AppColors.yellow500,
       onTap: () => context.push(Routes.collectionPlus),
     ),
