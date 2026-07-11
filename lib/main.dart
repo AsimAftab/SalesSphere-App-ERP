@@ -8,6 +8,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'package:sales_sphere_erp/app.dart';
 import 'package:sales_sphere_erp/core/config/env.dart';
+import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/providers/app_observer.dart';
 import 'package:sales_sphere_erp/core/sync/mutation_handler_overrides.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/controllers/auth_controller.dart';
@@ -22,6 +23,14 @@ Future<void> bootstrap() async {
       await SystemChrome.setPreferredOrientations(<DeviceOrientation>[
         DeviceOrientation.portraitUp,
       ]);
+
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          systemNavigationBarColor: AppColors.surface,
+          systemNavigationBarIconBrightness: Brightness.dark,
+          systemNavigationBarDividerColor: Colors.transparent,
+        ),
+      );
 
       // Create the tracking notification channel + register the foreground
       // service (autoStart:false — it only runs once a rep starts a beat plan).

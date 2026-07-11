@@ -103,9 +103,9 @@ class MorePage extends ConsumerWidget {
         ),
         _TileSpec(
           icon: Icons.track_changes_outlined,
-          title: 'My Targets',
+          title: 'Targets',
           subtitle: 'Track daily and monthly goals',
-          iconColor: AppColors.tertiary,
+          iconColor: AppColors.targetAccent,
           onTap: () => context.push(Routes.targets),
         ),
         _TileSpec(

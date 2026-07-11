@@ -96,9 +96,8 @@ class TargetDrillDownPage extends ConsumerWidget {
                         ),
                         SizedBox(height: 24.h),
 
-                        // Dynamic List Subheader
+                        // Dynamic List Subheader & Records Count
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: <Widget>[
                             Text(
                               dynamicHeader,
@@ -109,23 +108,13 @@ class TargetDrillDownPage extends ConsumerWidget {
                                 letterSpacing: -0.3,
                               ),
                             ),
-                            Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 10.w,
-                                vertical: 4.h,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.surface,
-                                borderRadius: BorderRadius.circular(12.r),
-                                border: Border.all(color: AppColors.border),
-                              ),
-                              child: Text(
-                                '${records.length} Records',
-                                style: TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 12.sp,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                            const Spacer(),
+                            Text(
+                              '${records.length} Records',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 13.sp,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ],
@@ -186,7 +175,7 @@ class TargetDrillDownPage extends ConsumerWidget {
                 children: <Widget>[
                   CircleAvatar(
                     radius: 18.r,
-                    backgroundColor: AppColors.secondary,
+                    backgroundColor: AppColors.primary,
                     child: Text(
                       initialLetter,
                       style: TextStyle(

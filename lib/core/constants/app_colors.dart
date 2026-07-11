@@ -59,6 +59,7 @@ class AppColors {
   static const Color cyan500 = Color(0xFF06B6D4);
   static const Color rose600 = Color(0xFFE11D48);
   static const Color fuchsia600 = Color(0xFFC026D3);
+  static const Color targetAccent = Color(0xFFD97706); // Trophy Gold for Targets module
 
   // Border Colors
   static const Color border = Color(0xFFE0E0E0);

@@ -1,5 +1,3 @@
-import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -67,18 +65,24 @@ class HomeShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final selected = _indexFor(context);
-    return Scaffold(
-      extendBody: true,
-      // Biometric login is temporarily disabled pending a new plan.
-      // The post-first-login setup prompt would offer to enable a
-      // feature that currently does nothing, so we render the child
-      // directly. Re-wrap with `BiometricSetupGate(child: child)` (and
-      // re-add its import above) when biometric returns.
-      body: child,
-      bottomNavigationBar: _GlassBottomNav(
-        tabs: _tabs,
-        selectedIndex: selected,
-        onTap: (i) => _onTap(context, i),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        systemNavigationBarColor: AppColors.surface,
+        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
+      ),
+      child: Scaffold(
+        // Biometric login is temporarily disabled pending a new plan.
+        // The post-first-login setup prompt would offer to enable a
+        // feature that currently does nothing, so we render the child
+        // directly. Re-wrap with `BiometricSetupGate(child: child)` (and
+        // re-add its import above) when biometric returns.
+        body: child,
+        bottomNavigationBar: _GlassBottomNav(
+          tabs: _tabs,
+          selectedIndex: selected,
+          onTap: (i) => _onTap(context, i),
+        ),
       ),
     );
   }
@@ -101,112 +105,41 @@ class _GlassBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(32.r);
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
-        child: DecoratedBox(
-          // Shadow lives on a sibling decoration so it doesn't bleed
-          // through the BackdropFilter's clip rect.
-          decoration: BoxDecoration(
-            borderRadius: radius,
-            boxShadow: <BoxShadow>[
-              BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.10),
-                blurRadius: 32,
-                offset: const Offset(0, 14),
-              ),
-              BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border(
+          top: BorderSide(
+            color: AppColors.border.withValues(alpha: 0.8),
           ),
-          child: ClipRRect(
-            borderRadius: radius,
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-              child: Container(
-                height: 72.h,
-                decoration: BoxDecoration(
-                  // Frosted tint: surface at ~62% so the blurred page
-                  // content beneath shows through but text/icons stay
-                  // legible. Subtle gradient adds vertical depth.
-                  gradient: LinearGradient(
-                    colors: <Color>[
-                      AppColors.surface.withValues(alpha: 0.72),
-                      AppColors.surface.withValues(alpha: 0.56),
-                    ],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                  borderRadius: radius,
-                  // Rim-light: lifts the bar off the page beneath.
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.55),
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 60.h,
+          child: Row(
+            children: <Widget>[
+              for (var i = 0; i < tabs.length; i++)
+                Expanded(
+                  child: _NavItem(
+                    tab: tabs[i],
+                    selected: i == selectedIndex,
+                    onTap: () {
+                      if (i == selectedIndex) return;
+                      HapticFeedback.selectionClick();
+                      onTap(i);
+                    },
                   ),
                 ),
-                padding: EdgeInsets.all(8.h),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final tabWidth = constraints.maxWidth / tabs.length;
-                    return Stack(
-                      children: <Widget>[
-                        // Sliding indicator — slightly stronger tint than
-                        // the baseline since the frosted surface absorbs
-                        // saturation.
-                        AnimatedPositioned(
-                          duration: const Duration(milliseconds: 320),
-                          curve: Curves.easeOutCubic,
-                          left: tabWidth * selectedIndex,
-                          top: 0,
-                          bottom: 0,
-                          width: tabWidth,
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 4.w),
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: <Color>[
-                                    AppColors.secondary.withValues(alpha: 0.22),
-                                    AppColors.secondary.withValues(alpha: 0.10),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(18.r),
-                                border: Border.all(
-                                  color: AppColors.secondary
-                                      .withValues(alpha: 0.20),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        Row(
-                          children: <Widget>[
-                            for (var i = 0; i < tabs.length; i++)
-                              Expanded(
-                                child: _NavItem(
-                                  tab: tabs[i],
-                                  selected: i == selectedIndex,
-                                  onTap: () {
-                                    if (i == selectedIndex) return;
-                                    HapticFeedback.selectionClick();
-                                    onTap(i);
-                                  },
-                                ),
-                              ),
-                          ],
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ),
+            ],
           ),
         ),
       ),
@@ -227,10 +160,11 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = selected
+    final iconColor = selected
         ? AppColors.secondary
-        // Slightly bolder than baseline because the frosted surface
-        // eats some contrast.
+        : AppColors.textPrimary.withValues(alpha: 0.7);
+    final textColor = selected
+        ? AppColors.textPrimary
         : AppColors.textPrimary.withValues(alpha: 0.7);
     return Semantics(
       label: tab.label,
@@ -243,44 +177,69 @@ class _NavItem extends StatelessWidget {
           borderRadius: BorderRadius.circular(18.r),
           splashColor: AppColors.secondary.withValues(alpha: 0.14),
           highlightColor: AppColors.secondary.withValues(alpha: 0.06),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                AnimatedSwitcher(
+          child: Stack(
+            alignment: Alignment.center,
+            children: <Widget>[
+              // LinkedIn-style top indicator line
+              Positioned(
+                top: 0,
+                child: AnimatedOpacity(
                   duration: const Duration(milliseconds: 220),
-                  transitionBuilder: (child, animation) => FadeTransition(
-                    opacity: animation,
-                    child: ScaleTransition(scale: animation, child: child),
-                  ),
-                  child: Icon(
-                    selected ? tab.activeIcon : tab.icon,
-                    key: ValueKey<bool>(selected),
-                    color: fg,
-                    size: 22.sp,
+                  opacity: selected ? 1.0 : 0.0,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
+                    height: 3.h,
+                    width: selected ? 52.w : 20.w,
+                    decoration: BoxDecoration(
+                      color: AppColors.secondary,
+                      borderRadius: BorderRadius.vertical(
+                        bottom: Radius.circular(3.r),
+                      ),
+                    ),
                   ),
                 ),
-                SizedBox(height: 2.h),
-                AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
-                  style: TextStyle(
-                    color: fg,
-                    fontSize: 10.sp,
-                    height: 1.1,
-                    fontWeight:
-                        selected ? FontWeight.w600 : FontWeight.w500,
-                    letterSpacing: 0.1,
-                  ),
-                  child: Text(
-                    tab.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+              ),
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: ScaleTransition(scale: animation, child: child),
+                      ),
+                      child: Icon(
+                        selected ? tab.activeIcon : tab.icon,
+                        key: ValueKey<bool>(selected),
+                        color: iconColor,
+                        size: 22.sp,
+                      ),
+                    ),
+                    SizedBox(height: 2.h),
+                    AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 10.sp,
+                        height: 1.1,
+                        fontWeight:
+                            selected ? FontWeight.w600 : FontWeight.w500,
+                        letterSpacing: 0.1,
+                      ),
+                      child: Text(
+                        tab.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
