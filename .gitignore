@@ -89,7 +89,7 @@ env/prod.json
 sentry.properties
 
 # Generated code — regenerate after every pull:
-#   dart run build_runner build --delete-conflicting-outputs
+#   dart run build_runner build
 #   ./tool/gen_dto.sh
 #   flutter gen-l10n
 **/*.freezed.dart

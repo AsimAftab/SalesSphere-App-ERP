@@ -49,6 +49,6 @@ for f in lib/core/api/generated/dto/models/*.dart; do
 done
 
 echo "↻ Running build_runner (freezed + json_serializable)"
-dart run build_runner build --delete-conflicting-outputs
+dart run build_runner build
 
 echo "✓ DTOs regenerated under lib/core/api/generated/dto/"
