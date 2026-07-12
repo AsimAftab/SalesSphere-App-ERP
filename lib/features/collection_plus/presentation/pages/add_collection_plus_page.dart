@@ -530,7 +530,7 @@ class _AddCollectionPlusPageState extends ConsumerState<AddCollectionPlusPage> {
 }
 
 /// `Rs 98,000` style formatter shared by the amount validator.
-final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 0);
+final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 2);
 
 class _SubmitBar extends StatelessWidget {
   const _SubmitBar({required this.isLoading, required this.onPressed});
