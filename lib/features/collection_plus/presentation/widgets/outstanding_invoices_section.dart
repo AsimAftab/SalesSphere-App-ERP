@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/features/collection_plus/domain/invoice_due.dart';
 
-final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 0);
+final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 2);
 final _dateFmt = DateFormat('dd MMM yyyy');
 
 /// Polished summary of the invoices the user selected, with a live preview
@@ -187,47 +187,58 @@ class _AllocationRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(
-                  due.invoice.number,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w600,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    due.invoice.number,
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
                 SizedBox(height: 3.h),
-                Text(
-                  'Total ${_currency.format(due.invoice.amount)} · ${_dateFmt.format(due.invoice.invoiceDate)}',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 11.sp,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Total ${_currency.format(due.invoice.amount)} · ${_dateFmt.format(due.invoice.invoiceDate)}',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12.sp,
+                    ),
                   ),
                 ),
                 if (due.paid > 0.0001) ...<Widget>[
                   SizedBox(height: 2.h),
-                  Text(
-                    due.lastPaidOn == null
-                        ? 'Paid ${_currency.format(due.paid)}'
-                        : 'Paid ${_currency.format(due.paid)} · '
-                            'last on ${_dateFmt.format(due.lastPaidOn!)}',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 11.sp,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      due.lastPaidOn == null
+                          ? 'Paid ${_currency.format(due.paid)}'
+                          : 'Paid ${_currency.format(due.paid)} · last on ${_dateFmt.format(due.lastPaidOn!)}',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12.sp,
+                      ),
                     ),
                   ),
                 ],
                 SizedBox(height: 2.h),
-                Text(
-                  isSettled
-                      ? 'Bill settled'
-                      : 'Outstanding ${_currency.format(remaining)}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 11.sp,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    isSettled
+                        ? 'Bill settled'
+                        : 'Outstanding ${_currency.format(remaining)}',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12.sp,
+                    ),
                   ),
                 ),
               ],

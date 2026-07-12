@@ -8,7 +8,7 @@ import 'package:sales_sphere_erp/features/collection_plus/domain/payment_allocat
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 
-final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 0);
+final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 2);
 final _dateFmt = DateFormat('dd MMM yyyy');
 
 /// Field-shaped tappable that opens a multi-select bottom sheet of the
@@ -422,14 +422,16 @@ class _InvoiceOptionCard extends StatelessWidget {
                     Row(
                       children: <Widget>[
                         Expanded(
-                          child: Text(
-                            due.invoice.number,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: AppColors.textPrimary,
-                              fontSize: 14.sp,
-                              fontWeight: FontWeight.w700,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              due.invoice.number,
+                              style: TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 14.sp,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
                         ),
@@ -438,51 +440,66 @@ class _InvoiceOptionCard extends StatelessWidget {
                           _dateFmt.format(due.invoice.invoiceDate),
                           style: TextStyle(
                             color: AppColors.textSecondary,
-                            fontSize: 11.sp,
+                            fontSize: 12.sp,
                           ),
                         ),
                       ],
                     ),
                     SizedBox(height: 6.h),
-                    Text(
-                      'Total ${_currency.format(due.invoice.amount)}',
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12.sp,
-                      ),
-                    ),
-                    if (hasPaid) ...<Widget>[
-                      SizedBox(height: 2.h),
-                      Text(
-                        due.lastPaidOn == null
-                            ? 'Paid ${_currency.format(due.paid)}'
-                            : 'Paid ${_currency.format(due.paid)} · '
-                                'last on ${_dateFmt.format(due.lastPaidOn!)}',
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Total ${_currency.format(due.invoice.amount)}',
                         style: TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 12.sp,
                         ),
                       ),
+                    ),
+                    if (hasPaid) ...<Widget>[
+                      SizedBox(height: 2.h),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          due.lastPaidOn == null
+                              ? 'Paid ${_currency.format(due.paid)}'
+                              : 'Paid ${_currency.format(due.paid)} · last on ${_dateFmt.format(due.lastPaidOn!)}',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12.sp,
+                          ),
+                        ),
+                      ),
                     ],
                     SizedBox(height: 2.h),
-                    Text(
-                      'Outstanding ${_currency.format(due.outstanding)}',
-                      style: TextStyle(
-                        color: Colors.green.shade700,
-                        fontSize: 13.sp,
-                        fontWeight: FontWeight.w700,
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Outstanding ${_currency.format(due.outstanding)}',
+                        style: TextStyle(
+                          color: Colors.green.shade700,
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                     if (hasApplied) ...<Widget>[
                       SizedBox(height: 4.h),
-                      Text(
-                        settles
-                            ? 'Applies ${_currency.format(applied)} · settles'
-                            : 'Applies ${_currency.format(applied)} · partial',
-                        style: TextStyle(
-                          color: AppColors.secondary,
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w600,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          settles
+                              ? 'Applies ${_currency.format(applied)} · settles'
+                              : 'Applies ${_currency.format(applied)} · partial',
+                          style: TextStyle(
+                            color: AppColors.secondary,
+                            fontSize: 12.sp,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],

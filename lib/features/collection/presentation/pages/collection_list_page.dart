@@ -22,8 +22,8 @@ import 'package:sales_sphere_erp/shared/widgets/status_badge.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
-/// `Rs 12,500` style formatter for collected amounts.
-final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 0);
+/// `Rs 12,500.00` style formatter for collected amounts.
+final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 2);
 
 /// Pixel buffer above `maxScrollExtent` at which we kick off the next page.
 const double _kLoadMoreTriggerPx = 300;
@@ -393,21 +393,20 @@ class _CollectionCard extends StatelessWidget {
                 SizedBox(height: 8.h),
                 Row(
                   children: <Widget>[
-                    Text(
-                      _currency.format(collection.amount),
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 16.sp,
-                        fontWeight: FontWeight.w700,
+                    if (collection.hasServerIdentity)
+                      Text(
+                        collection.collectionNo,
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
+                    CollectionSyncBadge(
+                      syncPending: collection.syncPending,
+                      syncError: collection.syncError,
                     ),
                     const Spacer(),
-                    Icon(
-                      Icons.event_outlined,
-                      size: 14.sp,
-                      color: AppColors.textSecondary,
-                    ),
-                    SizedBox(width: 6.w),
                     Text(
                       DateFormat('dd MMM yyyy').format(collection.receivedDate),
                       style: TextStyle(
@@ -421,24 +420,13 @@ class _CollectionCard extends StatelessWidget {
                 SizedBox(height: 8.h),
                 Row(
                   children: <Widget>[
-                    // The receipt number is the row's server identity. While a
-                    // create is still queued the server hasn't issued one, so
-                    // the slot carries the sync badge instead.
-                    if (collection.hasServerIdentity)
-                      Text(
-                        collection.collectionNo,
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w500,
-                        ),
+                    Text(
+                      _currency.format(collection.amount),
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w700,
                       ),
-                    // No status badge here, unlike Collection Plus. A plain
-                    // Collection has no ledger lifecycle to report — the only
-                    // state it carries is whether it has reached the server.
-                    CollectionSyncBadge(
-                      syncPending: collection.syncPending,
-                      syncError: collection.syncError,
                     ),
                     const Spacer(),
                   ],
@@ -454,7 +442,7 @@ class _CollectionCard extends StatelessWidget {
 
 /// Sample collection fed to [_CollectionCard] while the list is loading.
 final _placeholder = Collection(
-  id: '',
+  id: 'loading-id',
   collectionNo: 'RCPT-00-0000',
   party: const CollectionParty(
     id: '',

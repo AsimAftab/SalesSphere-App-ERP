@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+
 /// Renders [child] underneath a transparent status bar with **light** icons.
 /// Use on screens with a dark background (e.g. the auth gradient).
 class LightStatusBar extends StatelessWidget {
@@ -15,6 +17,9 @@ class LightStatusBar extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: AppColors.surface,
+        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
       ),
       child: child,
     );
@@ -35,6 +40,9 @@ class DarkStatusBar extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.dark,
         statusBarBrightness: Brightness.light,
+        systemNavigationBarColor: AppColors.surface,
+        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
       ),
       child: child,
     );

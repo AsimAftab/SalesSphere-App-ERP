@@ -35,7 +35,7 @@ import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/section_card.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
-final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 0);
+final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 2);
 
 class EditCollectionPlusDetailPage extends ConsumerStatefulWidget {
   const EditCollectionPlusDetailPage({required this.id, this.initial, super.key});
@@ -605,11 +605,12 @@ class _EditCollectionPlusDetailPageState
                                     ),
                                   ],
                                 ] else
-                                  _AllocationBreakdown(
-                                    allocations: _allocations,
-                                    invoiceById: invoiceById,
-                                    dueByInvoiceId: dueByInvoiceId,
-                                  ),
+                                _AllocationBreakdown(
+                                  allocations: _allocations,
+                                  invoiceById: invoiceById,
+                                  dueByInvoiceId: dueByInvoiceId,
+                                  isCancelled: _saved?.status == CollectionStatus.cancelled,
+                                ),
                                 SizedBox(height: 12.h),
                                 CustomDatePicker(
                                   controller: _receivedDateController,
@@ -772,11 +773,13 @@ class _AllocationBreakdown extends StatelessWidget {
     required this.allocations,
     required this.invoiceById,
     required this.dueByInvoiceId,
+    this.isCancelled = false,
   });
 
   final List<CollectionPlusAllocation> allocations;
   final Map<String, CollectionPlusInvoice> invoiceById;
   final Map<String, InvoiceDue> dueByInvoiceId;
+  final bool isCancelled;
 
   @override
   Widget build(BuildContext context) {
@@ -835,6 +838,7 @@ class _AllocationBreakdown extends StatelessWidget {
               invoice: invoiceById[allocations[i].invoiceId],
               due: dueByInvoiceId[allocations[i].invoiceId],
               dateFmt: dateFmt,
+              isCancelled: isCancelled,
             ),
           ],
           Divider(height: 1, color: AppColors.border.withValues(alpha: 0.6)),
@@ -874,16 +878,18 @@ class _SettledInvoiceRow extends StatelessWidget {
     required this.invoice,
     required this.due,
     required this.dateFmt,
+    this.isCancelled = false,
   });
 
   final CollectionPlusAllocation allocation;
   final CollectionPlusInvoice? invoice;
   final InvoiceDue? due;
   final DateFormat dateFmt;
+  final bool isCancelled;
 
   @override
   Widget build(BuildContext context) {
-    final inv = invoice;
+    final inv = invoice ?? due?.invoice;
     final d = due;
     final remaining = inv == null
         ? 0.0
@@ -899,48 +905,63 @@ class _SettledInvoiceRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(
-                  allocation.invoiceNumber,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: AppColors.textSecondary.withValues(alpha: 0.6),
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w600,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    allocation.invoiceNumber,
+                    style: TextStyle(
+                      color: AppColors.textSecondary.withValues(alpha: 0.6),
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
                 if (inv != null) ...<Widget>[
                   SizedBox(height: 3.h),
-                  Text(
-                    'Total ${_currency.format(inv.amount)} · ${dateFmt.format(inv.invoiceDate)}',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 11.sp,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Total ${_currency.format(inv.amount)} · ${dateFmt.format(inv.invoiceDate)}',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12.sp,
+                      ),
                     ),
                   ),
                 ],
                 if (d != null && d.paid > 0.0001) ...<Widget>[
                   SizedBox(height: 2.h),
-                  Text(
-                    d.lastPaidOn == null
-                        ? 'Paid ${_currency.format(d.paid)}'
-                        : 'Paid ${_currency.format(d.paid)} · '
-                            'last on ${dateFmt.format(d.lastPaidOn!)}',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 11.sp,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      d.lastPaidOn == null
+                          ? 'Paid ${_currency.format(d.paid)}'
+                          : 'Paid ${_currency.format(d.paid)} · last on ${dateFmt.format(d.lastPaidOn!)}',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12.sp,
+                      ),
                     ),
                   ),
                 ],
                 if (inv != null) ...<Widget>[
-                  SizedBox(height: 2.h),
-                  Text(
-                    isSettled
-                        ? 'Bill settled'
-                        : 'Outstanding ${_currency.format(remaining)}',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 11.sp,
+                  SizedBox(height: 3.h),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      isCancelled
+                          ? 'Void — bill not settled'
+                          : isSettled
+                              ? 'Bill settled'
+                              : 'Outstanding ${_currency.format(remaining)}',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12.sp,
+                      ),
                     ),
                   ),
                 ],
@@ -955,7 +976,7 @@ class _SettledInvoiceRow extends StatelessWidget {
                 _currency.format(allocation.amount),
                 style: TextStyle(
                   color: AppColors.textSecondary.withValues(alpha: 0.6),
-                  fontSize: 13.sp,
+                  fontSize: 14.sp,
                   fontWeight: FontWeight.w700,
                 ),
               ),

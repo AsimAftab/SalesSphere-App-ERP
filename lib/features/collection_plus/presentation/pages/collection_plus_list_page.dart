@@ -24,8 +24,8 @@ import 'package:sales_sphere_erp/shared/widgets/status_badge.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
-/// `Rs 12,500` style formatter for collected amounts.
-final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 0);
+/// `Rs 12,500.00` style formatter for collected amounts.
+final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 2);
 
 /// Pixel buffer above `maxScrollExtent` at which we kick off the next page.
 const double _kLoadMoreTriggerPx = 300;
@@ -441,12 +441,33 @@ class _CollectionCard extends StatelessWidget {
                 SizedBox(height: 6.h),
                 Row(
                   children: <Widget>[
-                    Icon(
-                      Icons.receipt_long_outlined,
-                      size: 13.sp,
-                      color: AppColors.textSecondary,
+                    if (collection.hasServerIdentity)
+                      Text(
+                        collection.collectionNo,
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    CollectionSyncBadge(
+                      syncPending: collection.syncPending,
+                      syncError: collection.syncError,
                     ),
-                    SizedBox(width: 6.w),
+                    const Spacer(),
+                    Text(
+                      DateFormat('dd MMM yyyy').format(collection.receivedDate),
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 8.h),
+                Row(
+                  children: <Widget>[
                     Expanded(
                       child: Text(
                         // A queued row has no allocations yet — the server
@@ -478,39 +499,6 @@ class _CollectionCard extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
-                    Icon(
-                      Icons.event_outlined,
-                      size: 14.sp,
-                      color: AppColors.textSecondary,
-                    ),
-                    SizedBox(width: 6.w),
-                    Text(
-                      DateFormat('dd MMM yyyy').format(collection.receivedDate),
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 8.h),
-                Row(
-                  children: <Widget>[
-                    if (collection.hasServerIdentity)
-                      Text(
-                        collection.collectionNo,
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    CollectionSyncBadge(
-                      syncPending: collection.syncPending,
-                      syncError: collection.syncError,
-                    ),
-                    const Spacer(),
                     StatusBadge(
                       label: collection.status.label,
                       color: collection.status.color,
@@ -527,13 +515,14 @@ class _CollectionCard extends StatelessWidget {
 }
 
 /// Sample collection fed to [_CollectionCard] while the list is loading.
-/// Skeletonizer paints bones over the rendered party / amount / date.
+/// Skeletonizer paints bones over the rendered party / receipt no / invoices / amount.
 final _placeholder = CollectionPlus(
-  id: '',
+  id: 'loading-id',
+  collectionNo: 'RCPT-00-0000',
   allocations: const <CollectionPlusAllocation>[
     CollectionPlusAllocation(
       invoiceId: '',
-      invoiceNumber: 'ORD-0000-0000',
+      invoiceNumber: 'INV-0000-0000',
       amount: 10000,
     ),
   ],
