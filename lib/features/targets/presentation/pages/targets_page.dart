@@ -11,7 +11,9 @@ import 'package:sales_sphere_erp/features/targets/domain/target_item.dart';
 import 'package:sales_sphere_erp/features/targets/presentation/pages/target_drill_down_page.dart';
 import 'package:sales_sphere_erp/features/targets/presentation/providers/targets_providers.dart';
 import 'package:sales_sphere_erp/features/targets/presentation/widgets/target_card.dart';
+import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_search_filter.dart';
+import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
@@ -20,9 +22,9 @@ import 'package:skeletonizer/skeletonizer.dart';
 ///
 /// Features:
 /// - Header titled "My Targets" with corner bubble accent
-/// - Month Navigation Header ([MonthNavHeader]) to browse targets by month
-/// - Search Bar placed below Month Nav to search targets instantly by rule name
+/// - Search Bar placed below header to search targets instantly by rule name
 /// - Interval Filter Chips (`All Intervals`, `Daily`, `Monthly`) placed below Search Bar
+/// - Month Navigation Header ([MonthNavHeader]) below filters to browse targets by month
 /// - Clean scrollable list of [TargetCard]s showing explicit dates & interval badges
 class TargetsPage extends ConsumerStatefulWidget {
   const TargetsPage({super.key});
@@ -112,31 +114,33 @@ class _TargetsPageState extends ConsumerState<TargetsPage> {
                     child: _AppBar(onBack: () => _back(context)),
                   ),
                   SizedBox(height: 14.h),
-                  // 1. Month Navigation Header
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16.w),
-                    child: MonthNavHeader(
-                      displayedMonth: _selectedMonth,
-                      onMonthChange: (m) => setState(() => _selectedMonth = m),
-                    ),
-                  ),
-                  SizedBox(height: 12.h),
-                  // 2. Search Bar right below Month Nav Bar
+                  // 1. Search Bar right below App Bar
                   Padding(
                     padding: EdgeInsets.symmetric(horizontal: 20.w),
-                    child: _SearchBar(
+                    child: PrimaryTextField(
                       controller: _searchController,
+                      hintText: 'Search by rule name or date',
+                      prefixIcon: Icons.search_rounded,
                       onChanged: (query) {
                         setState(() => _searchQuery = query.trim());
                       },
-                      onClear: () {
-                        _searchController.clear();
-                        setState(() => _searchQuery = '');
-                      },
+                      suffixWidget: _searchQuery.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: Icon(
+                                Icons.clear_rounded,
+                                color: AppColors.textSecondary,
+                                size: 18.sp,
+                              ),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                            ),
                     ),
                   ),
                   SizedBox(height: 10.h),
-                  // 3. Filter dropdown exactly like Attendance page
+                  // 2. Filter dropdown exactly like Attendance page
                   Padding(
                     padding: EdgeInsets.symmetric(horizontal: 20.w),
                     child: PrimarySearchFilter<String>(
@@ -162,6 +166,15 @@ class _TargetsPageState extends ConsumerState<TargetsPage> {
                           iconColor: AppColors.purple500,
                         ),
                       ],
+                    ),
+                  ),
+                  SizedBox(height: 12.h),
+                  // 3. Month Navigation Header
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20.w),
+                    child: MonthNavHeader(
+                      displayedMonth: _selectedMonth,
+                      onMonthChange: (m) => setState(() => _selectedMonth = m),
                     ),
                   ),
                   SizedBox(height: 10.h),
@@ -205,7 +218,12 @@ class _TargetsPageState extends ConsumerState<TargetsPage> {
                               ),
                               SizedBox(height: 12.h),
                               if (filtered.isEmpty)
-                                const _EmptyTargetsView()
+                                const EmptyStateView(
+                                  icon: Icons.search_off_rounded,
+                                  title: 'No Matching Targets',
+                                  message:
+                                      'Try adjusting your search query or interval filter.',
+                                )
                               else
                                 ...filtered.map(
                                   (target) => Padding(
@@ -314,7 +332,7 @@ class _AppBar extends StatelessWidget {
         ),
         SizedBox(width: 12.w),
         Text(
-          'My Targets',
+          'Targets',
           style: TextStyle(
             color: AppColors.primary,
             fontSize: 20.sp,
@@ -327,98 +345,5 @@ class _AppBar extends StatelessWidget {
   }
 }
 
-class _SearchBar extends StatelessWidget {
-  const _SearchBar({
-    required this.controller,
-    required this.onChanged,
-    required this.onClear,
-  });
 
-  final TextEditingController controller;
-  final ValueChanged<String> onChanged;
-  final VoidCallback onClear;
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: TextField(
-        controller: controller,
-        onChanged: onChanged,
-        style: TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 14.sp,
-        ),
-        decoration: InputDecoration(
-          hintText: 'Search by rule name or date',
-          hintStyle: TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 14.sp,
-          ),
-          prefixIcon: Icon(
-            Icons.search_rounded,
-            color: AppColors.textSecondary,
-            size: 20.sp,
-          ),
-          suffixIcon: controller.text.isNotEmpty
-              ? IconButton(
-                  icon: Icon(
-                    Icons.clear_rounded,
-                    color: AppColors.textSecondary,
-                    size: 18.sp,
-                  ),
-                  onPressed: onClear,
-                )
-              : null,
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(vertical: 12.h),
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptyTargetsView extends StatelessWidget {
-  const _EmptyTargetsView();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(32.r),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Icon(
-              Icons.search_off_rounded,
-              size: 56.sp,
-              color: AppColors.iconsColorSecondary.withValues(alpha: 0.5),
-            ),
-            SizedBox(height: 16.h),
-            Text(
-              'No Matching Targets',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 18.sp,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            SizedBox(height: 6.h),
-            Text(
-              'Try adjusting your search query or interval filter.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 14.sp,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
