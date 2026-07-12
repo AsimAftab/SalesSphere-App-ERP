@@ -1,75 +1,78 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sales_sphere_erp/features/targets/domain/target_enums.dart';
 import 'package:sales_sphere_erp/features/targets/domain/target_item.dart';
+
+TargetItem _item({
+  double targetValue = 100,
+  double actualValue = 0,
+  TargetStatus status = TargetStatus.active,
+  bool isCurrency = false,
+  TargetPeriodStatus periodStatus = TargetPeriodStatus.inProgress,
+}) {
+  return TargetItem(
+    id: 't1',
+    rule: 'No. of Orders',
+    metric: TargetMetric.orderCount,
+    interval: TargetInterval.daily,
+    targetValue: targetValue,
+    actualValue: actualValue,
+    status: status,
+    isCurrency: isCurrency,
+    periodStart: DateTime(2026, 7, 12),
+    periodEnd: DateTime(2026, 7, 12),
+    periodLabel: 'Jul 12, 2026',
+    periodStatus: periodStatus,
+  );
+}
 
 void main() {
   group('TargetItem domain calculations and formatting', () {
-    test('calculates percentage correctly and caps at 100%', () {
-      const activeTarget = TargetItem(
-        id: 't1',
-        rule: 'No. of Orders',
-        interval: 'Daily',
-        targetValue: 15,
-        actualValue: 12,
-        status: 'Active',
-      );
+    test('80% active target reports partial progress and not completed', () {
+      final target = _item(actualValue: 80);
 
-      expect(activeTarget.progressPercentage, closeTo(80.0, 0.01));
-      expect(activeTarget.progressFraction, closeTo(0.8, 0.01));
-      expect(activeTarget.isCompleted, isFalse);
-
-      const overachievedTarget = TargetItem(
-        id: 't2',
-        rule: 'Value of collections',
-        interval: 'Daily',
-        targetValue: 50000,
-        actualValue: 55000,
-        status: 'Completed',
-      );
-
-      expect(overachievedTarget.progressPercentage, equals(100));
-      expect(overachievedTarget.progressFraction, equals(1));
-      expect(overachievedTarget.isCompleted, isTrue);
+      expect(target.progressPercentage, 80);
+      expect(target.progressFraction, 0.8);
+      expect(target.isCompleted, isFalse);
     });
 
-    test('formats currency vs non-currency rules appropriately', () {
-      const orderTarget = TargetItem(
-        id: 't1',
-        rule: 'No. of Orders',
-        interval: 'Daily',
-        targetValue: 15,
-        actualValue: 12,
-        status: 'Active',
-      );
+    test('progress caps at 100% / 1.0 when actual exceeds target', () {
+      final target =
+          _item(actualValue: 110, status: TargetStatus.completed);
 
-      expect(orderTarget.isCurrency, isFalse);
-      expect(orderTarget.formattedActual, equals('12'));
-      expect(orderTarget.formattedTarget, equals('15'));
+      expect(target.progressPercentage, 100);
+      expect(target.progressFraction, 1.0);
+      expect(target.isCompleted, isTrue);
+    });
 
-      const collectionTarget = TargetItem(
-        id: 't2',
-        rule: 'Value of collections',
-        interval: 'Daily',
-        targetValue: 50000,
+    test('COMPLETED status marks the target complete even below target', () {
+      final target = _item(actualValue: 40, status: TargetStatus.completed);
+
+      expect(target.isCompleted, isTrue);
+    });
+
+    test('zero target value yields zero progress, not a division error', () {
+      final target = _item(targetValue: 0, actualValue: 5);
+
+      expect(target.progressPercentage, 0);
+      expect(target.progressFraction, 0);
+    });
+
+    test('non-currency values format as plain decimals', () {
+      final target = _item(targetValue: 15, actualValue: 12);
+
+      expect(target.formattedActual, '12');
+      expect(target.formattedTarget, '15');
+    });
+
+    test('currency flag is server-owned and drives Rs formatting', () {
+      final target = _item(
+        targetValue: 450000,
         actualValue: 55000,
-        status: 'Completed',
+        isCurrency: true,
       );
 
-      expect(collectionTarget.isCurrency, isTrue);
-      expect(collectionTarget.formattedActual, equals('Rs 55,000'));
-      expect(collectionTarget.formattedTarget, equals('Rs 50,000'));
-
-      const noOfCollectionsTarget = TargetItem(
-        id: 't3',
-        rule: 'No. of collections',
-        interval: 'Daily',
-        targetValue: 5,
-        actualValue: 5,
-        status: 'Completed',
-      );
-
-      expect(noOfCollectionsTarget.isCurrency, isFalse);
-      expect(noOfCollectionsTarget.formattedActual, equals('5'));
-      expect(noOfCollectionsTarget.formattedTarget, equals('5'));
+      expect(target.formattedActual, 'Rs 55,000');
+      expect(target.formattedTarget, 'Rs 450,000');
     });
   });
 }

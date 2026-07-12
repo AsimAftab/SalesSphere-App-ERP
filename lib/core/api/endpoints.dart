@@ -195,6 +195,10 @@ class Endpoints {
   static String noteImages(String id) => '/notes/$id/images';
   static String noteImageSlot(String id, int slot) => '/notes/$id/images/$slot';
 
+  // ── Targets (read-only: assigned on web, a rep only reads) ────────────────
+  static const targetsMe = '/targets/me';
+  static const targetsDrillDown = '/targets/drill-down';
+
   // ── Profile ───────────────────────────────────────────────────────────────
   static const profile = '/profile';
 

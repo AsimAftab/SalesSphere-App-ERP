@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/features/targets/domain/target_enums.dart';
 import 'package:sales_sphere_erp/features/targets/domain/target_item.dart';
+import 'package:sales_sphere_erp/features/targets/presentation/widgets/target_progress_color.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_badge.dart';
 
 /// A sleek, modern card displaying an employee's assigned target,
@@ -22,21 +24,13 @@ class TargetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDaily = target.interval.toLowerCase() == 'daily';
+    final isDaily = target.interval == TargetInterval.daily;
     final intervalBadgeLabel = isDaily ? 'Daily' : 'Monthly';
     final intervalBadgeColor =
         isDaily ? AppColors.info : AppColors.purple500;
     final progressFraction = target.progressFraction;
     final progressPercentage = target.progressPercentage;
-
-    final Color progressColor;
-    if (target.actualValue == 0) {
-      progressColor = AppColors.error; // Red matching Beat Plans
-    } else if (progressPercentage >= 100) {
-      progressColor = AppColors.success; // Green matching Beat Plans
-    } else {
-      progressColor = AppColors.warning; // Professional crisp Amber
-    }
+    final progressColor = targetProgressColor(target);
 
     return Material(
       color: Colors.transparent,

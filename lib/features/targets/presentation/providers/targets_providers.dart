@@ -1,49 +1,52 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:sales_sphere_erp/features/targets/data/repositories/targets_repository_impl.dart';
+import 'package:sales_sphere_erp/features/targets/data/repositories/targets_repository_impl.dart'
+    show targetsRepositoryProvider;
 import 'package:sales_sphere_erp/features/targets/domain/repositories/targets_repository.dart';
-import 'package:sales_sphere_erp/features/targets/domain/target_item.dart';
 
-/// Provides the abstract [TargetsRepository] interface.
-final targetsRepositoryProvider = Provider<TargetsRepository>((ref) {
-  return const TargetsRepositoryImpl();
-});
+export 'package:sales_sphere_erp/features/targets/data/repositories/targets_repository_impl.dart'
+    show targetsRepositoryProvider;
 
-/// Fetches all assigned targets for the current employee.
-final myTargetsProvider =
-    FutureProvider.autoDispose<List<TargetItem>>((ref) async {
-  final repository = ref.watch(targetsRepositoryProvider);
-  return repository.getMyTargets();
-});
-
-/// Notifier managing the currently selected interval ('Daily' or 'Monthly').
-class SelectedTargetIntervalNotifier extends Notifier<String> {
+/// The day the rep is looking at. `null` = today, which goes over the wire
+/// **param-less** so the server resolves "today" in the org's timezone —
+/// deliberately not the device's date. Non-null = an explicit past day the
+/// user navigated to, normalized to local-midnight Y/M/D.
+class SelectedTargetDateNotifier extends Notifier<DateTime?> {
   @override
-  String build() => 'Daily';
+  DateTime? build() => null;
 
-  void setInterval(String interval) {
-    if (state != interval) {
-      state = interval;
-    }
+  /// Select a day. Today or later snaps back to the default (null) state:
+  /// only the server can compare against org-timezone "today", so the device
+  /// never sends its own idea of it.
+  void select(DateTime date) {
+    final day = DateTime(date.year, date.month, date.day);
+    state = day.isBefore(_today()) ? day : null;
+  }
+
+  void previousDay() => select((state ?? _today()).subtract(const Duration(days: 1)));
+
+  /// No-op while already on today — the header disables the chevron too.
+  void nextDay() {
+    final current = state;
+    if (current != null) select(current.add(const Duration(days: 1)));
+  }
+
+  static DateTime _today() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
   }
 }
 
-final selectedTargetIntervalProvider =
-    NotifierProvider<SelectedTargetIntervalNotifier, String>(
-  SelectedTargetIntervalNotifier.new,
+final selectedTargetDateProvider =
+    NotifierProvider<SelectedTargetDateNotifier, DateTime?>(
+  SelectedTargetDateNotifier.new,
 );
 
-/// Provides the list of target cards filtered by the selected interval.
-final filteredTargetsProvider =
-    Provider.autoDispose<AsyncValue<List<TargetItem>>>((ref) {
-  final targetsAsync = ref.watch(myTargetsProvider);
-  final selectedInterval = ref.watch(selectedTargetIntervalProvider);
-
-  return targetsAsync.whenData((items) {
-    return items
-        .where(
-          (item) =>
-              item.interval.toLowerCase() == selectedInterval.toLowerCase(),
-        )
-        .toList();
-  });
+/// Fetches assigned targets for the selected day. Changing
+/// [selectedTargetDateProvider] refetches automatically; pull-to-refresh
+/// invalidates this provider directly.
+final myTargetsProvider =
+    FutureProvider.autoDispose<MyTargetsSnapshot>((ref) async {
+  final date = ref.watch(selectedTargetDateProvider);
+  final repository = ref.watch(targetsRepositoryProvider);
+  return repository.getMyTargets(date: date);
 });

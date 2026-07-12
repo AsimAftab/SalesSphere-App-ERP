@@ -7,6 +7,7 @@ import 'package:sales_sphere_erp/core/db/daos/collections_dao.dart';
 import 'package:sales_sphere_erp/core/db/daos/outbox_dao.dart';
 import 'package:sales_sphere_erp/core/db/daos/parties_dao.dart';
 import 'package:sales_sphere_erp/core/db/daos/sync_state_dao.dart';
+import 'package:sales_sphere_erp/core/db/daos/targets_dao.dart';
 import 'package:sales_sphere_erp/core/db/daos/tracking_dao.dart';
 import 'package:sales_sphere_erp/core/db/daos/tracking_pings_dao.dart';
 import 'package:sales_sphere_erp/core/db/daos/users_dao.dart';
@@ -16,6 +17,7 @@ import 'package:sales_sphere_erp/core/db/tables/collections_table.dart';
 import 'package:sales_sphere_erp/core/db/tables/mutation_outbox_table.dart';
 import 'package:sales_sphere_erp/core/db/tables/parties_table.dart';
 import 'package:sales_sphere_erp/core/db/tables/sync_state_table.dart';
+import 'package:sales_sphere_erp/core/db/tables/targets_table.dart';
 import 'package:sales_sphere_erp/core/db/tables/tracking_pings_table.dart';
 import 'package:sales_sphere_erp/core/db/tables/tracking_sessions_table.dart';
 import 'package:sales_sphere_erp/core/db/tables/tracking_summaries_table.dart';
@@ -36,6 +38,7 @@ part 'app_database.g.dart';
     TrackingSummaries,
     Collections,
     CollectionAllocations,
+    Targets,
   ],
   daos: <Type>[
     UsersDao,
@@ -46,6 +49,7 @@ part 'app_database.g.dart';
     TrackingDao,
     TrackingPingsDao,
     CollectionsDao,
+    TargetsDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -53,7 +57,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.test(super.connection);
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -163,6 +167,12 @@ class AppDatabase extends _$AppDatabase {
             // not rebuild a table that's already correct.
             await m.alterTable(TableMigration(collections));
           }
+          if (from < 13) {
+            // v13 adds the read-only targets cache: last-synced /targets/me
+            // rows served when the rep is offline. A cache, not an outbox —
+            // targets have no write path on mobile.
+            await m.createTable(targets);
+          }
         },
       );
 
@@ -235,4 +245,10 @@ final trackingPingsDaoProvider = Provider<TrackingPingsDao>(
 /// other's cache entries.
 final collectionsDaoProvider = Provider<CollectionsDao>(
   (ref) => ref.watch(appDatabaseProvider).collectionsDao,
+);
+
+/// Read-only targets cache — snapshots of `/targets/me` keyed by requested
+/// date, served only when the network is unreachable.
+final targetsDaoProvider = Provider<TargetsDao>(
+  (ref) => ref.watch(appDatabaseProvider).targetsDao,
 );
