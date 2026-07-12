@@ -3,14 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
-import 'package:sales_sphere_erp/features/attendance/presentation/widgets/month_nav_header.dart';
+import 'package:sales_sphere_erp/features/targets/domain/target_enums.dart';
 import 'package:sales_sphere_erp/features/targets/domain/target_item.dart';
 import 'package:sales_sphere_erp/features/targets/presentation/pages/target_drill_down_page.dart';
 import 'package:sales_sphere_erp/features/targets/presentation/providers/targets_providers.dart';
 import 'package:sales_sphere_erp/features/targets/presentation/widgets/target_card.dart';
+import 'package:sales_sphere_erp/features/targets/presentation/widgets/target_day_nav_header.dart';
 import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_search_filter.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
@@ -21,11 +21,13 @@ import 'package:skeletonizer/skeletonizer.dart';
 /// Reached from the More tab tile.
 ///
 /// Features:
-/// - Header titled "My Targets" with corner bubble accent
-/// - Search Bar placed below header to search targets instantly by rule name
-/// - Interval Filter Chips (`All Intervals`, `Daily`, `Monthly`) placed below Search Bar
-/// - Month Navigation Header ([MonthNavHeader]) below filters to browse targets by month
-/// - Clean scrollable list of [TargetCard]s showing explicit dates & interval badges
+/// - Header titled "Targets" with corner bubble accent
+/// - Search Bar to filter targets instantly by rule name or period
+/// - Interval Filter Chips (`All Intervals`, `Daily`, `Monthly`)
+/// - Day Navigation Header ([TargetDayNavHeader]) driving the server's
+///   `?date=` param — DAILY targets are scored for that day, MONTHLY for the
+///   month containing it
+/// - Clean scrollable list of [TargetCard]s with server period labels
 class TargetsPage extends ConsumerStatefulWidget {
   const TargetsPage({super.key});
 
@@ -34,17 +36,28 @@ class TargetsPage extends ConsumerStatefulWidget {
 }
 
 class _TargetsPageState extends ConsumerState<TargetsPage> {
+  /// Placeholder for the loading skeleton. `static final`, not const —
+  /// DateTime has no const constructor.
+  static final TargetItem _skeletonTarget = TargetItem(
+    id: 'skeleton',
+    rule: 'No. of Orders Assigned',
+    metric: TargetMetric.orderCount,
+    interval: TargetInterval.daily,
+    targetValue: 100,
+    actualValue: 65,
+    status: TargetStatus.active,
+    isCurrency: false,
+    periodStart: DateTime(2026),
+    periodEnd: DateTime(2026),
+    periodLabel: 'Jul 12, 2026',
+    periodStatus: TargetPeriodStatus.inProgress,
+  );
+
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  String _intervalFilter = 'All'; // 'All', 'Daily', 'Monthly'
-  late DateTime _selectedMonth;
 
-  @override
-  void initState() {
-    super.initState();
-    final now = DateTime.now();
-    _selectedMonth = DateTime(now.year, now.month);
-  }
+  /// Null = all intervals.
+  TargetInterval? _intervalFilter;
 
   @override
   void dispose() {
@@ -65,31 +78,22 @@ class _TargetsPageState extends ConsumerState<TargetsPage> {
       if (_searchQuery.isNotEmpty) {
         final query = _searchQuery.toLowerCase();
         final ruleMatch = item.rule.toLowerCase().contains(query);
-        final dateMatch =
-            _getCardPeriodLabel(item).toLowerCase().contains(query);
+        final dateMatch = item.periodLabel.toLowerCase().contains(query);
         if (!ruleMatch && !dateMatch) {
           return false;
         }
       }
-      if (_intervalFilter != 'All' &&
-          item.interval.toLowerCase() != _intervalFilter.toLowerCase()) {
+      if (_intervalFilter != null && item.interval != _intervalFilter) {
         return false;
       }
       return true;
     }).toList();
   }
 
-  String _getCardPeriodLabel(TargetItem target) {
-    if (target.interval.toLowerCase() == 'daily') {
-      final now = DateTime.now();
-      return DateFormat('dd MMM yyyy').format(now);
-    }
-    return DateFormat('MMMM yyyy').format(_selectedMonth);
-  }
-
   @override
   Widget build(BuildContext context) {
     final targetsAsync = ref.watch(myTargetsProvider);
+    final selectedDate = ref.watch(selectedTargetDateProvider);
 
     return DarkStatusBar(
       child: Scaffold(
@@ -143,24 +147,24 @@ class _TargetsPageState extends ConsumerState<TargetsPage> {
                   // 2. Filter dropdown exactly like Attendance page
                   Padding(
                     padding: EdgeInsets.symmetric(horizontal: 20.w),
-                    child: PrimarySearchFilter<String>(
+                    child: PrimarySearchFilter<TargetInterval?>(
                       selected: _intervalFilter,
                       onChanged: (next) =>
                           setState(() => _intervalFilter = next),
-                      options: const <SearchFilterOption<String>>[
-                        SearchFilterOption<String>(
-                          value: 'All',
+                      options: const <SearchFilterOption<TargetInterval?>>[
+                        SearchFilterOption<TargetInterval?>(
+                          value: null,
                           label: 'All Intervals',
                           icon: Icons.filter_list_rounded,
                         ),
-                        SearchFilterOption<String>(
-                          value: 'Daily',
+                        SearchFilterOption<TargetInterval?>(
+                          value: TargetInterval.daily,
                           label: 'Daily Targets',
                           icon: Icons.today_rounded,
                           iconColor: AppColors.info,
                         ),
-                        SearchFilterOption<String>(
-                          value: 'Monthly',
+                        SearchFilterOption<TargetInterval?>(
+                          value: TargetInterval.monthly,
                           label: 'Monthly Targets',
                           icon: Icons.calendar_month_rounded,
                           iconColor: AppColors.purple500,
@@ -169,12 +173,19 @@ class _TargetsPageState extends ConsumerState<TargetsPage> {
                     ),
                   ),
                   SizedBox(height: 12.h),
-                  // 3. Month Navigation Header
+                  // 3. Day Navigation Header — drives the `?date=` param
                   Padding(
                     padding: EdgeInsets.symmetric(horizontal: 20.w),
-                    child: MonthNavHeader(
-                      displayedMonth: _selectedMonth,
-                      onMonthChange: (m) => setState(() => _selectedMonth = m),
+                    child: TargetDayNavHeader(
+                      selectedDate: selectedDate,
+                      onPrevious: () => ref
+                          .read(selectedTargetDateProvider.notifier)
+                          .previousDay(),
+                      onNext: () =>
+                          ref.read(selectedTargetDateProvider.notifier).nextDay(),
+                      onSelectDate: (d) => ref
+                          .read(selectedTargetDateProvider.notifier)
+                          .select(d),
                     ),
                   ),
                   SizedBox(height: 10.h),
@@ -185,8 +196,8 @@ class _TargetsPageState extends ConsumerState<TargetsPage> {
                         await ref.read(myTargetsProvider.future);
                       },
                       child: targetsAsync.when(
-                        data: (allTargets) {
-                          final filtered = _applyFilters(allTargets);
+                        data: (snapshot) {
+                          final filtered = _applyFilters(snapshot.items);
 
                           return ListView(
                             physics: const AlwaysScrollableScrollPhysics(
@@ -194,6 +205,10 @@ class _TargetsPageState extends ConsumerState<TargetsPage> {
                             ),
                             padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 32.h),
                             children: <Widget>[
+                              if (snapshot.fromCache) ...<Widget>[
+                                const _OfflineBanner(),
+                                SizedBox(height: 12.h),
+                              ],
                               // Section title & count
                               Row(
                                 children: <Widget>[
@@ -218,11 +233,16 @@ class _TargetsPageState extends ConsumerState<TargetsPage> {
                               ),
                               SizedBox(height: 12.h),
                               if (filtered.isEmpty)
-                                const EmptyStateView(
-                                  icon: Icons.search_off_rounded,
-                                  title: 'No Matching Targets',
-                                  message:
-                                      'Try adjusting your search query or interval filter.',
+                                EmptyStateView(
+                                  icon: snapshot.items.isEmpty
+                                      ? Icons.track_changes_outlined
+                                      : Icons.search_off_rounded,
+                                  title: snapshot.items.isEmpty
+                                      ? 'No Targets Assigned'
+                                      : 'No Matching Targets',
+                                  message: snapshot.items.isEmpty
+                                      ? 'Targets assigned to you for this period will appear here.'
+                                      : 'Try adjusting your search query or interval filter.',
                                 )
                               else
                                 ...filtered.map(
@@ -230,14 +250,11 @@ class _TargetsPageState extends ConsumerState<TargetsPage> {
                                     padding: EdgeInsets.only(bottom: 14.h),
                                     child: TargetCard(
                                       target: target,
-                                      periodLabel: _getCardPeriodLabel(target),
+                                      periodLabel: target.periodLabel,
                                       onTap: () => context.push(
                                         Routes.targetDrillDown,
-                                        extra: TargetDrillDownArgs(
-                                          target: target,
-                                          periodLabel:
-                                              _getCardPeriodLabel(target),
-                                        ),
+                                        extra:
+                                            TargetDrillDownArgs(target: target),
                                       ),
                                     ),
                                   ),
@@ -246,15 +263,6 @@ class _TargetsPageState extends ConsumerState<TargetsPage> {
                           );
                         },
                         loading: () {
-                          const placeholderTarget = TargetItem(
-                            id: 'skeleton',
-                            rule: 'No. of Orders Assigned',
-                            interval: 'Daily',
-                            targetValue: 100,
-                            actualValue: 65,
-                            status: 'Active',
-                          );
-
                           return Skeletonizer(
                             child: ListView.separated(
                               physics: const AlwaysScrollableScrollPhysics(
@@ -264,9 +272,9 @@ class _TargetsPageState extends ConsumerState<TargetsPage> {
                               itemCount: 5,
                               separatorBuilder: (_, __) =>
                                   SizedBox(height: 14.h),
-                              itemBuilder: (_, __) => const TargetCard(
-                                target: placeholderTarget,
-                                periodLabel: '11 Jul 2026',
+                              itemBuilder: (_, __) => TargetCard(
+                                target: _skeletonTarget,
+                                periodLabel: _skeletonTarget.periodLabel,
                               ),
                             ),
                           );
@@ -314,6 +322,40 @@ class _TargetsPageState extends ConsumerState<TargetsPage> {
   }
 }
 
+/// Shown when the list is served from the drift cache because the network
+/// was unreachable — the numbers are last-synced, not live.
+class _OfflineBanner extends StatelessWidget {
+  const _OfflineBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: <Widget>[
+          Icon(Icons.cloud_off_rounded, color: AppColors.warning, size: 18.sp),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: Text(
+              'Offline — showing last-synced data',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _AppBar extends StatelessWidget {
   const _AppBar({required this.onBack});
 
@@ -344,6 +386,3 @@ class _AppBar extends StatelessWidget {
     );
   }
 }
-
-
-

@@ -1,7 +1,9 @@
 import 'package:intl/intl.dart';
 
+import 'package:sales_sphere_erp/features/targets/domain/target_enums.dart';
+
 /// Represents a single activity/transaction record contributing to an assigned
-/// target's actual value.
+/// target's actual value. One row of `GET /targets/drill-down`.
 class TargetDrillDownRecord {
   const TargetDrillDownRecord({
     required this.id,
@@ -9,6 +11,7 @@ class TargetDrillDownRecord {
     required this.contributionValue,
     required this.isCurrency,
     required this.timestamp,
+    required this.datePrecision,
     this.subtitle,
   });
 
@@ -21,18 +24,28 @@ class TargetDrillDownRecord {
   final String? subtitle;
 
   /// Amount or count contributed by this record.
-  final num contributionValue;
+  final double contributionValue;
 
   /// Whether [contributionValue] should be formatted as currency.
   final bool isCurrency;
 
-  /// Exact date and time the activity occurred.
+  /// When the activity occurred — but read [datePrecision] before formatting.
   final DateTime timestamp;
 
-  /// Returns exact date and time string formatted as 'Jul 5, 2026 10:15 AM'.
-  String get formattedTimestamp {
-    return DateFormat('MMM d, yyyy h:mm a').format(timestamp);
-  }
+  /// [DatePrecision.day] rows park a calendar day at UTC midnight; a clock
+  /// printed off one would just be the org's UTC offset.
+  final DatePrecision datePrecision;
+
+  /// Formatted timestamp: date + clock for real instants; date only for
+  /// calendar-day rows. The DAY branch reads in UTC — the day was stored at
+  /// UTC midnight, so device-local time in a negative-offset zone would slide
+  /// it back a day.
+  String get formattedTimestamp => switch (datePrecision) {
+        DatePrecision.instant =>
+          DateFormat('MMM d, yyyy h:mm a').format(timestamp),
+        DatePrecision.day =>
+          DateFormat('MMM d, yyyy').format(timestamp.toUtc()),
+      };
 
   /// Returns formatted contribution string (e.g., '+ Rs 1,500' or '+1').
   String get formattedContribution {

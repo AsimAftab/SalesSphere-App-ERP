@@ -540,10 +540,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: Routes.targetDrillDownName,
         builder: (context, state) {
           final args = state.extra as TargetDrillDownArgs;
-          return TargetDrillDownPage(
-            target: args.target,
-            periodLabel: args.periodLabel,
-          );
+          return TargetDrillDownPage(target: args.target);
         },
       ),
     ],

@@ -6,57 +6,78 @@ import 'package:go_router/go_router.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/controllers/auth_controller.dart';
-import 'package:sales_sphere_erp/features/targets/domain/target_drill_down_generator.dart';
 import 'package:sales_sphere_erp/features/targets/domain/target_drill_down_record.dart';
+import 'package:sales_sphere_erp/features/targets/domain/target_enums.dart';
 import 'package:sales_sphere_erp/features/targets/domain/target_item.dart';
+import 'package:sales_sphere_erp/features/targets/presentation/providers/target_drill_down_providers.dart';
+import 'package:sales_sphere_erp/features/targets/presentation/widgets/target_progress_color.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_badge.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 /// Navigation argument class for [TargetDrillDownPage].
 class TargetDrillDownArgs {
-  const TargetDrillDownArgs({
-    required this.target,
-    this.periodLabel,
-  });
+  const TargetDrillDownArgs({required this.target});
 
   final TargetItem target;
-  final String? periodLabel;
 }
 
-/// Dedicated Drill-Down screen displaying individual records that make up
-/// an assigned target's Total Actual value.
-class TargetDrillDownPage extends ConsumerWidget {
-  const TargetDrillDownPage({
-    required this.target,
-    this.periodLabel,
-    super.key,
-  });
+/// Dedicated Drill-Down screen displaying the individual server records that
+/// make up an assigned target's Total Actual value. Cursor-paginated;
+/// network-only (offline shows the error state — only the targets list is
+/// cached).
+class TargetDrillDownPage extends ConsumerStatefulWidget {
+  const TargetDrillDownPage({required this.target, super.key});
 
   final TargetItem target;
-  final String? periodLabel;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authControllerProvider);
-    final employeeName = authState.asData?.value?.fullName ?? 'Vikram Sharma';
-    final effectivePeriod = periodLabel ??
-        (target.interval.toLowerCase() == 'daily'
-            ? 'July 11, 2026'
-            : 'July 2026');
+  ConsumerState<TargetDrillDownPage> createState() =>
+      _TargetDrillDownPageState();
+}
 
-    final records = TargetDrillDownGenerator.generateRecords(target);
-    final dynamicHeader =
-        TargetDrillDownGenerator.getDynamicListHeader(target.rule);
+class _TargetDrillDownPageState extends ConsumerState<TargetDrillDownPage> {
+  final ScrollController _scrollController = ScrollController();
 
-    final progressPercentage = target.progressPercentage;
-    final Color progressColor;
-    if (target.actualValue == 0) {
-      progressColor = AppColors.error;
-    } else if (progressPercentage >= 100) {
-      progressColor = AppColors.success;
-    } else {
-      progressColor = AppColors.warning;
+  TargetItem get target => widget.target;
+
+  /// The drill-down keys on metric + period — never the assignment id.
+  TargetDrillDownQuery get _query => (
+        metric: target.metric,
+        periodStart: target.periodStart,
+        periodEnd: target.periodEnd,
+      );
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.pixels >= position.maxScrollExtent - 300) {
+      ref.read(targetDrillDownListProvider(_query).notifier).loadMore();
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final authState = ref.watch(authControllerProvider);
+    final employeeName = authState.asData?.value?.fullName ?? '';
+    final recordsAsync = ref.watch(targetDrillDownListProvider(_query));
+
+    final progressColor = targetProgressColor(target);
+    final dynamicHeader = drillDownHeaderFor(target.metric);
 
     return DarkStatusBar(
       child: Scaffold(
@@ -81,55 +102,196 @@ class TargetDrillDownPage extends ConsumerWidget {
                     onBack: () => context.pop(),
                   ),
                   Expanded(
-                    child: ListView(
-                      physics: const AlwaysScrollableScrollPhysics(
-                        parent: ClampingScrollPhysics(),
+                    child: recordsAsync.when(
+                      data: (state) => _buildContent(
+                        context,
+                        state: state,
+                        employeeName: employeeName,
+                        progressColor: progressColor,
+                        dynamicHeader: dynamicHeader,
                       ),
-                      padding: EdgeInsets.fromLTRB(20.w, 14.h, 20.w, 36.h),
-                      children: <Widget>[
-                        // Top Summary Block
-                        _buildSummaryBlock(
-                          context: context,
-                          employeeName: employeeName,
-                          period: effectivePeriod,
-                          progressColor: progressColor,
-                        ),
-                        SizedBox(height: 24.h),
-
-                        // Dynamic List Subheader & Records Count
-                        Row(
-                          children: <Widget>[
-                            Text(
-                              dynamicHeader,
-                              style: TextStyle(
-                                color: AppColors.textPrimary,
-                                fontSize: 16.sp,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: -0.3,
-                              ),
-                            ),
-                            const Spacer(),
-                            Text(
-                              '${records.length} Records',
-                              style: TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 13.sp,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 14.h),
-
-                        // List of Records or Empty State
-                        if (records.isEmpty)
-                          _buildEmptyState()
-                        else
-                          ...records.map(_buildRecordCard),
-                      ],
+                      loading: () => _buildLoading(
+                        employeeName: employeeName,
+                        progressColor: progressColor,
+                        dynamicHeader: dynamicHeader,
+                      ),
+                      error: (err, _) => _buildError(),
                     ),
                   ),
                 ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(
+    BuildContext context, {
+    required TargetDrillDownState state,
+    required String employeeName,
+    required Color progressColor,
+    required String dynamicHeader,
+  }) {
+    final records = state.records;
+    final countLabel =
+        '${records.length}${state.hasMore ? '+' : ''} Records';
+
+    return ListView(
+      controller: _scrollController,
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: ClampingScrollPhysics(),
+      ),
+      padding: EdgeInsets.fromLTRB(20.w, 14.h, 20.w, 36.h),
+      children: <Widget>[
+        // Top Summary Block
+        _buildSummaryBlock(
+          context: context,
+          employeeName: employeeName,
+          period: target.periodLabel,
+          progressColor: progressColor,
+        ),
+        SizedBox(height: 24.h),
+
+        // Dynamic List Subheader & Records Count
+        Row(
+          children: <Widget>[
+            Text(
+              dynamicHeader,
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.3,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              countLabel,
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 14.h),
+
+        // List of Records or Empty State
+        if (records.isEmpty)
+          _buildEmptyState()
+        else
+          ...records.map(_buildRecordCard),
+
+        // Pagination footer: spinner while loading, retry row on failure.
+        if (state.isLoadingMore)
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 16.h),
+            child: Center(
+              child: SizedBox(
+                width: 22.r,
+                height: 22.r,
+                child: const CircularProgressIndicator(strokeWidth: 2.5),
+              ),
+            ),
+          )
+        else if (state.loadMoreError != null)
+          _buildLoadMoreRetry(),
+      ],
+    );
+  }
+
+  Widget _buildLoading({
+    required String employeeName,
+    required Color progressColor,
+    required String dynamicHeader,
+  }) {
+    final placeholder = TargetDrillDownRecord(
+      id: 'skeleton',
+      primaryTitle: 'ORD-XXXX-XX-0000',
+      subtitle: 'Loading party name',
+      contributionValue: 1,
+      isCurrency: false,
+      timestamp: DateTime(2026),
+      datePrecision: DatePrecision.day,
+    );
+
+    return Skeletonizer(
+      child: ListView(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(20.w, 14.h, 20.w, 36.h),
+        children: <Widget>[
+          _buildSummaryBlock(
+            context: context,
+            employeeName: employeeName,
+            period: target.periodLabel,
+            progressColor: progressColor,
+          ),
+          SizedBox(height: 24.h),
+          Text(
+            dynamicHeader,
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          SizedBox(height: 14.h),
+          for (var i = 0; i < 4; i++) _buildRecordCard(placeholder),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildError() {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(24.r),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(Icons.error_outline, color: AppColors.error, size: 40.sp),
+            SizedBox(height: 12.h),
+            Text(
+              'Failed to load records',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(height: 12.h),
+            ElevatedButton(
+              onPressed: () =>
+                  ref.invalidate(targetDrillDownListProvider(_query)),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadMoreRetry() {
+    return InkWell(
+      onTap: () =>
+          ref.read(targetDrillDownListProvider(_query).notifier).loadMore(),
+      borderRadius: BorderRadius.circular(12.r),
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 14.h),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            Icon(Icons.refresh_rounded, color: AppColors.error, size: 18.sp),
+            SizedBox(width: 8.w),
+            Text(
+              "Couldn't load more — tap to retry",
+              style: TextStyle(
+                color: AppColors.error,
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -144,11 +306,11 @@ class TargetDrillDownPage extends ConsumerWidget {
     required String period,
     required Color progressColor,
   }) {
-    final isDaily = target.interval.toLowerCase() == 'daily';
+    final isDaily = target.interval == TargetInterval.daily;
     final intervalBadgeColor =
         isDaily ? AppColors.info : AppColors.purple500;
     final initialLetter =
-        employeeName.isNotEmpty ? employeeName[0].toUpperCase() : 'V';
+        employeeName.isNotEmpty ? employeeName[0].toUpperCase() : '?';
 
     return Container(
       padding: EdgeInsets.all(18.r),
@@ -211,7 +373,7 @@ class TargetDrillDownPage extends ConsumerWidget {
                 ],
               ),
               StatusBadge(
-                label: target.interval,
+                label: isDaily ? 'Daily' : 'Monthly',
                 color: intervalBadgeColor,
               ),
             ],

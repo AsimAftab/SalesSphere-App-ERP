@@ -1,38 +1,58 @@
 import 'package:intl/intl.dart';
 
-/// Domain model representing an assigned target with actual progress
-/// for an employee (Daily or Monthly interval).
+import 'package:sales_sphere_erp/features/targets/domain/target_enums.dart';
+
+/// Domain model representing an assigned target with live progress for the
+/// current employee. One row of `GET /targets/me`.
 class TargetItem {
   const TargetItem({
     required this.id,
     required this.rule,
+    required this.metric,
     required this.interval,
     required this.targetValue,
     required this.actualValue,
     required this.status,
+    required this.isCurrency,
+    required this.periodStart,
+    required this.periodEnd,
+    required this.periodLabel,
+    required this.periodStatus,
   });
 
-  factory TargetItem.fromJson(Map<String, dynamic> json) {
-    return TargetItem(
-      id: json['id'] as String? ?? '',
-      rule: json['rule'] as String? ?? '',
-      interval: json['interval'] as String? ?? 'Daily',
-      targetValue: (json['targetValue'] as num?) ?? 0,
-      actualValue: (json['actualValue'] as num?) ?? 0,
-      status: json['status'] as String? ?? 'Active',
-    );
-  }
-
+  /// Assignment id. The drill-down keys on [metric] + period, not on this.
   final String id;
-  final String rule;
-  final String interval;
-  final num targetValue;
-  final num actualValue;
-  final String status;
 
-  /// Returns true if actual reaches target or status is Completed.
+  /// Server-rendered display label ("No. of Orders"). Render verbatim so the
+  /// rep and their manager read the same words — never rebuild it locally.
+  final String rule;
+
+  final TargetMetric metric;
+  final TargetInterval interval;
+  final double targetValue;
+  final double actualValue;
+
+  /// Per-period achievement (COMPLETED once actual >= target), not the
+  /// assignment's lifecycle.
+  final TargetStatus status;
+
+  /// Server-owned: whether the values are money. The server knows which
+  /// column each metric reads, so the server decides.
+  final bool isCurrency;
+
+  /// Scored period, inclusive at both ends. Local-midnight calendar days.
+  final DateTime periodStart;
+  final DateTime periodEnd;
+
+  /// Server-rendered period label ("Jul 12, 2026"). Replaces any local
+  /// date formatting for the card.
+  final String periodLabel;
+
+  final TargetPeriodStatus periodStatus;
+
+  /// Returns true if actual reaches target or the period is completed.
   bool get isCompleted =>
-      actualValue >= targetValue || status.toLowerCase() == 'completed';
+      actualValue >= targetValue || status == TargetStatus.completed;
 
   /// Returns progress percentage (capped at 100%).
   double get progressPercentage {
@@ -46,18 +66,6 @@ class TargetItem {
     if (targetValue <= 0) return 0;
     final ratio = actualValue / targetValue;
     return ratio > 1 ? 1 : (ratio < 0 ? 0 : ratio);
-  }
-
-  /// Checks if the rule represents a monetary/currency value.
-  bool get isCurrency {
-    final lower = rule.toLowerCase();
-    if (lower.contains('no.') || lower.contains('count')) {
-      return false;
-    }
-    return lower.contains('value') ||
-        lower.contains('amount') ||
-        lower.contains('revenue') ||
-        lower.contains('sales');
   }
 
   /// Formats the actual value according to unit (currency or decimal).
