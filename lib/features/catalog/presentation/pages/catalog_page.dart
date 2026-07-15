@@ -13,6 +13,7 @@ import 'package:sales_sphere_erp/features/catalog/presentation/widgets/product_c
 import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 /// Catalog tab: searchable, category-filterable 2-column product grid
 /// backed by mock data. Ported from v1's `CatalogScreen`. Search is
@@ -94,10 +95,32 @@ class _CatalogPageState extends ConsumerState<CatalogPage> {
     );
   }
 
-  /// Centred loader on first load, kept scrollable so the refresh gesture
-  /// stays available.
-  Widget _loading() => _centeredScrollable(
-    const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+  static const Product _skeletonProduct = Product(
+    id: 'skeleton',
+    name: 'Industrial Valve Assembly',
+    sku: 'SKU-884920',
+    categoryId: 'c1',
+    price: 4500,
+    stock: 25,
+  );
+
+  /// Skeleton card grid shown during initial catalog load or pull-to-refresh.
+  Widget _loading() => Skeletonizer(
+    child: GridView.builder(
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: ClampingScrollPhysics(),
+      ),
+      padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 160.h),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.63,
+        crossAxisSpacing: 14.w,
+        mainAxisSpacing: 14.h,
+      ),
+      itemCount: 6,
+      itemBuilder: (context, index) =>
+          const CatalogProductCard(product: _skeletonProduct),
+    ),
   );
 
   Widget _error() => _centeredScrollable(

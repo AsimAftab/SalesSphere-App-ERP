@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/features/targets/domain/target_enums.dart';
@@ -144,13 +145,20 @@ class TargetCard extends StatelessWidget {
           ),
           SizedBox(height: 10.h),
           // Horizontal Progress Bar capped at 100%
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8.r),
-            child: LinearProgressIndicator(
-              value: progressFraction,
-              minHeight: 10.h,
-              backgroundColor: AppColors.greyLight.withValues(alpha: 0.6),
-              valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+          Skeleton.replace(
+            replacement: Bone(
+              height: 10.h,
+              width: double.infinity,
+              borderRadius: BorderRadius.circular(8.r),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8.r),
+              child: LinearProgressIndicator(
+                value: progressFraction,
+                minHeight: 10.h,
+                backgroundColor: AppColors.greyLight.withValues(alpha: 0.6),
+                valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+              ),
             ),
           ),
         ],

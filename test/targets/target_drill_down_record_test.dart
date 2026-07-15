@@ -22,7 +22,7 @@ void main() {
       expect(record.formattedTimestamp, 'Jul 12, 2026');
     });
 
-    test('INSTANT precision prints date and clock', () {
+    test('INSTANT precision prints date and clock in local time', () {
       final record = TargetDrillDownRecord(
         id: 'r2',
         primaryTitle: 'Pokhara Traders',
@@ -34,6 +34,28 @@ void main() {
       );
 
       expect(record.formattedTimestamp, 'Jul 12, 2026 10:15 AM');
+
+      final utcTime = DateTime.utc(2026, 7, 12, 10, 15);
+      final recordUtc = TargetDrillDownRecord(
+        id: 'r3',
+        primaryTitle: 'Pokhara Traders',
+        contributionValue: 1,
+        isCurrency: false,
+        timestamp: utcTime,
+        datePrecision: DatePrecision.instant,
+      );
+      // Verify that calling formattedTimestamp converts to local time first
+      expect(
+        recordUtc.formattedTimestamp,
+        TargetDrillDownRecord(
+          id: 'r3',
+          primaryTitle: 'Pokhara Traders',
+          contributionValue: 1,
+          isCurrency: false,
+          timestamp: utcTime.toLocal(),
+          datePrecision: DatePrecision.instant,
+        ).formattedTimestamp,
+      );
     });
   });
 
