@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sales_sphere_erp/core/auth/auth_state.dart';
+import 'package:sales_sphere_erp/core/providers/shared_prefs_provider.dart';
 import 'package:sales_sphere_erp/core/router/router_refresh.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/core/router/shell_scaffold.dart';
@@ -45,6 +46,7 @@ import 'package:sales_sphere_erp/features/notes/presentation/pages/notes_list_pa
 import 'package:sales_sphere_erp/features/odometer/presentation/pages/odometer_history_page.dart';
 import 'package:sales_sphere_erp/features/odometer/presentation/pages/odometer_home_page.dart';
 import 'package:sales_sphere_erp/features/odometer/presentation/pages/odometer_trip_detail_page.dart';
+import 'package:sales_sphere_erp/features/onboarding/presentation/pages/onboarding_page.dart';
 import 'package:sales_sphere_erp/features/orders/domain/order.dart';
 import 'package:sales_sphere_erp/features/orders/presentation/pages/order_detail_page.dart';
 import 'package:sales_sphere_erp/features/orders/presentation/pages/order_history_page.dart';
@@ -129,8 +131,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return loc == Routes.splash ? null : Routes.splash;
       }
 
+      final prefs = ref.read(sharedPrefsProvider);
+      final hasSeenOnboarding = prefs.getBool('hasSeenOnboarding') ?? false;
+
       switch (auth.status) {
         case AuthStatus.unauthenticated:
+          if (!hasSeenOnboarding) {
+            return loc == Routes.onboarding ? null : Routes.onboarding;
+          }
           final inAuthZone =
               loc == Routes.login || loc == Routes.forgotPassword;
           return inAuthZone ? null : Routes.login;
@@ -138,7 +146,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final inAuthZone =
               loc == Routes.login ||
               loc == Routes.forgotPassword ||
-              loc == Routes.splash;
+              loc == Routes.splash ||
+              loc == Routes.onboarding;
           return inAuthZone ? Routes.home : null;
         case AuthStatus.unknown:
           return null;
@@ -149,6 +158,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.splash,
         name: Routes.splashName,
         builder: (_, __) => const SplashPage(),
+      ),
+      GoRoute(
+        path: Routes.onboarding,
+        name: Routes.onboardingName,
+        builder: (_, __) => const OnboardingPage(),
       ),
       GoRoute(
         path: Routes.login,
@@ -539,7 +553,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.targetDrillDown,
         name: Routes.targetDrillDownName,
         builder: (context, state) {
-          final args = state.extra as TargetDrillDownArgs;
+          final args = state.extra! as TargetDrillDownArgs;
           return TargetDrillDownPage(target: args.target);
         },
       ),

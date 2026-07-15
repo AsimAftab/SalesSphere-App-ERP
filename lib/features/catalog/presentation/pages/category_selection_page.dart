@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/providers/catalog_providers.dart';
@@ -11,6 +10,7 @@ import 'package:sales_sphere_erp/features/catalog/presentation/widgets/category_
 import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 /// Drill-in grid of catalog categories, reached from the catalog page's
 /// "All" chip. Picking a tile sets the shared [selectedCategoryProvider]
@@ -105,9 +105,26 @@ class _CategorySelectionPageState extends ConsumerState<CategorySelectionPage> {
                   SizedBox(height: 16.h),
                   Expanded(
                     child: categoriesAsync.when(
-                      loading: () => const Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.primary,
+                      loading: () => Skeletonizer(
+                        child: GridView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(
+                            parent: ClampingScrollPhysics(),
+                          ),
+                          padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 24.h),
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                crossAxisSpacing: 16.w,
+                                mainAxisSpacing: 16.h,
+                              ),
+                          itemCount: 6,
+                          itemBuilder: (_, index) => _CategoryTile(
+                            name: index == 0 ? 'All Products' : 'Industrial Valves',
+                            icon: index == 0 ? Icons.apps : Icons.precision_manufacturing,
+                            accent: AppColors.secondary,
+                            itemCount: index == 0 ? null : 24,
+                            onTap: () {},
+                          ),
                         ),
                       ),
                       error: (_, __) => _EmptyCategories(query: _query.trim()),
@@ -263,15 +280,22 @@ class _CategoryTile extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                Container(
-                  width: 60.w,
-                  height: 60.w,
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.12),
+                Skeleton.replace(
+                  replacement: Bone(
+                    width: 60.w,
+                    height: 60.w,
                     borderRadius: BorderRadius.circular(16.r),
                   ),
-                  alignment: Alignment.center,
-                  child: Icon(icon, size: 30.sp, color: accent),
+                  child: Container(
+                    width: 60.w,
+                    height: 60.w,
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(16.r),
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(icon, size: 30.sp, color: accent),
+                  ),
                 ),
                 SizedBox(height: 12.h),
                 Text(

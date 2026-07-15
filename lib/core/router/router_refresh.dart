@@ -11,7 +11,6 @@ class RouterRefreshNotifier extends ChangeNotifier {
     ref.listen<AuthState>(
       authStateProvider,
       (_, __) => notifyListeners(),
-      fireImmediately: false,
     );
   }
 }

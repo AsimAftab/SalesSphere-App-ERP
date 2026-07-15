@@ -2,6 +2,7 @@ class Routes {
   Routes._();
 
   static const splash = '/';
+  static const onboarding = '/onboarding';
   static const login = '/login';
   static const forgotPassword = '/forgot-password';
 
@@ -109,6 +110,7 @@ class Routes {
   static const targetDrillDownName = 'targetDrillDown';
 
   static const splashName = 'splash';
+  static const onboardingName = 'onboarding';
   static const loginName = 'login';
   static const forgotPasswordName = 'forgotPassword';
   static const homeName = 'home';

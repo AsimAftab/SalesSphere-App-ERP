@@ -42,7 +42,7 @@ class TargetDrillDownRecord {
   /// it back a day.
   String get formattedTimestamp => switch (datePrecision) {
         DatePrecision.instant =>
-          DateFormat('MMM d, yyyy h:mm a').format(timestamp),
+          DateFormat('MMM d, yyyy h:mm a').format(timestamp.toLocal()),
         DatePrecision.day =>
           DateFormat('MMM d, yyyy').format(timestamp.toUtc()),
       };

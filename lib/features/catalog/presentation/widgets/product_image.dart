@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 /// Product thumbnail with a colour-coded initials fallback.
 ///
@@ -54,8 +55,9 @@ class ProductImage extends StatelessWidget {
     final radius = borderRadius ?? BorderRadius.circular(12.r);
     final url = imageUrl;
 
+    final Widget content;
     if (url != null && url.isNotEmpty) {
-      return ClipRRect(
+      content = ClipRRect(
         borderRadius: radius,
         child: SizedBox(
           width: double.infinity,
@@ -75,9 +77,18 @@ class ProductImage extends StatelessWidget {
           ),
         ),
       );
+    } else {
+      content = _initialsBox(radius);
     }
 
-    return _initialsBox(radius);
+    return Skeleton.replace(
+      replacement: Bone(
+        width: double.infinity,
+        height: double.infinity,
+        borderRadius: radius,
+      ),
+      child: content,
+    );
   }
 
   Widget _initialsBox(BorderRadius radius) {

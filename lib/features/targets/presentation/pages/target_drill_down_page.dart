@@ -425,14 +425,21 @@ class _TargetDrillDownPageState extends ConsumerState<TargetDrillDownPage> {
           SizedBox(height: 14.h),
 
           // Horizontal Progress Bar
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8.r),
-            child: LinearProgressIndicator(
-              value: target.progressFraction,
-              minHeight: 10.h,
-              backgroundColor:
-                  AppColors.greyLight.withValues(alpha: 0.6),
-              valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+          Skeleton.replace(
+            replacement: Bone(
+              height: 10.h,
+              width: double.infinity,
+              borderRadius: BorderRadius.circular(8.r),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8.r),
+              child: LinearProgressIndicator(
+                value: target.progressFraction,
+                minHeight: 10.h,
+                backgroundColor:
+                    AppColors.greyLight.withValues(alpha: 0.6),
+                valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+              ),
             ),
           ),
         ],
@@ -506,21 +513,28 @@ class _TargetDrillDownPageState extends ConsumerState<TargetDrillDownPage> {
             ),
           ),
           SizedBox(width: 12.w),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-            decoration: BoxDecoration(
-              color: AppColors.success.withValues(alpha: 0.12),
+          Skeleton.replace(
+            replacement: Bone(
+              width: 60.w,
+              height: 28.h,
               borderRadius: BorderRadius.circular(20.r),
-              border: Border.all(
-                color: AppColors.success.withValues(alpha: 0.3),
-              ),
             ),
-            child: Text(
-              record.formattedContribution,
-              style: TextStyle(
-                color: AppColors.success,
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w700,
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+              decoration: BoxDecoration(
+                color: AppColors.success.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20.r),
+                border: Border.all(
+                  color: AppColors.success.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Text(
+                record.formattedContribution,
+                style: TextStyle(
+                  color: AppColors.success,
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ),

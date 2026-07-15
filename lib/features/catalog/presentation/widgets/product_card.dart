@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/features/catalog/domain/product.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/providers/catalog_providers.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/widgets/product_image.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 /// At or below this remaining count the card surfaces a low-stock warning
 /// ("Only N left") instead of the calm in-stock line.
@@ -30,7 +30,6 @@ class CatalogProductCard extends ConsumerWidget {
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: AppColors.border.withValues(alpha: 0.6),
-          width: 1,
         ),
         boxShadow: <BoxShadow>[
           BoxShadow(
@@ -209,32 +208,39 @@ class _StockBadge extends StatelessWidget {
       ),
     };
 
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 3.h),
-      decoration: BoxDecoration(
-        color: bg,
+    return Skeleton.replace(
+      replacement: Bone(
+        width: 80.w,
+        height: 22.h,
         borderRadius: BorderRadius.circular(6.r),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Container(
-            width: 5.5.r,
-            height: 5.5.r,
-            decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
-          ),
-          SizedBox(width: 4.w),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 10.5.sp,
-              fontWeight: FontWeight.w700,
-              color: text,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 3.h),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(6.r),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Container(
+              width: 5.5.r,
+              height: 5.5.r,
+              decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
             ),
-          ),
-        ],
+            SizedBox(width: 4.w),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 10.5.sp,
+                fontWeight: FontWeight.w700,
+                color: text,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -251,41 +257,48 @@ class _AddButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fg = enabled ? Colors.white : AppColors.textHint;
-    return Container(
-      height: 34.h,
-      decoration: BoxDecoration(
-        color: enabled ? AppColors.secondary : AppColors.greyLight,
+    return Skeleton.replace(
+      replacement: Bone(
+        width: double.infinity,
+        height: 34.h,
         borderRadius: BorderRadius.circular(10.r),
-        boxShadow: enabled
-            ? [
-                BoxShadow(
-                  color: AppColors.secondary.withValues(alpha: 0.25),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ]
-            : null,
       ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(10.r),
-        child: InkWell(
-          onTap: onTap,
+      child: Container(
+        height: 34.h,
+        decoration: BoxDecoration(
+          color: enabled ? AppColors.secondary : AppColors.greyLight,
           borderRadius: BorderRadius.circular(10.r),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              Icon(Icons.add_rounded, size: 16.sp, color: fg),
-              SizedBox(width: 5.w),
-              Text(
-                'Add',
-                style: TextStyle(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w600,
-                  color: fg,
+          boxShadow: enabled
+              ? [
+                  BoxShadow(
+                    color: AppColors.secondary.withValues(alpha: 0.25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : null,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(10.r),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(10.r),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Icon(Icons.add_rounded, size: 16.sp, color: fg),
+                SizedBox(width: 5.w),
+                Text(
+                  'Add',
+                  style: TextStyle(
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w600,
+                    color: fg,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
