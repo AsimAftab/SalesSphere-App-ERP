@@ -25,17 +25,37 @@ class ProfilePage extends ConsumerStatefulWidget {
 
 class _ProfilePageState extends ConsumerState<ProfilePage> {
   String? _avatarPath;
+  bool _uploadingAvatar = false;
 
   Future<void> _chooseAvatar() async {
+    if (_uploadingAvatar) return;
+    final previousPath = _avatarPath;
     try {
       final image = await showImagePickerSheet(
         context,
         imageQuality: 82,
       );
       if (image == null || !mounted) return;
-      setState(() => _avatarPath = image.path);
+      // Optimistic local preview while the upload runs.
+      setState(() {
+        _avatarPath = image.path;
+        _uploadingAvatar = true;
+      });
+      await ref
+          .read(profileControllerProvider.notifier)
+          .updateAvatar(image.path);
+      if (!mounted) return;
+      setState(() => _uploadingAvatar = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile image updated.')),
+      );
     } on Exception {
       if (!mounted) return;
+      // Roll the preview back — the server never accepted the new image.
+      setState(() {
+        _avatarPath = previousPath;
+        _uploadingAvatar = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not update profile image.')),
       );
@@ -74,6 +94,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                     : _ProfileContent(
                         profile: profile,
                         avatarPath: _avatarPath,
+                        uploadingAvatar: _uploadingAvatar,
                         onChangeAvatar: _chooseAvatar,
                       ),
               ),
@@ -136,11 +157,13 @@ class _ProfileContent extends StatelessWidget {
   const _ProfileContent({
     required this.profile,
     required this.avatarPath,
+    required this.uploadingAvatar,
     required this.onChangeAvatar,
   });
 
   final ProfileEntity? profile;
   final String? avatarPath;
+  final bool uploadingAvatar;
   final VoidCallback onChangeAvatar;
 
   @override
@@ -164,6 +187,7 @@ class _ProfileContent extends StatelessWidget {
             organization: membership?.organization.name,
             avatarPath: avatarPath,
             avatarUrl: membership?.avatarUrl,
+            uploading: uploadingAvatar,
             onChangeAvatar: onChangeAvatar,
           ),
           SizedBox(height: 24.h),
@@ -259,6 +283,7 @@ class _AvatarHeader extends StatelessWidget {
     required this.organization,
     required this.avatarPath,
     required this.avatarUrl,
+    required this.uploading,
     required this.onChangeAvatar,
   });
 
@@ -267,6 +292,7 @@ class _AvatarHeader extends StatelessWidget {
   final String? organization;
   final String? avatarPath;
   final String? avatarUrl;
+  final bool uploading;
   final VoidCallback onChangeAvatar;
 
   Widget _initialsAvatar() {
@@ -315,17 +341,37 @@ class _AvatarHeader extends StatelessWidget {
                     preview = NetworkImage(avatarUrl!);
                   }
                   return GestureDetector(
-                    onTap: preview == null
+                    onTap: preview == null || uploading
                         ? null
                         : () => showPrimaryImagePreview(context, preview!),
                     child: ClipOval(
-                      child: preview == null
-                          ? _initialsAvatar()
-                          : Image(
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: <Widget>[
+                          if (preview == null)
+                            _initialsAvatar()
+                          else
+                            Image(
                               image: preview,
                               fit: BoxFit.cover,
                               errorBuilder: (_, __, ___) => _initialsAvatar(),
                             ),
+                          if (uploading)
+                            ColoredBox(
+                              color: Colors.black.withValues(alpha: 0.35),
+                              child: Center(
+                                child: SizedBox(
+                                  width: 24.r,
+                                  height: 24.r,
+                                  child: const CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    color: AppColors.textWhite,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   );
                 },
@@ -335,7 +381,7 @@ class _AvatarHeader extends StatelessWidget {
               right: -2.w,
               bottom: -2.h,
               child: InkWell(
-                onTap: onChangeAvatar,
+                onTap: uploading ? null : onChangeAvatar,
                 customBorder: const CircleBorder(),
                 child: Container(
                   width: 28.r,

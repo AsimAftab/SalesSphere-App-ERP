@@ -15,6 +15,10 @@ class ProfileRepositoryImpl implements ProfileRepository {
     return _mapToEntity(dto);
   }
 
+  @override
+  Future<String?> updateAvatar(String filePath) =>
+      _api.updateAvatar(filePath);
+
   ProfileEntity _mapToEntity(ProfileResponseDto dto) {
     return ProfileEntity(
       user: ProfileUserEntity(

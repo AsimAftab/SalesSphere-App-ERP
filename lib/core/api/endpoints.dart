@@ -10,6 +10,12 @@ class Endpoints {
   static const session = '/auth/session';
   static const changePassword = '/auth/change-password';
 
+  // ── Employees (self-service profile) ──────────────────────────────────────
+  // Avatar-only route: `PATCH /employees/me` requires the full mandatory
+  // profile field set (address/phone/dob/gender), so a file-only change must
+  // use the dedicated avatar endpoint instead.
+  static const employeesMeAvatar = '/employees/me/avatar';
+
   // ── Customers (parties on the mobile side) ────────────────────────────────
   static const customers = '/customers';
   static String customerById(String id) => '/customers/$id';
