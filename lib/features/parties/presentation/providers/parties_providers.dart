@@ -1,6 +1,7 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:sales_sphere_erp/core/db/app_database.dart';
+import 'package:sales_sphere_erp/features/parties/data/mappers/party_row_mapper.dart';
 import 'package:sales_sphere_erp/features/parties/data/repositories/parties_repository_impl.dart';
 import 'package:sales_sphere_erp/features/parties/domain/party.dart';
 
@@ -189,7 +190,7 @@ Stream<List<Party>> partiesListVisible(Ref ref) {
   final dao = ref.watch(partiesDaoProvider);
   return dao
       .watchByIds(ids)
-      .map((rows) => rows.map(_rowToParty).toList(growable: false));
+      .map((rows) => rows.map(partyRowToDomain).toList(growable: false));
 }
 
 /// Detail-page lookup. Hits drift first (instant); falls back to the API
@@ -204,28 +205,4 @@ Future<Party?> partyById(Ref ref, String id) async {
 @riverpod
 Future<List<String>> partyTypes(Ref ref) async {
   return ref.watch(partiesRepositoryProvider).getPartyTypes();
-}
-
-/// Mapper used by [partiesListVisibleProvider] to bridge drift rows back
-/// to the UI-facing [Party] entity. Symmetric with `_rowToDomain` in the
-/// repository impl — kept here because the visible provider is a pure
-/// presentation concern.
-Party _rowToParty(PartyRow row) {
-  return Party(
-    id: row.id,
-    name: row.name,
-    address: row.address ?? '',
-    ownerName: row.ownerName ?? '',
-    panVat: row.panNo ?? '',
-    phone: row.phone ?? '',
-    email: row.email,
-    dateJoined: row.dateJoined,
-    partyType: row.partyType,
-    notes: row.notes,
-    latitude: row.latitude,
-    longitude: row.longitude,
-    status: row.status,
-    syncPending: row.syncPending,
-    syncError: row.syncError,
-  );
 }
