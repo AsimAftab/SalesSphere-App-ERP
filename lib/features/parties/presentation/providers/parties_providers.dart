@@ -216,6 +216,7 @@ Party _rowToParty(PartyRow row) {
     name: row.name,
     address: row.address ?? '',
     ownerName: row.ownerName ?? '',
+    alias: row.alias,
     panVat: row.panNo ?? '',
     phone: row.phone ?? '',
     email: row.email,
