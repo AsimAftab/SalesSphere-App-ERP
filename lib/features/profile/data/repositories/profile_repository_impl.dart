@@ -49,6 +49,15 @@ class ProfileRepositoryImpl implements ProfileRepository {
       panNumber: dto.panNumber,
       dateJoined: dto.dateJoined,
       avatarUrl: dto.avatarUrl,
+      branchId: dto.branchId,
+      branch: dto.branch != null
+          ? ProfileAssignedBranchEntity(
+              id: dto.branch!.id,
+              name: dto.branch!.name,
+              code: dto.branch!.code,
+              isHeadOffice: dto.branch!.isHeadOffice,
+            )
+          : null,
       role: ProfileRoleEntity(
         id: dto.role.id,
         name: dto.role.name,

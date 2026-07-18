@@ -49,10 +49,29 @@ abstract class ProfileMembershipDto with _$ProfileMembershipDto {
     String? panNumber,
     DateTime? dateJoined,
     String? avatarUrl,
+    // The employee's assigned branch. Null branchId = org-wide membership
+    // (e.g. OrgAdmin). `branch` is a slim summary — the backend sends
+    // {id, name, isHeadOffice} today; `code` arrives with the pending
+    // backend spec, hence nullable (unlike ProfileBranchDto.code).
+    String? branchId,
+    ProfileAssignedBranchDto? branch,
   }) = _ProfileMembershipDto;
 
   factory ProfileMembershipDto.fromJson(Map<String, dynamic> json) =>
       _$ProfileMembershipDtoFromJson(json);
+}
+
+@freezed
+abstract class ProfileAssignedBranchDto with _$ProfileAssignedBranchDto {
+  const factory ProfileAssignedBranchDto({
+    required String id,
+    required String name,
+    String? code,
+    @Default(false) bool isHeadOffice,
+  }) = _ProfileAssignedBranchDto;
+
+  factory ProfileAssignedBranchDto.fromJson(Map<String, dynamic> json) =>
+      _$ProfileAssignedBranchDtoFromJson(json);
 }
 
 @freezed

@@ -39,7 +39,20 @@ abstract class ProfileMembershipEntity with _$ProfileMembershipEntity {
     String? panNumber,
     DateTime? dateJoined,
     String? avatarUrl,
+    // Assigned branch: null branchId = org-wide membership (e.g. OrgAdmin).
+    String? branchId,
+    ProfileAssignedBranchEntity? branch,
   }) = _ProfileMembershipEntity;
+}
+
+@freezed
+abstract class ProfileAssignedBranchEntity with _$ProfileAssignedBranchEntity {
+  const factory ProfileAssignedBranchEntity({
+    required String id,
+    required String name,
+    String? code,
+    required bool isHeadOffice,
+  }) = _ProfileAssignedBranchEntity;
 }
 
 @freezed
