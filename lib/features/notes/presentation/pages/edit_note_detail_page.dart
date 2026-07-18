@@ -15,7 +15,6 @@ import 'package:sales_sphere_erp/features/notes/presentation/widgets/note_link_p
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
-import 'package:sales_sphere_erp/shared/widgets/custom_date_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_image_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/section_card.dart';
@@ -41,13 +40,11 @@ class _EditNoteDetailPageState extends ConsumerState<EditNoteDetailPage> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _dateController = TextEditingController();
-  final _nextFollowUpController = TextEditingController();
 
   static const _maxImages = 2;
 
   NoteLinkSelection? _link;
   DateTime? _createdAt;
-  DateTime? _nextFollowUpAt;
 
   /// Local file paths picked in this edit session — uploaded to free
   /// slots in `_save`.
@@ -158,7 +155,6 @@ class _EditNoteDetailPageState extends ConsumerState<EditNoteDetailPage> {
     _titleController.dispose();
     _descriptionController.dispose();
     _dateController.dispose();
-    _nextFollowUpController.dispose();
     super.dispose();
   }
 
@@ -175,10 +171,6 @@ class _EditNoteDetailPageState extends ConsumerState<EditNoteDetailPage> {
     // wall time so "10:30 AM" matches what they actually wrote.
     _dateController.text =
         DateFormat('dd MMM yyyy, hh:mm a').format(n.createdAt.toLocal());
-    _nextFollowUpAt = n.nextFollowUpAt;
-    _nextFollowUpController.text = n.nextFollowUpAt == null
-        ? ''
-        : DateFormat('dd MMM yyyy').format(n.nextFollowUpAt!.toLocal());
     _imagePaths.clear();
   }
 
@@ -254,7 +246,6 @@ class _EditNoteDetailPageState extends ConsumerState<EditNoteDetailPage> {
         // imagePaths is left at its default (empty) — local picks are
         // uploaded separately via _syncImageChanges, the PATCH body
         // doesn't carry filesystem paths.
-        nextFollowUpAt: _nextFollowUpAt,
       );
       await ref.read(notesControllerProvider.notifier).updateNote(updated);
       final imageResult = await _syncImageChanges();
@@ -426,21 +417,6 @@ class _EditNoteDetailPageState extends ConsumerState<EditNoteDetailPage> {
                                     v,
                                     'Description',
                                   ),
-                                ),
-                                SizedBox(height: 12.h),
-                                CustomDatePicker(
-                                  controller: _nextFollowUpController,
-                                  label: 'Next follow-up (Optional)',
-                                  hintText: 'When to revisit',
-                                  prefixIcon: Icons.event_outlined,
-                                  enabled: _editing,
-                                  initialDate: _nextFollowUpAt,
-                                  // Block past dates — a follow-up in
-                                  // the past is never what the user
-                                  // means.
-                                  firstDate: DateTime.now(),
-                                  onDateSelected: (picked) =>
-                                      setState(() => _nextFollowUpAt = picked),
                                 ),
                                 SizedBox(height: 12.h),
                                 PrimaryTextField(

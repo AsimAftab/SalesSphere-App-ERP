@@ -14,7 +14,6 @@ class NoteDto {
     this.customerId,
     this.prospectId,
     this.siteId,
-    this.followUpDate,
     this.updatedAt,
     this.createdBy,
   });
@@ -27,9 +26,6 @@ class NoteDto {
     customerId: json['customerId'] as String?,
     prospectId: json['prospectId'] as String?,
     siteId: json['siteId'] as String?,
-    followUpDate: json['followUpDate'] == null
-        ? null
-        : DateTime.parse(json['followUpDate'] as String),
     updatedAt: json['updatedAt'] == null
         ? null
         : DateTime.parse(json['updatedAt'] as String),
@@ -49,7 +45,6 @@ class NoteDto {
   final String? prospectId;
   final String? siteId;
 
-  final DateTime? followUpDate;
   final DateTime? updatedAt;
   final NoteCreatedByDto? createdBy;
 
@@ -58,16 +53,14 @@ class NoteDto {
     'title': title,
     'description': description,
     'createdAt': createdAt.toIso8601String(),
-    // Always emit the three link-id fields and followUpDate (even when
-    // null) so the PATCH path can clear / switch them. The backend
-    // treats explicit null as a clear and any omitted field as
-    // unchanged; for create, accepting null on the inactive link
-    // fields is fine — the backend's XOR check sees exactly one
-    // populated id either way.
+    // Always emit the three link-id fields (even when null) so the
+    // PATCH path can clear / switch them. The backend treats explicit
+    // null as a clear and any omitted field as unchanged; for create,
+    // accepting null on the inactive link fields is fine — the
+    // backend's XOR check sees exactly one populated id either way.
     'customerId': customerId,
     'prospectId': prospectId,
     'siteId': siteId,
-    'followUpDate': followUpDate?.toIso8601String(),
     if (updatedAt != null) 'updatedAt': updatedAt!.toIso8601String(),
     if (createdBy != null) 'createdBy': createdBy!.toJson(),
   };
