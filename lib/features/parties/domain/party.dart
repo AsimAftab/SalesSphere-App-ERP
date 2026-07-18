@@ -25,6 +25,7 @@ class Party {
     required this.ownerName,
     required this.phone,
     required this.panVat,
+    this.alias,
     this.email,
     this.dateJoined,
     this.partyType,
@@ -47,6 +48,10 @@ class Party {
   final String ownerName;
   final String phone;
   final String panVat;
+
+  /// Alternate display name / short code (e.g. "KT") — optional, used
+  /// for picker search parity with Tally.
+  final String? alias;
 
   // Other optional details captured by the add-party form.
   final String? email;
@@ -90,6 +95,7 @@ class Party {
       ownerName: ownerName,
       phone: phone,
       panVat: panVat,
+      alias: alias,
       email: email,
       dateJoined: dateJoined,
       partyType: partyType,

@@ -103,6 +103,7 @@ class PartiesDao extends DatabaseAccessor<AppDatabase>
       name: Value<String>(dto.name),
       address: Value<String?>(dto.address),
       ownerName: Value<String?>(dto.ownerName),
+      alias: Value<String?>(dto.alias),
       panNo: Value<String?>(dto.panNo),
       email: Value<String?>(dto.email),
       phone: Value<String?>(dto.phone),

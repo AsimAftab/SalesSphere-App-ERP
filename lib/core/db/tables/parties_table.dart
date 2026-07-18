@@ -7,6 +7,10 @@ class Parties extends Table {
   TextColumn get address => text().nullable()();
   TextColumn get ownerName => text().nullable()();
 
+  /// Alternate display name / short code (e.g. "KT") used for picker
+  /// search parity with Tally. Optional, not unique.
+  TextColumn get alias => text().nullable()();
+
   /// Wire field is `panNo`; the rest of the mobile codebase calls this
   /// `panVat` (form labels, validators). Translation lives in the
   /// repository's mapper.

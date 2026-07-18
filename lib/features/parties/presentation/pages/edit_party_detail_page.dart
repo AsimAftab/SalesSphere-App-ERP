@@ -45,6 +45,7 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
 
   final _nameController = TextEditingController();
   final _ownerController = TextEditingController();
+  final _aliasController = TextEditingController();
   final _panVatController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
@@ -139,6 +140,7 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
   void dispose() {
     _nameController.dispose();
     _ownerController.dispose();
+    _aliasController.dispose();
     _panVatController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
@@ -151,6 +153,7 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
   void _populate(Party p) {
     _nameController.text = p.name;
     _ownerController.text = p.ownerName;
+    _aliasController.text = p.alias ?? '';
     _panVatController.text = p.panVat;
     _phoneController.text = p.phone;
     _emailController.text = p.email ?? '';
@@ -262,6 +265,7 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
         name: _nameController.text.trim(),
         address: _addressController.text.trim(),
         ownerName: _ownerController.text.trim(),
+        alias: _aliasController.text.trim().nullIfEmpty(),
         panVat: _panVatController.text.trim(),
         phone: _phoneController.text.trim(),
         email: _emailController.text.trim().nullIfEmpty(),
@@ -461,6 +465,15 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
                                   enabled: _editing,
                                   validator: (v) =>
                                       Validators.requiredField(v, 'Owner name'),
+                                ),
+                                SizedBox(height: 12.h),
+                                PrimaryTextField(
+                                  controller: _aliasController,
+                                  label: 'Alias (Optional)',
+                                  hintText: 'Enter a short code or alternate name',
+                                  prefixIcon: Icons.badge_outlined,
+                                  enabled: _editing,
+                                  maxLength: 200,
                                 ),
                                 SizedBox(height: 12.h),
                                 PrimaryTextField(
