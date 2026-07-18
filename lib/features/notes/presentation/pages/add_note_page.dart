@@ -12,7 +12,6 @@ import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
 import 'package:sales_sphere_erp/shared/widgets/add_form_header.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
-import 'package:sales_sphere_erp/shared/widgets/custom_date_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_image_picker.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/section_card.dart';
@@ -30,20 +29,17 @@ class _AddNotePageState extends ConsumerState<AddNotePage> {
 
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _nextFollowUpController = TextEditingController();
 
   static const _maxImages = 2;
 
   NoteLinkSelection? _link;
   final List<String> _imagePaths = <String>[];
-  DateTime? _nextFollowUpAt;
   bool _submitting = false;
 
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
-    _nextFollowUpController.dispose();
     super.dispose();
   }
 
@@ -84,7 +80,6 @@ class _AddNotePageState extends ConsumerState<AddNotePage> {
         // Repository/API assigns the canonical createdAt — placeholder.
         createdAt: DateTime.now(),
         imagePaths: List<String>.unmodifiable(_imagePaths),
-        nextFollowUpAt: _nextFollowUpAt,
       );
       await ref.read(notesControllerProvider.notifier).addNote(draft);
       if (!mounted) return;
@@ -171,18 +166,6 @@ class _AddNotePageState extends ConsumerState<AddNotePage> {
                           textInputAction: TextInputAction.newline,
                           validator: (v) =>
                               Validators.requiredField(v, 'Description'),
-                        ),
-                        SizedBox(height: 16.h),
-                        CustomDatePicker(
-                          controller: _nextFollowUpController,
-                          label: 'Next follow-up (Optional)',
-                          hintText: 'When to revisit',
-                          prefixIcon: Icons.event_outlined,
-                          // Block past dates — a follow-up in the past is
-                          // never what the user means.
-                          firstDate: DateTime.now(),
-                          onDateSelected: (picked) =>
-                              setState(() => _nextFollowUpAt = picked),
                         ),
                         SizedBox(height: 20.h),
                         Row(

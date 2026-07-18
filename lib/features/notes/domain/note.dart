@@ -22,7 +22,6 @@ class Note {
     required this.description,
     required this.createdAt,
     this.imagePaths = const <String>[],
-    this.nextFollowUpAt,
   });
 
   final String id;
@@ -38,9 +37,4 @@ class Note {
   /// Up to two attached image paths (gallery picks). Empty when none
   /// have been added.
   final List<String> imagePaths;
-
-  /// When the user plans to revisit the linked entity. Optional —
-  /// older notes won't have one. Derived dashboards (e.g. "Follow-ups
-  /// this week") read this field.
-  final DateTime? nextFollowUpAt;
 }

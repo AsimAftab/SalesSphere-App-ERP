@@ -124,7 +124,6 @@ class NotesRepositoryImpl implements NotesRepository {
       linkDisplayName: _fallbackLinkLabel(linkType),
       description: dto.description,
       createdAt: dto.createdAt,
-      nextFollowUpAt: dto.followUpDate,
     );
   }
 
@@ -136,7 +135,6 @@ class NotesRepositoryImpl implements NotesRepository {
     customerId: n.linkType == NoteLinkType.party ? n.linkId : null,
     prospectId: n.linkType == NoteLinkType.prospect ? n.linkId : null,
     siteId: n.linkType == NoteLinkType.site ? n.linkId : null,
-    followUpDate: n.nextFollowUpAt,
   );
 
   String _fallbackLinkLabel(NoteLinkType type) {

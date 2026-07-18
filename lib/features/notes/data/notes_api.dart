@@ -68,8 +68,8 @@ class NotesApi {
   }
 
   /// `PATCH /notes/{id}`. Same writable shape as `create`; the server
-  /// treats an explicit `null` as a clear (relevant for `followUpDate`
-  /// and the inactive link-id fields when the user re-links the note).
+  /// treats an explicit `null` as a clear (relevant for the inactive
+  /// link-id fields when the user re-links the note).
   Future<NoteDto> update(NoteDto note) async {
     final response = await _dio.patch<Map<String, dynamic>>(
       Endpoints.noteById(note.id),
