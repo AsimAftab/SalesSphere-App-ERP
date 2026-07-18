@@ -117,6 +117,23 @@ class BeatPlanRepositoryImpl implements BeatPlanRepository {
     final durationSec =
         rawDuration == null ? null : (rawDuration < 0 ? 0 : rawDuration);
     try {
+      // Best-effort proof-photo upload FIRST (separate endpoint); non-fatal.
+      // Ordering matters: visiting the last pending stop auto-completes the
+      // plan server-side, so the photo must be attached while the plan is
+      // still IN_PROGRESS (the backend's documented flow is photo → visit).
+      String? uploadedUrl;
+      if (imagePath != null && imagePath.isNotEmpty) {
+        try {
+          uploadedUrl = await _api.uploadStopImage(
+            beatPlanId: beatPlanId,
+            stopId: stopId,
+            filePath: imagePath,
+          );
+        } on DioException {
+          // Offline or upload failure: the visit still proceeds; the photo
+          // can be retried later. Ignore.
+        }
+      }
       final updated = await _api.visit(
         beatPlanId: beatPlanId,
         stopId: stopId,
@@ -134,19 +151,10 @@ class BeatPlanRepositoryImpl implements BeatPlanRepository {
             .map((s) => _stopCompanion(updated.id, s))
             .toList(growable: false),
       );
-      // Best-effort proof-photo upload (separate endpoint); non-fatal.
-      if (imagePath != null && imagePath.isNotEmpty) {
-        try {
-          final url = await _api.uploadStopImage(
-            beatPlanId: beatPlanId,
-            stopId: stopId,
-            filePath: imagePath,
-          );
-          if (url != null) await _dao.setStopImage(stopId, url);
-        } on DioException {
-          // Visit is recorded; the photo can be retried later. Ignore.
-        }
-      }
+      // Belt-and-braces: the visit response should already carry the image
+      // URL (it was uploaded first), but re-apply it in case the server
+      // response omitted it.
+      if (uploadedUrl != null) await _dao.setStopImage(stopId, uploadedUrl);
     } on DioException catch (e) {
       if (e.error is! OfflineException) rethrow;
       // Offline: optimistic local visit + queue the JSON. The photo is dropped
