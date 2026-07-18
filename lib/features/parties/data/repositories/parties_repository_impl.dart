@@ -12,6 +12,7 @@ import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
 import 'package:sales_sphere_erp/core/utils/uuid.dart';
 import 'package:sales_sphere_erp/features/parties/data/dto/party_dto.dart';
 import 'package:sales_sphere_erp/features/parties/data/dto/party_image_ref.dart';
+import 'package:sales_sphere_erp/features/parties/data/mappers/party_row_mapper.dart';
 import 'package:sales_sphere_erp/features/parties/data/parties_api.dart';
 import 'package:sales_sphere_erp/features/parties/domain/parties_page.dart';
 import 'package:sales_sphere_erp/features/parties/domain/party.dart';
@@ -193,26 +194,7 @@ class PartiesRepositoryImpl implements PartiesRepository {
     );
   }
 
-  Party _rowToDomain(PartyRow row) {
-    return Party(
-      id: row.id,
-      name: row.name,
-      address: row.address ?? '',
-      ownerName: row.ownerName ?? '',
-      alias: row.alias,
-      panVat: row.panNo ?? '',
-      phone: row.phone ?? '',
-      email: row.email,
-      dateJoined: row.dateJoined,
-      partyType: row.partyType,
-      notes: row.notes,
-      latitude: row.latitude,
-      longitude: row.longitude,
-      status: row.status,
-      syncPending: row.syncPending,
-      syncError: row.syncError,
-    );
-  }
+  Party _rowToDomain(PartyRow row) => partyRowToDomain(row);
 
   PartyDto _toDto(Party p) {
     return PartyDto(
