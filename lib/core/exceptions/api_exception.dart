@@ -65,6 +65,15 @@ class NetworkException extends ApiException {
   const NetworkException(super.message, {super.statusCode, super.cause});
 }
 
+/// `502 UPLOAD_FAILED`: the backend's media store (Cloudinary) rejected or
+/// timed out on a file upload. Transient and retryable — the UI should keep
+/// the form open and invite a retry rather than showing a generic error.
+class UploadFailedException extends ApiException {
+  const UploadFailedException([
+    String message = 'Photo upload failed. Check your connection and retry.',
+  ]) : super(message, statusCode: 502);
+}
+
 /// Client-side gate: the device couldn't obtain a location fix, so an
 /// action that requires coordinates (attendance check-in/out) can't run.
 /// Not an HTTP error — thrown before any request leaves the app.

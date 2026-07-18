@@ -138,6 +138,10 @@ class OdometerRepositoryImpl implements OdometerRepository {
             throw OdometerNotCheckedInException(
               message ?? 'You must check in before starting a trip.',
             );
+          // 502 from the backend's media store — transient; the sheet stays
+          // open so the rep can retry with the same photo.
+          case 'UPLOAD_FAILED':
+            throw const UploadFailedException();
         }
       }
     }

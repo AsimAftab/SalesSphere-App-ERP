@@ -18,6 +18,7 @@ String userMessageFor(
     ForbiddenException() => 'You do not have permission to do that.',
     NotFoundException() => 'Not found.',
     ValidationException(:final message) => message,
+    UploadFailedException(:final message) => message,
     ServerException() => 'Server error. Please try again later.',
     // Client-side gates carry their own user-ready copy (distance, etc.).
     OutsideGeofenceException(:final message) => message,
