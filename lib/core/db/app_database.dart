@@ -57,7 +57,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.test(super.connection);
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -172,6 +172,11 @@ class AppDatabase extends _$AppDatabase {
             // rows served when the rep is offline. A cache, not an outbox —
             // targets have no write path on mobile.
             await m.createTable(targets);
+          }
+          if (from < 14) {
+            // v14 adds the Customer `alias` (short code / alternate display
+            // name, e.g. "KT") the backend already exposes.
+            await _addColumnIfMissing(m, parties, parties.alias);
           }
         },
       );

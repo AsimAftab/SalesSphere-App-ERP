@@ -38,6 +38,7 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
 
   final _nameController = TextEditingController();
   final _ownerController = TextEditingController();
+  final _aliasController = TextEditingController();
   final _panVatController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
@@ -58,6 +59,7 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
   void dispose() {
     _nameController.dispose();
     _ownerController.dispose();
+    _aliasController.dispose();
     _panVatController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
@@ -118,6 +120,7 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
         name: _nameController.text.trim(),
         address: _addressController.text.trim(),
         ownerName: _ownerController.text.trim(),
+        alias: _aliasController.text.trim().nullIfEmpty(),
         panVat: _panVatController.text.trim(),
         phone: _phoneController.text.trim(),
         email: _emailController.text.trim().nullIfEmpty(),
@@ -202,6 +205,15 @@ class _AddPartyPageState extends ConsumerState<AddPartyPage> {
                           textInputAction: TextInputAction.next,
                           validator: (v) =>
                               Validators.requiredField(v, 'Owner name'),
+                        ),
+                        SizedBox(height: 16.h),
+                        PrimaryTextField(
+                          controller: _aliasController,
+                          label: 'Alias (Optional)',
+                          hintText: 'Enter a short code or alternate name',
+                          prefixIcon: Icons.badge_outlined,
+                          textInputAction: TextInputAction.next,
+                          maxLength: 200,
                         ),
                         SizedBox(height: 16.h),
                         PrimaryTextField(

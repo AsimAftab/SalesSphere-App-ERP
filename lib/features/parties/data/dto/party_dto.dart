@@ -9,8 +9,8 @@
 ///     (write) ↔ mobile `partyType: String?`. We store only the name on
 ///     mobile; backend handles the FK lookup + auto-upsert on POST.
 ///
-/// Slim by design — only the 13 fields the mobile UI actually consumes
-/// today. Wider customer attributes (alias, country, ledger, images,
+/// Slim by design — only the fields the mobile UI actually consumes
+/// today. Wider customer attributes (country, ledger, images,
 /// creditLimitAmount, …) are dropped from the wire model and added back
 /// the day a screen needs them.
 class PartyDto {
@@ -20,6 +20,7 @@ class PartyDto {
     required this.status,
     this.address,
     this.ownerName,
+    this.alias,
     this.panNo,
     this.email,
     this.phone,
@@ -42,6 +43,7 @@ class PartyDto {
       name: json['name'] as String,
       address: json['address'] as String?,
       ownerName: json['ownerName'] as String?,
+      alias: json['alias'] as String?,
       panNo: json['panNo'] as String?,
       email: json['email'] as String?,
       phone: json['phone'] as String?,
@@ -60,6 +62,7 @@ class PartyDto {
   final String name;
   final String? address;
   final String? ownerName;
+  final String? alias;
   final String? panNo;
   final String? email;
   final String? phone;
@@ -79,6 +82,7 @@ class PartyDto {
         status: status,
         address: address,
         ownerName: ownerName,
+        alias: alias,
         panNo: panNo,
         email: email,
         phone: phone,
@@ -97,6 +101,7 @@ class PartyDto {
         'name': name,
         if (address != null) 'address': address,
         if (ownerName != null) 'ownerName': ownerName,
+        if (alias != null) 'alias': alias,
         if (panNo != null) 'panNo': panNo,
         if (email != null) 'email': email,
         if (phone != null) 'phone': phone,
