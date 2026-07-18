@@ -135,6 +135,10 @@ class UnplannedVisitRepositoryImpl implements UnplannedVisitRepository {
             throw VisitNotCheckedInException(
               message ?? 'You must check in before starting a visit.',
             );
+          // 502 from the backend's media store — transient; the sheet stays
+          // open so the rep can retry with the same photo.
+          case 'UPLOAD_FAILED':
+            throw const UploadFailedException();
         }
       }
     }

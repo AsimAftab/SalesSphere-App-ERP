@@ -256,12 +256,8 @@ class _ProfileContent extends StatelessWidget {
               ),
               _InfoRowData(
                 icon: Icons.location_city_outlined,
-                label: 'Branches',
-                value: membership?.organization.branches.isEmpty == false
-                    ? membership!.organization.branches
-                        .map((b) => b.name)
-                        .join(', ')
-                    : 'Not specified',
+                label: 'Branch',
+                value: _branchDisplay(membership),
               ),
               _InfoRowData(
                 icon: Icons.calendar_today_outlined,
@@ -572,6 +568,35 @@ String _formatRole(String? role) {
 String _orNotSpecified(String? value) {
   final trimmed = value?.trim();
   return (trimmed == null || trimmed.isEmpty) ? 'Not specified' : trimmed;
+}
+
+/// The employee's assigned branch — never the whole org branch list.
+///
+/// Prefers the membership's `branch` object; falls back to resolving
+/// `branchId` against the org branch list (covers responses predating the
+/// branch summary). A null `branchId` means an org-wide membership (e.g.
+/// OrgAdmin), shown as "All branches". Appends the branch code when known.
+String _branchDisplay(ProfileMembershipEntity? membership) {
+  if (membership == null) return 'Not specified';
+  var name = membership.branch?.name;
+  var code = membership.branch?.code;
+  final branchId = membership.branchId;
+  if (name == null && branchId != null) {
+    for (final b in membership.organization.branches) {
+      if (b.id == branchId) {
+        name = b.name;
+        code = b.code;
+        break;
+      }
+    }
+  }
+  if (name != null) {
+    final trimmedCode = code?.trim();
+    return (trimmedCode == null || trimmedCode.isEmpty)
+        ? name
+        : '$name ($trimmedCode)';
+  }
+  return branchId == null ? 'All branches' : 'Not specified';
 }
 
 /// `MALE` → `Male`. The backend stores gender as an upper-case enum.
