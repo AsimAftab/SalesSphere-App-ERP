@@ -102,10 +102,12 @@ class CollectionPlusRepositoryImpl implements CollectionPlusRepository {
   Future<List<InvoiceDue>> getOutstandingInvoices({
     required String partyId,
     String? excludeCollectionId,
+    DateTime? asOfDate,
   }) async {
     final dtos = await _api.outstandingForParty(
       partyId: partyId,
       excludeCollectionId: excludeCollectionId,
+      asOfDate: asOfDate,
     );
     return dtos.map(_dueFromDto).toList(growable: false);
   }

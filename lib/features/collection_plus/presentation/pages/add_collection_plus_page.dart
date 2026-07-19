@@ -270,7 +270,16 @@ class _AddCollectionPlusPageState extends ConsumerState<AddCollectionPlusPage> {
     final dues = party == null
         ? const <InvoiceDue>[]
         : ref
-                  .watch(outstandingInvoicesForPartyProvider(party.id))
+                  .watch(
+                    outstandingInvoicesForPartyProvider(
+                      party.id,
+                      // Cap the pool to what was due on the picked Received
+                      // Date: a backdated receipt must not be offered invoices
+                      // issued later, nor have its balances erased by payments
+                      // taken later. Null (date not yet picked) reads as today.
+                      asOfDate: _receivedDate,
+                    ),
+                  )
                   .value ??
               const <InvoiceDue>[];
     // Party-level cap: a collection can never exceed everything the party
