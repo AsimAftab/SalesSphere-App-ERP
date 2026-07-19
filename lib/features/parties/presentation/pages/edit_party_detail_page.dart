@@ -52,6 +52,7 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
   final _notesController = TextEditingController();
   final _addressController = TextEditingController();
   final _dateController = TextEditingController();
+  final _creditLimitController = TextEditingController();
 
   static const _maxImages = 2;
 
@@ -147,6 +148,7 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
     _notesController.dispose();
     _addressController.dispose();
     _dateController.dispose();
+    _creditLimitController.dispose();
     super.dispose();
   }
 
@@ -164,12 +166,18 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
     _dateController.text = p.dateJoined != null
         ? DateFormat('dd MMM yyyy').format(p.dateJoined!)
         : '';
+    _creditLimitController.text = _formatCreditLimit(p.creditLimitAmount);
     _latitude = p.latitude ?? _defaultLat;
     _longitude = p.longitude ?? _defaultLng;
     _imagePaths
       ..clear()
       ..addAll(p.imagePaths);
   }
+
+  /// Wire value is a nullable decimal string; null means unlimited.
+  /// Set/cleared on web only — mobile just displays the ceiling.
+  String _formatCreditLimit(String? amount) =>
+      amount == null ? 'Unlimited' : _formatRsAmount(amount);
 
   void _toggleEdit() {
     setState(() => _editing = !_editing);
@@ -555,6 +563,15 @@ class _EditPartyDetailPageState extends ConsumerState<EditPartyDetailPage> {
                                   lastDate: DateTime(DateTime.now().year + 5),
                                   onDateSelected: (date) =>
                                       setState(() => _dateJoined = date),
+                                ),
+                                SizedBox(height: 12.h),
+                                // Read-only: the limit is set/cleared on
+                                // web (separate permission); mobile only
+                                // surfaces it so the salesperson knows the
+                                // ceiling before building an order.
+                                _CreditExposureSection(
+                                  partyId: widget.id,
+                                  fallbackController: _creditLimitController,
                                 ),
                                 SizedBox(height: 18.h),
                                 Row(
@@ -1038,4 +1055,138 @@ class _NotFoundScaffold extends StatelessWidget {
 
 extension on String {
   String? nullIfEmpty() => isEmpty ? null : this;
+}
+
+/// Decimal-string money (`"50000.00"`) → `Rs 50,000.00`. Falls back to
+/// the raw value if the wire ever ships something unparseable.
+String _formatRsAmount(String amount) {
+  final value = double.tryParse(amount);
+  if (value == null) return 'Rs $amount';
+  return NumberFormat.currency(symbol: 'Rs ', decimalDigits: 2).format(value);
+}
+
+// ── Credit exposure ─────────────────────────────────────────────────────────
+
+/// Live credit snapshot from `GET /customers/{id}/credit`: limit, posted
+/// outstanding, pending draft orders, and available credit — the exact
+/// numbers the backend's order-intake check runs on. While loading or
+/// when the fetch fails (offline; the endpoint is network-only by
+/// design), degrades to a plain read-only field showing the drift-cached
+/// limit so the section never disappears.
+class _CreditExposureSection extends ConsumerWidget {
+  const _CreditExposureSection({
+    required this.partyId,
+    required this.fallbackController,
+  });
+
+  final String partyId;
+  final TextEditingController fallbackController;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final snapshot = ref.watch(partyCreditProvider(partyId)).value;
+    if (snapshot == null) {
+      return PrimaryTextField(
+        controller: fallbackController,
+        label: 'Credit Limit',
+        hintText: 'Unlimited',
+        prefixIcon: Icons.account_balance_wallet_outlined,
+        enabled: false,
+      );
+    }
+
+    final labelStyle = TextStyle(
+      color: AppColors.textSecondary,
+      fontSize: 13.sp,
+      fontWeight: FontWeight.w400,
+    );
+    final valueStyle = TextStyle(
+      color: AppColors.textPrimary,
+      fontSize: 13.sp,
+      fontWeight: FontWeight.w500,
+    );
+
+    Widget row(String label, String value, {Color? valueColor}) {
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 4.h),
+        child: Row(
+          children: <Widget>[
+            Expanded(child: Text(label, style: labelStyle)),
+            Text(
+              value,
+              style: valueColor == null
+                  ? valueStyle
+                  : valueStyle.copyWith(
+                      color: valueColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final available = snapshot.availableCredit;
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 12.h),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(
+                Icons.account_balance_wallet_outlined,
+                color: AppColors.textSecondary,
+                size: 18.sp,
+              ),
+              SizedBox(width: 8.w),
+              Text(
+                'Credit',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 8.h),
+          row(
+            'Credit Limit',
+            snapshot.isUnlimited
+                ? 'Unlimited'
+                : _formatRsAmount(snapshot.creditLimitAmount!),
+          ),
+          row('Outstanding', _formatRsAmount(snapshot.postedOutstanding)),
+          row('Pending Orders', _formatRsAmount(snapshot.draftOrdersTotal)),
+          row('Total Exposure', _formatRsAmount(snapshot.totalExposure)),
+          if (available != null)
+            row(
+              'Available Credit',
+              _formatRsAmount(available),
+              valueColor:
+                  snapshot.isOverLimit ? AppColors.error : AppColors.success,
+            ),
+          if (snapshot.isOverLimit) ...<Widget>[
+            SizedBox(height: 6.h),
+            Text(
+              'Over limit — new orders will be blocked until payments '
+              'are collected.',
+              style: TextStyle(
+                color: AppColors.error,
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }

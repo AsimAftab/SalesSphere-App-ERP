@@ -1,6 +1,7 @@
 import 'package:sales_sphere_erp/features/parties/data/dto/party_image_ref.dart';
 import 'package:sales_sphere_erp/features/parties/domain/parties_page.dart';
 import 'package:sales_sphere_erp/features/parties/domain/party.dart';
+import 'package:sales_sphere_erp/features/parties/domain/party_credit.dart';
 
 /// Thrown by [PartiesRepository.addParty] when the customer was
 /// successfully created but at least one of the attached image
@@ -58,6 +59,13 @@ abstract class PartiesRepository {
   Future<Party> updateParty(Party party);
 
   Future<List<String>> getPartyTypes();
+
+  /// Live credit-exposure snapshot (`GET /customers/{id}/credit`) — the
+  /// same numbers the backend's order-intake credit check uses. Network
+  /// only, deliberately uncached: a stale "available credit" is worse
+  /// than none, so offline callers should degrade to the cached
+  /// `Party.creditLimitAmount` instead.
+  Future<PartyCredit> getPartyCredit(String id);
 
   /// Fetch the customer's current image gallery for the edit form's
   /// picker to hydrate. Returns `[]` for a customer with no images.

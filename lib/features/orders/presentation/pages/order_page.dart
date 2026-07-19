@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/catalog/domain/product.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/providers/catalog_providers.dart';
@@ -138,13 +139,21 @@ class _OrderPageState extends ConsumerState<OrderPage> {
       created = kind == OrderKind.order
           ? await controller.createOrder()
           : await controller.createEstimate();
-    } on Object {
+    } on Object catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
+      // A credit-limit 422 carries the numbers the salesperson needs
+      // (limit / current exposure / available credit) — show the backend
+      // copy verbatim instead of the generic fallback.
+      final creditLimitMessage =
+          extractBackendErrorCode(e) == 'CREDIT_LIMIT_EXCEEDED'
+              ? extractBackendErrorMessage(e)
+              : null;
       SnackbarUtils.showError(
         context,
-        "Couldn't create the ${orderKindLabel(kind).toLowerCase()}. "
-        'Please try again.',
+        creditLimitMessage ??
+            "Couldn't create the ${orderKindLabel(kind).toLowerCase()}. "
+                'Please try again.',
       );
       return;
     }

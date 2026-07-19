@@ -22,6 +22,7 @@ class Endpoints {
   static String customerImages(String id) => '/customers/$id/images';
   static String customerImageSlot(String id, int slot) =>
       '/customers/$id/images/$slot';
+  static String customerCredit(String id) => '/customers/$id/credit';
 
   // ── Customer types (party-type picker) ────────────────────────────────────
   static const customerTypes = '/customer-types';

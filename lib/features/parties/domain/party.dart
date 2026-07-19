@@ -34,6 +34,7 @@ class Party {
     this.longitude,
     this.imagePaths = const <String>[],
     this.status,
+    this.creditLimitAmount,
     this.syncPending = false,
     this.syncError,
   });
@@ -74,6 +75,11 @@ class Party {
   /// drafts that haven't been sent yet.
   final String? status;
 
+  /// Per-customer credit ceiling as a decimal string (e.g. `"50000.00"`).
+  /// Null = unlimited. Read-only on mobile — set/cleared on web via a
+  /// dedicated endpoint; the backend strips it from create/update bodies.
+  final String? creditLimitAmount;
+
   /// True while an outbox-queued mutation hasn't yet been confirmed by
   /// the server.
   final bool syncPending;
@@ -104,6 +110,7 @@ class Party {
       longitude: longitude,
       imagePaths: imagePaths,
       status: status,
+      creditLimitAmount: creditLimitAmount,
       syncPending: syncPending ?? this.syncPending,
       syncError: clearSyncError ? null : (syncError ?? this.syncError),
     );

@@ -27,6 +27,10 @@ class Parties extends Table {
   TextColumn get status =>
       text().withDefault(const Constant('ACTIVE'))();
 
+  /// Per-customer credit ceiling as a decimal string (wire
+  /// `creditLimitAmount`). Null = unlimited. Read-only on mobile.
+  TextColumn get creditLimitAmount => text().nullable()();
+
   /// Flattened name from the wire `customerType: { id, name }` object.
   /// Mobile cares only about the human-readable label; the backend keeps
   /// the FK on its side and auto-upserts on write.

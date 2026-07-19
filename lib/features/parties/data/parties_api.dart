@@ -7,6 +7,7 @@ import 'package:http_parser/http_parser.dart';
 
 import 'package:sales_sphere_erp/core/api/dio_client.dart';
 import 'package:sales_sphere_erp/features/parties/data/dto/parties_page_dto.dart';
+import 'package:sales_sphere_erp/features/parties/data/dto/party_credit_dto.dart';
 import 'package:sales_sphere_erp/features/parties/data/dto/party_dto.dart';
 import 'package:sales_sphere_erp/features/parties/data/dto/party_image_ref.dart';
 
@@ -87,6 +88,16 @@ class PartiesApi {
       data: party.toJson(),
     );
     return PartyDto.fromJson(_unwrapMap(response.data));
+  }
+
+  /// `GET /customers/{id}/credit` — the live credit-exposure snapshot
+  /// (limit, posted outstanding, pending draft orders, available credit).
+  /// Gated on `customers:view`; all money fields are decimal strings.
+  Future<PartyCreditDto> getCredit(String id) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      Endpoints.customerCredit(id),
+    );
+    return PartyCreditDto.fromJson(_unwrapMap(response.data));
   }
 
   /// `GET /customers/{id}/images`. Returns the customer's gallery,

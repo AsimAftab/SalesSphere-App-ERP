@@ -119,6 +119,29 @@ class OutsideGeofenceException extends ApiException {
 /// first detail wins. Repositories compare this against the mapped
 /// exception's message and overwrite on mismatch — if the two disagreed,
 /// the specific message would be clobbered by the generic one.
+/// Extracts the machine-readable `error.code` (e.g.
+/// `CREDIT_LIMIT_EXCEEDED`) from the same envelope as
+/// [extractBackendErrorMessage], so call sites can branch on a stable
+/// identifier instead of matching human copy.
+String? extractBackendErrorCode(Object? error) {
+  try {
+    // Same import-free duck-type as extractBackendErrorMessage.
+    final dynamic err = error;
+    final dynamic data = err?.response?.data;
+    if (data is Map<String, dynamic>) {
+      final dynamic inner = data['error'];
+      if (inner is Map<String, dynamic>) {
+        final dynamic code = inner['code'];
+        if (code is String && code.isNotEmpty) return code;
+      }
+    }
+    // Not a Dio-shaped error — nothing to read. Call sites pass whatever
+    // a catch-all `on Object` handed them, so this must not throw.
+    // ignore: avoid_catching_errors
+  } on NoSuchMethodError {}
+  return null;
+}
+
 String? extractBackendErrorMessage(Object? error) {
   // Cheap import-free duck-type — avoids dragging dio into this file's
   // import graph just to read `.response.data`.
