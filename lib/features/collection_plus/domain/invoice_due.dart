@@ -19,10 +19,27 @@ class InvoiceDue {
     required this.paid,
     required this.outstanding,
     this.lastPaidOn,
+    this.priorPayments = const <PriorPayment>[],
   });
 
   final CollectionPlusInvoice invoice;
   final double paid;
   final double outstanding;
   final DateTime? lastPaidOn;
+
+  /// The individual allocations that sum to [paid], oldest-first, so the UI can
+  /// list each prior payment with its own received date instead of a single
+  /// grouped "Paid" figure. Empty for older receipts the server recorded before
+  /// it started emitting the breakdown — callers fall back to [paid]/[lastPaidOn].
+  final List<PriorPayment> priorPayments;
+}
+
+/// One prior payment booked against an invoice: an [amount] received on a
+/// [receivedDate]. History only — there is no collection number to link back to.
+@immutable
+class PriorPayment {
+  const PriorPayment({required this.amount, required this.receivedDate});
+
+  final double amount;
+  final DateTime receivedDate;
 }

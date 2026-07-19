@@ -347,6 +347,12 @@ class CollectionPlusRepositoryImpl implements CollectionPlusRepository {
     paid: dto.paid,
     outstanding: dto.outstanding,
     lastPaidOn: dto.lastPaidOn,
+    priorPayments: dto.priorPayments
+        .map(
+          (PriorPaymentDto p) =>
+              PriorPayment(amount: p.amount, receivedDate: p.receivedDate),
+        )
+        .toList(growable: false),
   );
 
   CollectionPlus _toDomain(CollectionPlusDto dto) => CollectionPlus(
