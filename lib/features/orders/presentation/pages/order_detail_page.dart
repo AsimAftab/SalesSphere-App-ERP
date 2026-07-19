@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/catalog/presentation/widgets/product_image.dart';
 import 'package:sales_sphere_erp/features/orders/domain/order.dart';
@@ -79,11 +80,18 @@ class _Body extends ConsumerWidget {
       created = await ref
           .read(orderControllerProvider.notifier)
           .convertToOrder(order, deliveryDate);
-    } on Object {
+    } on Object catch (e) {
       if (!context.mounted) return;
+      // Converting an estimate runs the same credit-limit check as order
+      // create — surface the backend's numbers instead of the generic copy.
+      final creditLimitMessage =
+          extractBackendErrorCode(e) == 'CREDIT_LIMIT_EXCEEDED'
+              ? extractBackendErrorMessage(e)
+              : null;
       SnackbarUtils.showError(
         context,
-        "Couldn't convert ${order.number}. Please try again.",
+        creditLimitMessage ??
+            "Couldn't convert ${order.number}. Please try again.",
       );
       return;
     }

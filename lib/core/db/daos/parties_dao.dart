@@ -113,6 +113,7 @@ class PartiesDao extends DatabaseAccessor<AppDatabase>
       longitude: Value<double?>(dto.longitude),
       status: Value<String>(dto.status),
       partyType: Value<String?>(dto.partyType),
+      creditLimitAmount: Value<String?>(dto.creditLimitAmount),
       syncPending: syncPending == null
           ? const Value<bool>.absent()
           : Value<bool>(syncPending),

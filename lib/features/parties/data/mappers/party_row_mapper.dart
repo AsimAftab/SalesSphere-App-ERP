@@ -22,6 +22,7 @@ Party partyRowToDomain(PartyRow row) {
     latitude: row.latitude,
     longitude: row.longitude,
     status: row.status,
+    creditLimitAmount: row.creditLimitAmount,
     syncPending: row.syncPending,
     syncError: row.syncError,
   );

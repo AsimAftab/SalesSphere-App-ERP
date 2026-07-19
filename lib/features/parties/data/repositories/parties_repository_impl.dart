@@ -16,6 +16,7 @@ import 'package:sales_sphere_erp/features/parties/data/mappers/party_row_mapper.
 import 'package:sales_sphere_erp/features/parties/data/parties_api.dart';
 import 'package:sales_sphere_erp/features/parties/domain/parties_page.dart';
 import 'package:sales_sphere_erp/features/parties/domain/party.dart';
+import 'package:sales_sphere_erp/features/parties/domain/party_credit.dart';
 import 'package:sales_sphere_erp/features/parties/domain/repositories/parties_repository.dart';
 
 /// Logical operation key for `POST /customers`. Must match the
@@ -145,6 +146,19 @@ class PartiesRepositoryImpl implements PartiesRepository {
   Future<List<String>> getPartyTypes() => _api.partyTypes();
 
   @override
+  Future<PartyCredit> getPartyCredit(String id) async {
+    final dto = await _api.getCredit(id);
+    return PartyCredit(
+      customerId: dto.customerId,
+      creditLimitAmount: dto.creditLimitAmount,
+      postedOutstanding: dto.postedOutstanding,
+      draftOrdersTotal: dto.draftOrdersTotal,
+      totalExposure: dto.totalExposure,
+      availableCredit: dto.availableCredit,
+    );
+  }
+
+  @override
   Future<List<PartyImageRef>> listImages(String customerId) =>
       _api.listImages(customerId);
 
@@ -189,6 +203,7 @@ class PartiesRepositoryImpl implements PartiesRepository {
       latitude: dto.latitude,
       longitude: dto.longitude,
       status: dto.status,
+      creditLimitAmount: dto.creditLimitAmount,
       // DTOs come from the wire — sync columns aren't part of the wire
       // shape. Drift owns those, populated in _rowToDomain.
     );
@@ -212,6 +227,7 @@ class PartiesRepositoryImpl implements PartiesRepository {
       dateJoined: p.dateJoined,
       status: p.status ?? 'ACTIVE',
       partyType: p.partyType,
+      creditLimitAmount: p.creditLimitAmount,
     );
   }
 }

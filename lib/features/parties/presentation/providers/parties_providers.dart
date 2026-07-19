@@ -4,6 +4,7 @@ import 'package:sales_sphere_erp/core/db/app_database.dart';
 import 'package:sales_sphere_erp/features/parties/data/mappers/party_row_mapper.dart';
 import 'package:sales_sphere_erp/features/parties/data/repositories/parties_repository_impl.dart';
 import 'package:sales_sphere_erp/features/parties/domain/party.dart';
+import 'package:sales_sphere_erp/features/parties/domain/party_credit.dart';
 
 // Re-export the repository provider so downstream consumers
 // (controllers, tests) can depend on the contract surface without
@@ -205,4 +206,13 @@ Future<Party?> partyById(Ref ref, String id) async {
 @riverpod
 Future<List<String>> partyTypes(Ref ref) async {
   return ref.watch(partiesRepositoryProvider).getPartyTypes();
+}
+
+/// Live credit-exposure snapshot for the detail page. Network-only by
+/// design (see `PartiesRepository.getPartyCredit`) — the page falls back
+/// to the drift-cached `Party.creditLimitAmount` when this errors
+/// (offline, or the backend predates the endpoint).
+@riverpod
+Future<PartyCredit> partyCredit(Ref ref, String id) async {
+  return ref.watch(partiesRepositoryProvider).getPartyCredit(id);
 }

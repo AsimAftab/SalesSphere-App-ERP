@@ -57,7 +57,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.test(super.connection);
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -177,6 +177,12 @@ class AppDatabase extends _$AppDatabase {
             // v14 adds the Customer `alias` (short code / alternate display
             // name, e.g. "KT") the backend already exposes.
             await _addColumnIfMissing(m, parties, parties.alias);
+          }
+          if (from < 15) {
+            // v15 adds the read-only Customer `creditLimitAmount` (decimal
+            // string, null = unlimited) — backend enforces credit limits at
+            // order intake and the detail page now shows the ceiling.
+            await _addColumnIfMissing(m, parties, parties.creditLimitAmount);
           }
         },
       );

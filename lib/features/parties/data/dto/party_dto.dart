@@ -10,9 +10,14 @@
 ///     mobile; backend handles the FK lookup + auto-upsert on POST.
 ///
 /// Slim by design — only the fields the mobile UI actually consumes
-/// today. Wider customer attributes (country, ledger, images,
-/// creditLimitAmount, …) are dropped from the wire model and added back
-/// the day a screen needs them.
+/// today. Wider customer attributes (country, ledger, images, …) are
+/// dropped from the wire model and added back the day a screen needs
+/// them.
+///
+/// `creditLimitAmount` is read-only on mobile: setting/clearing it is
+/// `PATCH /customers/:id/credit-limit` behind a separate permission
+/// (web-only by design), and the backend strips it from create/update
+/// bodies — so it's parsed here but never serialised in [toJson].
 class PartyDto {
   const PartyDto({
     required this.id,
@@ -29,6 +34,7 @@ class PartyDto {
     this.latitude,
     this.longitude,
     this.partyType,
+    this.creditLimitAmount,
   });
 
   factory PartyDto.fromJson(Map<String, dynamic> json) {
@@ -55,6 +61,7 @@ class PartyDto {
       longitude: (json['longitude'] as num?)?.toDouble(),
       status: (json['status'] as String?) ?? 'ACTIVE',
       partyType: partyTypeName,
+      creditLimitAmount: json['creditLimitAmount'] as String?,
     );
   }
 
@@ -72,6 +79,9 @@ class PartyDto {
   final double? longitude;
   final String status;
   final String? partyType;
+
+  /// Nullable decimal string (e.g. `"50000.00"`). Null = unlimited.
+  final String? creditLimitAmount;
 
   /// Copy with a new id — used by the offline-write path in the repo to
   /// stamp a draft DTO with a local id (`local_<uuid>`) before drift
@@ -91,11 +101,14 @@ class PartyDto {
         latitude: latitude,
         longitude: longitude,
         partyType: partyType,
+        creditLimitAmount: creditLimitAmount,
       );
 
   /// Writable subset for `POST /customers` and `PATCH /customers/{id}`.
   /// Server-assigned / read-only fields (`id`, `status`, `createdAt`,
-  /// `organizationId`, …) are intentionally excluded. The backend
+  /// `organizationId`, …) are intentionally excluded — as is
+  /// `creditLimitAmount`, which has its own web-only endpoint and is
+  /// stripped from these bodies by the backend anyway. The backend
   /// auto-upserts `customerType` by name, so we send a flat string.
   Map<String, dynamic> toJson() => <String, dynamic>{
         'name': name,
