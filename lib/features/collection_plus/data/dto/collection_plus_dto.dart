@@ -174,6 +174,7 @@ class OutstandingInvoiceDto {
     required this.paid,
     required this.outstanding,
     this.lastPaidOn,
+    this.priorPayments = const <PriorPaymentDto>[],
   });
 
   factory OutstandingInvoiceDto.fromJson(Map<String, dynamic> json) =>
@@ -187,6 +188,7 @@ class OutstandingInvoiceDto {
         lastPaidOn: json['lastPaidOn'] == null
             ? null
             : parseWireDate(json['lastPaidOn'] as String),
+        priorPayments: _parsePriorPayments(json['priorPayments']),
       );
 
   final String invoiceId;
@@ -206,4 +208,37 @@ class OutstandingInvoiceDto {
   final double outstanding;
 
   final DateTime? lastPaidOn;
+
+  /// The individual allocations that make up [paid], oldest-first — the same
+  /// filtered rows [paid] and [lastPaidOn] are derived from server-side (this
+  /// receipt's own allocations excluded, capped at its Received Date). Lets the
+  /// UI list each prior payment separately instead of one lumped figure.
+  ///
+  /// Empty for older receipts recorded before the server started emitting the
+  /// field, in which case the UI falls back to the grouped [paid] display.
+  final List<PriorPaymentDto> priorPayments;
+
+  static List<PriorPaymentDto> _parsePriorPayments(Object? raw) {
+    if (raw is! List) return const <PriorPaymentDto>[];
+    return raw
+        .whereType<Map<String, dynamic>>()
+        .map(PriorPaymentDto.fromJson)
+        .toList(growable: false);
+  }
+}
+
+/// One prior allocation booked against an invoice, from an invoice's
+/// `priorPayments` array. Read-only history — `{ amount, receivedDate }` is the
+/// entire wire shape (no collection number is returned).
+class PriorPaymentDto {
+  const PriorPaymentDto({required this.amount, required this.receivedDate});
+
+  factory PriorPaymentDto.fromJson(Map<String, dynamic> json) =>
+      PriorPaymentDto(
+        amount: parseMoney(json['amount']),
+        receivedDate: parseWireDate(json['receivedDate'] as String),
+      );
+
+  final double amount;
+  final DateTime receivedDate;
 }
