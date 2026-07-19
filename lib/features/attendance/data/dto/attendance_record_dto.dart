@@ -20,7 +20,6 @@ class AttendanceRecordDto {
     this.markedByUserId,
     this.markedByName,
     this.markedByRole,
-    this.isLate = false,
   });
 
   factory AttendanceRecordDto.fromJson(Map<String, dynamic> json) {
@@ -56,7 +55,6 @@ class AttendanceRecordDto {
       markedByUserId: markedByMap?['id'] as String?,
       markedByName: markedByMap?['name'] as String?,
       markedByRole: markedByMap?['role'] as String?,
-      isLate: (json['isLate'] as bool?) ?? false,
     );
   }
 
@@ -65,7 +63,7 @@ class AttendanceRecordDto {
 
   /// `'PRESENT' | 'ABSENT' | 'LEAVE' | 'HALF_DAY' | 'WEEKLY_OFF'` on the wire.
   /// The repo translates to the `AttendanceStatus` enum and throws on unknown
-  /// values. "Late" is not a status — it's the [isLate] flag on a present day.
+  /// values.
   final String status;
 
   final DateTime? checkInAt;
@@ -82,15 +80,11 @@ class AttendanceRecordDto {
   final String? markedByUserId;
   final String? markedByName;
   final String? markedByRole;
-
-  /// True when the check-in landed after the org's scheduled start.
-  final bool isLate;
 }
 
 /// `data` of `GET /attendance/my-monthly-report`: a server-computed status
 /// tally plus the month's rows. The tally keys are the wire status names
-/// (`PRESENT`, `ABSENT`, `HALF_DAY`, `LEAVE`, `WEEKLY_OFF`) plus a `LATE`
-/// count that overlaps `PRESENT`/`HALF_DAY`.
+/// (`PRESENT`, `ABSENT`, `HALF_DAY`, `LEAVE`, `WEEKLY_OFF`).
 class MonthlyReportDto {
   const MonthlyReportDto({required this.records, required this.summary});
 

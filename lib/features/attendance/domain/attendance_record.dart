@@ -19,7 +19,6 @@ class AttendanceRecord {
     this.markedByUserId,
     this.markedByName,
     this.markedByRole,
-    this.isLate = false,
   });
 
   final String id;
@@ -43,11 +42,6 @@ class AttendanceRecord {
   final String? markedByUserId;
   final String? markedByName;
   final String? markedByRole;
-
-  /// A present day where check-in was after the scheduled start. On the
-  /// calendar a late day still reads as Present (green); it's counted
-  /// separately in the monthly summary's "Late" tally.
-  final bool isLate;
 
   bool get hasCheckIn => checkInAt != null;
   bool get hasCheckOut => checkOutAt != null;

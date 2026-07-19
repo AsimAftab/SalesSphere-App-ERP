@@ -18,7 +18,6 @@ void main() {
                   'address': 'Durbar Marg, Kathmandu',
                 },
                 'checkOut': null,
-                'isLate': true,
                 'markedBy': <String, dynamic>{'id': 'usr_1', 'name': 'Asim Aftab'},
               }
             : null,
@@ -44,7 +43,6 @@ void main() {
 
       expect(dto.record, isNotNull);
       expect(dto.record!.status, 'PRESENT');
-      expect(dto.record!.isLate, isTrue);
       expect(dto.geofenceEnabled, isTrue);
       expect(dto.geofenceLatitude, 27.6766);
       expect(dto.geofenceAddress, 'Acme HQ');
@@ -80,7 +78,6 @@ void main() {
           'longitude': 85.324,
           'address': 'Kathmandu',
         },
-        'isLate': false,
         'markedBy': <String, dynamic>{'id': 'usr_9', 'name': 'Asha Rai'},
       });
 
@@ -105,7 +102,6 @@ void main() {
       });
       expect(dto.checkInAt, isNull);
       expect(dto.checkOutAt, isNull);
-      expect(dto.isLate, isFalse);
       expect(dto.markedByName, isNull);
     });
   });

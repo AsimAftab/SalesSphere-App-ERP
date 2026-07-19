@@ -124,17 +124,15 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
 
   // ── Mappers ───────────────────────────────────────────────────────────────
 
-  /// Maps the server's status tally into the UI summary. The `LATE` count
-  /// overlaps `PRESENT`/`HALF_DAY`, so it's surfaced separately rather than
-  /// folded into the working-day maths. Attendance % isn't sent by the
-  /// backend, so it's derived here (half-day = 0.5; weekly-offs excluded).
+  /// Maps the server's status tally into the UI summary. Attendance % isn't
+  /// sent by the backend, so it's derived here (half-day = 0.5; weekly-offs
+  /// excluded).
   MonthlySummary _summaryFromWire(Map<String, int> tally) {
     final present = tally['PRESENT'] ?? 0;
     final absent = tally['ABSENT'] ?? 0;
     final leave = tally['LEAVE'] ?? 0;
     final halfDay = tally['HALF_DAY'] ?? 0;
     final weeklyOff = tally['WEEKLY_OFF'] ?? 0;
-    final late = tally['LATE'] ?? 0;
 
     final workingDays = present + absent + leave + halfDay;
     final attendancePct = workingDays == 0
@@ -147,7 +145,6 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
       leave: leave,
       halfDay: halfDay,
       weeklyOff: weeklyOff,
-      late: late,
       attendancePct: attendancePct,
     );
   }
@@ -167,7 +164,6 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
         markedByUserId: dto.markedByUserId,
         markedByName: dto.markedByName,
         markedByRole: dto.markedByRole,
-        isLate: dto.isLate,
       );
 
   AttendanceStatus _statusFromWire(String wire) {

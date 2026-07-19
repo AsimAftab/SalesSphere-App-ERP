@@ -8,7 +8,6 @@ class MonthlySummary {
     required this.leave,
     required this.halfDay,
     required this.weeklyOff,
-    required this.late,
     required this.attendancePct,
   });
 
@@ -20,7 +19,6 @@ class MonthlySummary {
     leave: 0,
     halfDay: 0,
     weeklyOff: 0,
-    late: 0,
     attendancePct: 0,
   );
 
@@ -29,10 +27,6 @@ class MonthlySummary {
   final int leave;
   final int halfDay;
   final int weeklyOff;
-
-  /// Count of present days where check-in was late. Overlaps [present]
-  /// (a late day is still a present day), mirroring the server tally.
-  final int late;
 
   /// Percent attendance in the 0–100 range. Half-day counts as 0.5
   /// of a working day; weekly-offs are excluded from the denominator.
