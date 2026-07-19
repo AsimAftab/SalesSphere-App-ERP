@@ -458,20 +458,40 @@ class _InvoiceOptionCard extends StatelessWidget {
                       ),
                     ),
                     if (hasPaid) ...<Widget>[
-                      SizedBox(height: 2.h),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          due.lastPaidOn == null
-                              ? 'Paid ${_currency.format(due.paid)}'
-                              : 'Paid ${_currency.format(due.paid)} · last on ${_dateFmt.format(due.lastPaidOn!)}',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 12.sp,
+                      // Prefer a line per prior payment (amount + received date).
+                      // Falls back to the grouped "Paid" figure for older receipts
+                      // recorded before the server emitted the breakdown.
+                      if (due.priorPayments.isNotEmpty)
+                        for (final PriorPayment p in due.priorPayments) ...<Widget>[
+                          SizedBox(height: 2.h),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Paid ${_currency.format(p.amount)} · ${_dateFmt.format(p.receivedDate)}',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 12.sp,
+                              ),
+                            ),
+                          ),
+                        ]
+                      else ...<Widget>[
+                        SizedBox(height: 2.h),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            due.lastPaidOn == null
+                                ? 'Paid ${_currency.format(due.paid)}'
+                                : 'Paid ${_currency.format(due.paid)} · last on ${_dateFmt.format(due.lastPaidOn!)}',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12.sp,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
                     SizedBox(height: 2.h),
                     FittedBox(

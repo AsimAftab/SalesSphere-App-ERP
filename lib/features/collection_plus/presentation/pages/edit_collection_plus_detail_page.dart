@@ -451,26 +451,28 @@ class _EditCollectionPlusDetailPageState
     final settledIds = _allocations
         .map((a) => a.invoiceId)
         .toList(growable: false);
-    final invoiceById = <String, CollectionPlusInvoice>{
-      for (final d
-          in settledIds.isEmpty
-              ? const <InvoiceDue>[]
-              : ref
-                        .watch(
-                          invoiceMetaProvider(
-                            settledIds,
-                            excludeCollectionId: widget.id,
-                          ),
-                        )
-                        .value ??
-                    const <InvoiceDue>[])
-        d.invoice.id: d.invoice,
-    };
-    final dueByInvoiceId = <String, InvoiceDue>{
+    final metaDues = settledIds.isEmpty
+        ? const <InvoiceDue>[]
+        : ref
+                  .watch(
+                    invoiceMetaProvider(
+                      settledIds,
+                      excludeCollectionId: widget.id,
+                    ),
+                  )
+                  .value ??
+              const <InvoiceDue>[];
+    final allDuesMap = <String, InvoiceDue>{
+      for (final d in metaDues) d.invoice.id: d,
       for (final d in dues) d.invoice.id: d,
     };
+    final pickerDues = allDuesMap.values.toList(growable: false);
+    final invoiceById = <String, CollectionPlusInvoice>{
+      for (final d in allDuesMap.values) d.invoice.id: d.invoice,
+    };
+    final dueByInvoiceId = allDuesMap;
     final totalOutstanding = PaymentAllocator.totalOutstanding(dues);
-    final selectedDues = dues
+    final selectedDues = pickerDues
         .where((d) => _selectedInvoiceIds.contains(d.invoice.id))
         .toList(growable: false);
     final selectedOutstanding = PaymentAllocator.totalOutstanding(selectedDues);
@@ -594,7 +596,7 @@ class _EditCollectionPlusDetailPageState
                                 SizedBox(height: 12.h),
                                 if (_editing) ...<Widget>[
                                   InvoiceMultiPickerField(
-                                    dues: dues,
+                                    dues: pickerDues,
                                     selectedIds: _selectedInvoiceIds,
                                     targetAmount: entered,
                                     onChanged: _onInvoicesChanged,
@@ -936,20 +938,40 @@ class _SettledInvoiceRow extends StatelessWidget {
                   ),
                 ],
                 if (d != null && d.paid > 0.0001) ...<Widget>[
-                  SizedBox(height: 2.h),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      d.lastPaidOn == null
-                          ? 'Paid ${_currency.format(d.paid)}'
-                          : 'Paid ${_currency.format(d.paid)} · last on ${dateFmt.format(d.lastPaidOn!)}',
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12.sp,
+                  // Prefer a line per prior payment (amount + received date).
+                  // Falls back to the grouped "Paid" figure for older receipts
+                  // recorded before the server emitted the breakdown.
+                  if (d.priorPayments.isNotEmpty)
+                    for (final PriorPayment p in d.priorPayments) ...<Widget>[
+                      SizedBox(height: 2.h),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Paid ${_currency.format(p.amount)} · ${dateFmt.format(p.receivedDate)}',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12.sp,
+                          ),
+                        ),
+                      ),
+                    ]
+                  else ...<Widget>[
+                    SizedBox(height: 2.h),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        d.lastPaidOn == null
+                            ? 'Paid ${_currency.format(d.paid)}'
+                            : 'Paid ${_currency.format(d.paid)} · last on ${dateFmt.format(d.lastPaidOn!)}',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12.sp,
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
                 if (inv != null) ...<Widget>[
                   SizedBox(height: 3.h),
