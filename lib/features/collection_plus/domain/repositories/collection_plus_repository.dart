@@ -56,9 +56,15 @@ abstract class CollectionPlusRepository {
   /// Only POSTED invoices are collectible. An empty list means "nothing to
   /// settle yet", not a bug — a rep's order sits DRAFT until the web app posts
   /// it, and on-account `/collections` is the escape hatch until then.
+  ///
+  /// [asOfDate] caps the read to what was due on that date — the server drops
+  /// invoices issued after it and ignores payments received after it. Pass the
+  /// receipt's Received Date so a backdated collection sees the balances that
+  /// existed then, not today's.
   Future<List<InvoiceDue>> getOutstandingInvoices({
     required String partyId,
     String? excludeCollectionId,
+    DateTime? asOfDate,
   });
 
   /// Re-hydrate specific invoices by id, keeping rows that are already fully

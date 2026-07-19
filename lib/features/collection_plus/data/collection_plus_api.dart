@@ -125,15 +125,24 @@ class CollectionPlusApi {
   /// Only POSTED invoices are collectible — a rep's order that's still DRAFT
   /// isn't a receivable yet and won't appear. An empty list means "nothing to
   /// settle", not a bug.
+  ///
+  /// [asOfDate] caps the read to what was actually due on that calendar date:
+  /// the server drops invoices issued after it and ignores payments received
+  /// after it. Pass the receipt's Received Date so a backdated collection sees
+  /// the balances that existed then — a July-15 invoice must not appear in a
+  /// July-10 receipt's picker, and a July-15 payment must not erase a balance
+  /// the July-10 receipt is settling.
   Future<List<OutstandingInvoiceDto>> outstandingForParty({
     required String partyId,
     String? excludeCollectionId,
+    DateTime? asOfDate,
   }) async {
     final response = await _dio.get<Map<String, dynamic>>(
       Endpoints.collectionPlusOutstanding(partyId),
       queryParameters: <String, dynamic>{
         if (excludeCollectionId != null)
           'excludeCollectionId': excludeCollectionId,
+        if (asOfDate != null) 'asOfDate': _dateToWire(asOfDate),
       },
     );
     return _outstandingFrom(_unwrapList(response.data));

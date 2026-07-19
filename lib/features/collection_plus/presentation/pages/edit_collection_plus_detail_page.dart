@@ -433,6 +433,10 @@ class _EditCollectionPlusDetailPageState
                     outstandingInvoicesForPartyProvider(
                       party.id,
                       excludeCollectionId: widget.id,
+                      // Cap the pool to the receipt's Received Date so editing a
+                      // backdated collection sees the balances that existed
+                      // then — future invoices and future payments excluded.
+                      asOfDate: _receivedDate,
                     ),
                   )
                   .value ??

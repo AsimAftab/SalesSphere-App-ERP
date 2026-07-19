@@ -60,17 +60,24 @@ Future<List<String>> bankNames(Ref ref) =>
 /// Only POSTED invoices are collectible, so an empty list means "nothing to
 /// settle yet" — not a bug. A rep's order stays DRAFT until the web app posts
 /// it; until then, plain Collection (on-account) is the way to take the money.
+///
+/// [asOfDate] joins the family key so the pool re-fetches when the rep picks a
+/// different Received Date. Pass the picked date and the server caps the read
+/// to what was due then — future invoices and future payments are excluded, so
+/// a backdated receipt allocates against the balances that existed that day.
 @riverpod
 Future<List<InvoiceDue>> outstandingInvoicesForParty(
   Ref ref,
   String partyId, {
   String? excludeCollectionId,
+  DateTime? asOfDate,
 }) {
   return ref
       .watch(collectionPlusRepositoryProvider)
       .getOutstandingInvoices(
         partyId: partyId,
         excludeCollectionId: excludeCollectionId,
+        asOfDate: asOfDate,
       );
 }
 
