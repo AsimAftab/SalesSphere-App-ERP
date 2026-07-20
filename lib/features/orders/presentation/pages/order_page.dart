@@ -18,6 +18,7 @@ import 'package:sales_sphere_erp/features/orders/domain/order_party.dart';
 import 'package:sales_sphere_erp/features/orders/presentation/controllers/order_controller.dart';
 import 'package:sales_sphere_erp/features/orders/presentation/providers/order_providers.dart';
 import 'package:sales_sphere_erp/features/orders/presentation/widgets/order_item_card.dart';
+import 'package:sales_sphere_erp/features/parties/presentation/providers/parties_providers.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_date_picker.dart';
@@ -28,7 +29,7 @@ import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/section_card.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
-final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 0);
+final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 2);
 
 /// Order builder — the Order tab's landing page. Pick a party (its
 /// owner auto-fills), set a delivery date, add catalog items, tune the
@@ -142,18 +143,15 @@ class _OrderPageState extends ConsumerState<OrderPage> {
     } on Object catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
-      // A credit-limit 422 carries the numbers the salesperson needs
-      // (limit / current exposure / available credit) — show the backend
-      // copy verbatim instead of the generic fallback.
-      final creditLimitMessage =
-          extractBackendErrorCode(e) == 'CREDIT_LIMIT_EXCEEDED'
-              ? extractBackendErrorMessage(e)
-              : null;
+      final isCreditError =
+          extractBackendErrorCode(e) == 'CREDIT_LIMIT_EXCEEDED';
       SnackbarUtils.showError(
         context,
-        creditLimitMessage ??
-            "Couldn't create the ${orderKindLabel(kind).toLowerCase()}. "
-                'Please try again.',
+        isCreditError
+            ? 'Order blocked: Credit limit exceeded. Check status card above or save as Estimate.'
+            : (extractBackendErrorMessage(e) ??
+                "Couldn't create the ${orderKindLabel(kind).toLowerCase()}. "
+                    'Please try again.'),
       );
       return;
     }
@@ -233,10 +231,10 @@ class _OrderPageState extends ConsumerState<OrderPage> {
                         ),
                       ],
                       SizedBox(height: 20.h),
+                      _OrderCreditWarningCard(draft: draft),
                       PrimaryButton(
                         label: 'Create Order',
                         leadingIcon: Icons.check_circle_outline,
-                        size: ButtonSize.medium,
                         height: 50.h,
                         width: double.infinity,
                         isLoading: _submitting,
@@ -256,7 +254,6 @@ class _OrderPageState extends ConsumerState<OrderPage> {
                         PrimaryButton(
                           label: 'Create Estimate',
                           leadingIcon: Icons.description_outlined,
-                          size: ButtonSize.medium,
                           height: 50.h,
                           width: double.infinity,
                           isDisabled: true,
@@ -265,7 +262,6 @@ class _OrderPageState extends ConsumerState<OrderPage> {
                         OutlinedCustomButton(
                           label: 'Create Estimate',
                           leadingIcon: Icons.description_outlined,
-                          size: ButtonSize.medium,
                           height: 50.h,
                           width: double.infinity,
                           isLoading: _submitting,
@@ -417,6 +413,7 @@ class _PartyDetailCard extends ConsumerWidget {
           emptyText: 'No parties yet.',
           noMatchText: 'No parties match your search.',
         ),
+        if (draft.party != null) _PartyCreditBanner(partyId: draft.party!.id),
         SizedBox(height: 14.h),
         PrimaryTextField(
           controller: ownerController,
@@ -671,6 +668,392 @@ class _TotalChip extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _PartyCreditBanner extends ConsumerWidget {
+  const _PartyCreditBanner({required this.partyId});
+
+  final String partyId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final creditAsync = ref.watch(partyCreditProvider(partyId));
+    final partyAsync = ref.watch(partyByIdProvider(partyId));
+
+    if (creditAsync.isLoading && !creditAsync.hasValue) {
+      return Padding(
+        padding: EdgeInsets.only(top: 14.h),
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(10.r),
+            border: Border.all(color: AppColors.border),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: AppColors.shadow.withValues(alpha: 0.05),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: <Widget>[
+              SizedBox(
+                width: 16.w,
+                height: 16.w,
+                child: const CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.primary,
+                ),
+              ),
+              SizedBox(width: 10.w),
+              Text(
+                'Checking credit limit and exposure...',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final credit = creditAsync.value;
+    if (credit != null) {
+      if (credit.isUnlimited) {
+        return const SizedBox.shrink();
+      }
+
+      final exposure = double.tryParse(credit.totalExposure) ?? 0;
+      final outstanding = double.tryParse(credit.postedOutstanding) ?? 0;
+      final pendingOrders = double.tryParse(credit.draftOrdersTotal) ?? 0;
+      final limit = double.tryParse(credit.creditLimitAmount ?? '') ?? 0;
+      final available =
+          double.tryParse(credit.availableCredit ?? '') ?? (limit - exposure);
+      final isOverLimit = available <= 0 || credit.isOverLimit;
+
+      return Padding(
+        padding: EdgeInsets.only(top: 14.h),
+        child: Container(
+          padding: EdgeInsets.all(14.w),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12.r),
+            border: Border.all(
+              color: isOverLimit
+                  ? AppColors.error.withValues(alpha: 0.6)
+                  : AppColors.border,
+              width: isOverLimit ? 1.5 : 1.0,
+            ),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: AppColors.shadow.withValues(alpha: 0.06),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Icon(
+                    Icons.account_balance_wallet_outlined,
+                    color: isOverLimit ? AppColors.error : AppColors.textSecondary,
+                    size: 18.sp,
+                  ),
+                  SizedBox(width: 8.w),
+                  Text(
+                    'Credit Status',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 8.h),
+              _ComparisonRow(
+                label: 'Credit Limit',
+                value: _currency.format(limit),
+              ),
+              _ComparisonRow(
+                label: 'Outstanding',
+                value: _currency.format(outstanding),
+              ),
+              _ComparisonRow(
+                label: 'Pending Orders',
+                value: _currency.format(pendingOrders),
+              ),
+              _ComparisonRow(
+                label: 'Total Exposure',
+                value: _currency.format(exposure),
+              ),
+              _ComparisonRow(
+                label: 'Available Credit',
+                value: _currency.format(available),
+                valueColor: isOverLimit ? AppColors.error : AppColors.success,
+              ),
+              if (isOverLimit) ...<Widget>[
+                SizedBox(height: 6.h),
+                Text(
+                  'Over limit — new orders will be blocked until payments '
+                  'are collected.',
+                  style: TextStyle(
+                    color: AppColors.error,
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    final party = partyAsync.value;
+    if (party != null && party.creditLimitAmount != null) {
+      final limit = double.tryParse(party.creditLimitAmount!) ?? 0;
+      if (limit > 0) {
+        return Padding(
+          padding: EdgeInsets.only(top: 14.h),
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(10.r),
+              border: Border.all(color: AppColors.border),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: AppColors.shadow.withValues(alpha: 0.05),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: <Widget>[
+                Icon(
+                  Icons.cloud_off_outlined,
+                  color: AppColors.textSecondary,
+                  size: 18.sp,
+                ),
+                SizedBox(width: 10.w),
+                Expanded(
+                  child: Text(
+                    'Credit Limit: ${_currency.format(limit)} (Live exposure offline)',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    }
+
+    return const SizedBox.shrink();
+  }
+}
+
+
+class _OrderCreditWarningCard extends ConsumerWidget {
+  const _OrderCreditWarningCard({required this.draft});
+
+  final OrderDraftData draft;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (draft.party == null || draft.isEmpty) return const SizedBox.shrink();
+
+    final credit = ref.watch(partyCreditProvider(draft.party!.id)).value;
+    if (credit == null || credit.isUnlimited) return const SizedBox.shrink();
+
+    final limit = double.tryParse(credit.creditLimitAmount ?? '') ?? 0;
+    final exposure = double.tryParse(credit.totalExposure) ?? 0;
+    final available =
+        double.tryParse(credit.availableCredit ?? '') ?? (limit - exposure);
+
+    if (draft.grandTotal > available || available <= 0 || credit.isOverLimit) {
+      final deficit = draft.grandTotal - available;
+      return Container(
+        margin: EdgeInsets.only(bottom: 16.h),
+        padding: EdgeInsets.all(12.w),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12.r),
+          border: Border.all(color: AppColors.error.withValues(alpha: 0.6)),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: AppColors.error.withValues(alpha: 0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Container(
+              padding: EdgeInsets.all(8.w),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.gpp_bad_outlined,
+                color: AppColors.error,
+                size: 20.sp,
+              ),
+            ),
+            SizedBox(width: 10.w),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    available <= 0
+                        ? 'Customer Over Credit Limit'
+                        : 'Order Exceeds Available Credit',
+                    style: TextStyle(
+                      color: AppColors.error,
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  SizedBox(height: 3.h),
+                  Text(
+                    available <= 0
+                        ? 'Current balance: ${_currency.format(available)}. Confirmed orders may be blocked until dues are cleared.'
+                        : 'Exceeds balance by ${_currency.format(deficit > 0 ? deficit : draft.grandTotal)} (Available: ${_currency.format(available)}).',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 12.sp,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if ((available - draft.grandTotal) < (limit * 0.15)) {
+      return Container(
+        margin: EdgeInsets.only(bottom: 16.h),
+        padding: EdgeInsets.all(12.w),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12.r),
+          border: Border.all(color: AppColors.orange500.withValues(alpha: 0.5)),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: AppColors.orange500.withValues(alpha: 0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: <Widget>[
+            Container(
+              padding: EdgeInsets.all(8.w),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.warning_amber_rounded,
+                color: AppColors.orange500,
+                size: 20.sp,
+              ),
+            ),
+            SizedBox(width: 10.w),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Low Credit After Order',
+                    style: TextStyle(
+                      color: AppColors.orange500,
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  SizedBox(height: 2.h),
+                  Text(
+                    'Confirming this order (${_currency.format(draft.grandTotal)}) will leave only ${_currency.format(available - draft.grandTotal)} in available credit.',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 11.5.sp,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+}
+
+class _ComparisonRow extends StatelessWidget {
+  const _ComparisonRow({
+    required this.label,
+    required this.value,
+    this.valueColor,
+  });
+
+  final String label;
+  final String value;
+  final Color? valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 4.h),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              color: valueColor ?? AppColors.textPrimary,
+              fontSize: 13.sp,
+              fontWeight: valueColor != null ? FontWeight.w600 : FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
