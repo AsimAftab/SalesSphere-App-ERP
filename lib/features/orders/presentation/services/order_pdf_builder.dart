@@ -9,43 +9,32 @@ import 'package:sales_sphere_erp/features/orders/domain/order.dart';
 import 'package:sales_sphere_erp/features/orders/domain/order_line_item.dart';
 import 'package:sales_sphere_erp/features/orders/domain/order_organization.dart';
 
-/// Renders a saved [Order] / estimate to a print-ready A4 PDF document.
+/// Renders a saved [Order] / estimate to a print-ready, high-contrast A4 PDF document.
 ///
-/// Pure output formatting: it takes the UI-facing domain [Order] plus the
-/// selling [OrderOrganization] ("From") and returns the encoded PDF bytes.
-/// No file IO and no platform channels — persistence lives in the core
-/// `DownloadsSaver`. Reuses the domain's `OrderTotals` getters so the
-/// figures on paper match the detail screen exactly.
+/// Executive Monochrome / Minimalist Invoice-Style layout: designed for flawless
+/// printing on office black-and-white laser printers, thermal faxes, or email.
+/// Enforces exact 2-decimal financial precision (`Rs 1,25,450.50`) and full statutory
+/// details (PAN/VAT/phone numbers).
 class OrderPdfBuilder {
   const OrderPdfBuilder._();
 
-  // Brand palette, mirrored from AppColors but kept local so the builder
-  // carries no Flutter-material dependency. Built via [_hex] (a runtime
-  // call) rather than `const PdfColor.fromInt` on purpose: keeping these
-  // non-const spares every downstream style/decoration a `const` keyword.
   static PdfColor _hex(int argb) => PdfColor.fromInt(argb);
 
-  static final PdfColor _navy = _hex(0xFF163355);
-  static final PdfColor _teal = _hex(0xFF197ADC);
-  static final PdfColor _ink = _hex(0xFF212121);
-  static final PdfColor _muted = _hex(0xFF757575);
-  static final PdfColor _hint = _hex(0xFF9E9E9E);
-  static final PdfColor _line = _hex(0xFFE0E0E0);
-  static final PdfColor _zebra = _hex(0xFFF5F7FC);
-  static final PdfColor _negative = _hex(0xFFD32F2F);
-  static final PdfColor _positive = _hex(0xFF2E7D32);
+  // Executive High-Contrast Palette (Printer-safe monochrome with subtle greys)
+  static final PdfColor _ink = _hex(0xFF111827);       // Deep jet black
+  static final PdfColor _charcoal = _hex(0xFF374151);  // Dark grey for secondary titles
+  static final PdfColor _muted = _hex(0xFF6B7280);     // Medium grey for labels
+  static final PdfColor _line = _hex(0xFFD1D5DB);      // Crisp border divider
 
   static final NumberFormat _money = NumberFormat.currency(
     symbol: 'Rs ',
-    decimalDigits: 0,
+    decimalDigits: 2,
   );
   static final DateFormat _date = DateFormat('dd MMM yyyy');
 
   /// Estimates are non-binding, so they carry a courtesy validity window.
   static const int _estimateValidityDays = 15;
 
-  // Loaded once and reused. Embedding Poppins keeps the document on-brand
-  // with the app; a load failure falls back to the built-in Helvetica.
   static pw.Font? _regular;
   static pw.Font? _bold;
   static bool _fontsTried = false;
@@ -62,7 +51,6 @@ class OrderPdfBuilder {
         : pw.ThemeData.base();
 
     final isEstimate = order.kind == OrderKind.estimate;
-    final accent = isEstimate ? _teal : _navy;
 
     final doc = pw.Document(
       title: '${order.number}.pdf',
@@ -76,18 +64,16 @@ class OrderPdfBuilder {
           margin: const pw.EdgeInsets.fromLTRB(36, 40, 36, 44),
         ),
         header: (context) => context.pageNumber == 1
-            ? _header(order, organization, accent, isEstimate)
-            : _continuationHeader(order, accent),
+            ? _header(order, organization, isEstimate)
+            : _continuationHeader(order, isEstimate),
         footer: (context) => _footer(context, isEstimate),
         build: (context) => <pw.Widget>[
           pw.SizedBox(height: 18),
-          _parties(order, accent),
-          pw.SizedBox(height: 20),
+          _partiesAndMeta(order, organization, isEstimate),
+          pw.SizedBox(height: 22),
           _itemsTable(order),
           pw.SizedBox(height: 16),
-          _summary(order, accent),
-          pw.SizedBox(height: 24),
-          _notes(isEstimate, accent),
+          _summary(order),
         ],
       ),
     );
@@ -111,112 +97,188 @@ class OrderPdfBuilder {
     }
   }
 
-  // ── Header (first page): org identity + document title band ─────────────
+  // ── Header (Page 1): Title/Order Number on Left, Date/Delivery on Right ──
   static pw.Widget _header(
     Order order,
     OrderOrganization org,
-    PdfColor accent,
     bool isEstimate,
   ) {
+    final titleText = isEstimate ? 'ESTIMATE' : 'ORDER';
+
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: <pw.Widget>[
         pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: pw.CrossAxisAlignment.end,
           children: <pw.Widget>[
-            pw.Expanded(
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: <pw.Widget>[
-                  pw.Text(
-                    org.name.trim().isEmpty ? '—' : org.name,
-                    style: pw.TextStyle(
-                      fontSize: 18,
-                      fontWeight: pw.FontWeight.bold,
-                      color: _navy,
-                    ),
-                  ),
-                  pw.SizedBox(height: 4),
-                  if (org.address.trim().isNotEmpty) _muteLine(org.address),
-                  if (org.phone.trim().isNotEmpty)
-                    _muteLine('Phone: ${org.phone}'),
-                  if (org.panVat.trim().isNotEmpty)
-                    _muteLine('PAN / VAT: ${org.panVat}'),
-                ],
-              ),
-            ),
-            pw.SizedBox(width: 24),
+            // Left: Document Title & Number
             pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.end,
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: <pw.Widget>[
                 pw.Text(
-                  orderKindLabel(order.kind).toUpperCase(),
+                  titleText,
                   style: pw.TextStyle(
-                    fontSize: 24,
+                    fontSize: 22,
                     fontWeight: pw.FontWeight.bold,
-                    color: accent,
-                    letterSpacing: 1.5,
+                    color: _ink,
+                    letterSpacing: 2,
                   ),
                 ),
                 pw.SizedBox(height: 4),
                 pw.Text(
-                  '# ${order.number}',
+                  order.number,
                   style: pw.TextStyle(
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: pw.FontWeight.bold,
-                    color: _ink,
+                    color: _charcoal,
                   ),
                 ),
+              ],
+            ),
+            // Right: Date & Expected Delivery / Valid Until
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.end,
+              children: <pw.Widget>[
+                pw.Row(
+                  mainAxisSize: pw.MainAxisSize.min,
+                  children: <pw.Widget>[
+                    pw.Text('Date: ', style: pw.TextStyle(fontSize: 10, color: _muted)),
+                    pw.Text(
+                      _date.format(order.createdAt),
+                      style: pw.TextStyle(
+                        fontSize: 10,
+                        fontWeight: pw.FontWeight.bold,
+                        color: _ink,
+                      ),
+                    ),
+                  ],
+                ),
+                if (!isEstimate && order.deliveryDate != null) ...<pw.Widget>[
+                  pw.SizedBox(height: 4),
+                  pw.Row(
+                    mainAxisSize: pw.MainAxisSize.min,
+                    children: <pw.Widget>[
+                      pw.Text(
+                        'Expected Delivery: ',
+                        style: pw.TextStyle(fontSize: 10, color: _muted),
+                      ),
+                      pw.Text(
+                        _date.format(order.deliveryDate!),
+                        style: pw.TextStyle(
+                          fontSize: 10,
+                          fontWeight: pw.FontWeight.bold,
+                          color: _ink,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                if (isEstimate) ...<pw.Widget>[
+                  pw.SizedBox(height: 4),
+                  pw.Row(
+                    mainAxisSize: pw.MainAxisSize.min,
+                    children: <pw.Widget>[
+                      pw.Text(
+                        'Valid Until: ',
+                        style: pw.TextStyle(fontSize: 10, color: _muted),
+                      ),
+                      pw.Text(
+                        _date.format(
+                          order.createdAt.add(const Duration(days: _estimateValidityDays)),
+                        ),
+                        style: pw.TextStyle(
+                          fontSize: 10,
+                          fontWeight: pw.FontWeight.bold,
+                          color: _ink,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ],
         ),
         pw.SizedBox(height: 14),
-        pw.Container(height: 2, color: accent),
+        pw.Container(height: 1.5, color: _ink),
       ],
     );
   }
 
-  // Slim running header shown on pages 2+.
-  static pw.Widget _continuationHeader(Order order, PdfColor accent) {
+  // Slim running header for pages 2+
+  static pw.Widget _continuationHeader(Order order, bool isEstimate) {
+    final titleText = isEstimate ? 'ESTIMATE' : 'ORDER';
     return pw.Container(
-      margin: const pw.EdgeInsets.only(bottom: 10),
+      margin: const pw.EdgeInsets.only(bottom: 12),
       padding: const pw.EdgeInsets.only(bottom: 6),
       decoration: pw.BoxDecoration(
-        border: pw.Border(bottom: pw.BorderSide(color: _line, width: 0.5)),
+        border: pw.Border(bottom: pw.BorderSide(color: _ink)),
       ),
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: <pw.Widget>[
           pw.Text(
-            order.number,
+            '$titleText ${order.number}',
             style: pw.TextStyle(
               fontSize: 10,
               fontWeight: pw.FontWeight.bold,
-              color: accent,
+              color: _ink,
             ),
           ),
           pw.Text(
-            orderKindLabel(order.kind),
-            style: pw.TextStyle(fontSize: 10, color: _muted),
+            isEstimate ? 'Commercial Quotation' : 'Order Confirmation',
+            style: pw.TextStyle(fontSize: 9, color: _charcoal),
           ),
         ],
       ),
     );
   }
 
-  // ── Bill To + document meta ─────────────────────────────────────────────
-  static pw.Widget _parties(Order order, PdfColor accent) {
+  // ── BILL FROM (Left) and BILL TO (Right) ────────────────────────────────
+  static pw.Widget _partiesAndMeta(
+    Order order,
+    OrderOrganization org,
+    bool isEstimate,
+  ) {
     final party = order.party;
+    final leftLabel = isEstimate ? 'PREPARED BY' : 'BILL FROM';
+    final rightLabel = isEstimate ? 'PREPARED FOR' : 'BILL TO';
+
     return pw.Row(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: <pw.Widget>[
+        // Left: Organization details
         pw.Expanded(
-          flex: 3,
           child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: <pw.Widget>[
-              _sectionLabel('BILL TO', accent),
+              _sectionLabel(leftLabel),
+              pw.SizedBox(height: 6),
+              pw.Text(
+                org.name.trim().isEmpty ? '—' : org.name,
+                style: pw.TextStyle(
+                  fontSize: 12,
+                  fontWeight: pw.FontWeight.bold,
+                  color: _ink,
+                ),
+              ),
+              if (org.address.trim().isNotEmpty)
+                _muteLine('Address: ${org.address}'),
+              if (org.phone.trim().isNotEmpty)
+                _muteLine('Phone: ${org.phone}'),
+              if (org.panVat.trim().isNotEmpty)
+                _muteLine('PAN / VAT: ${org.panVat}'),
+            ],
+          ),
+        ),
+        pw.SizedBox(width: 32),
+        // Right: Customer details
+        pw.Expanded(
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: <pw.Widget>[
+              _sectionLabel(rightLabel),
               pw.SizedBox(height: 6),
               pw.Text(
                 party?.name ?? '—',
@@ -227,9 +289,8 @@ class OrderPdfBuilder {
                 ),
               ),
               if (party != null) ...<pw.Widget>[
-                if (party.ownerName.trim().isNotEmpty)
-                  _muteLine(party.ownerName),
-                if (party.address.trim().isNotEmpty) _muteLine(party.address),
+                if (party.address.trim().isNotEmpty)
+                  _muteLine('Address: ${party.address}'),
                 if (party.phone.trim().isNotEmpty)
                   _muteLine('Phone: ${party.phone}'),
                 if (party.panVat.trim().isNotEmpty)
@@ -238,86 +299,35 @@ class OrderPdfBuilder {
             ],
           ),
         ),
-        pw.SizedBox(width: 24),
-        pw.Expanded(flex: 2, child: _metaTable(order)),
       ],
     );
   }
 
-  static pw.Widget _metaTable(Order order) {
-    final rows = <List<String>>[
-      <String>['Date', _date.format(order.createdAt)],
-    ];
-    if (order.kind == OrderKind.order) {
-      rows.add(<String>['Status', orderStatusLabel(order.status)]);
-      if (order.deliveryDate != null) {
-        rows.add(<String>['Delivery', _date.format(order.deliveryDate!)]);
-      }
-    } else {
-      final validUntil = order.createdAt.add(
-        const Duration(days: _estimateValidityDays),
-      );
-      rows.add(<String>['Valid until', _date.format(validUntil)]);
-    }
-
-    return pw.Container(
-      padding: const pw.EdgeInsets.all(10),
-      decoration: pw.BoxDecoration(
-        color: _zebra,
-        borderRadius: pw.BorderRadius.circular(6),
-      ),
-      child: pw.Column(
-        children: <pw.Widget>[
-          for (var i = 0; i < rows.length; i++) ...<pw.Widget>[
-            if (i > 0) pw.SizedBox(height: 7),
-            pw.Row(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: <pw.Widget>[
-                pw.Text(
-                  rows[i][0],
-                  style: pw.TextStyle(fontSize: 9, color: _muted),
-                ),
-                pw.SizedBox(width: 8),
-                pw.Expanded(
-                  child: pw.Text(
-                    rows[i][1],
-                    textAlign: pw.TextAlign.right,
-                    style: pw.TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: pw.FontWeight.bold,
-                      color: _ink,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // ── Items table ─────────────────────────────────────────────────────────
+  // ── Items Table (Executive High-Contrast, No Colors) ────────────────────
   static pw.Widget _itemsTable(Order order) {
     return pw.Table(
       border: pw.TableBorder(
-        bottom: pw.BorderSide(color: _line, width: 0.5),
+        top: pw.BorderSide(color: _ink, width: 1.5),
+        bottom: pw.BorderSide(color: _ink, width: 1.2),
         horizontalInside: pw.BorderSide(color: _line, width: 0.5),
       ),
       columnWidths: <int, pw.TableColumnWidth>{
-        0: const pw.FixedColumnWidth(24),
+        0: const pw.FixedColumnWidth(28),
         1: const pw.FlexColumnWidth(4),
         2: const pw.FixedColumnWidth(38),
-        3: const pw.FlexColumnWidth(1.7),
+        3: const pw.FlexColumnWidth(1.8),
         4: const pw.FixedColumnWidth(44),
-        5: const pw.FlexColumnWidth(1.9),
+        5: const pw.FlexColumnWidth(2),
       },
       children: <pw.TableRow>[
+        // Header row framed by thick top & bottom border lines
         pw.TableRow(
-          decoration: pw.BoxDecoration(color: _navy),
+          decoration: pw.BoxDecoration(
+            border: pw.Border(bottom: pw.BorderSide(color: _ink, width: 1.2)),
+          ),
           children: <pw.Widget>[
-            _headCell('#', pw.TextAlign.center),
-            _headCell('Item', pw.TextAlign.left),
+            _headCell('SN', pw.TextAlign.center),
+            _headCell('Item Description', pw.TextAlign.left),
             _headCell('Qty', pw.TextAlign.center),
             _headCell('Unit Price', pw.TextAlign.right),
             _headCell('Disc', pw.TextAlign.center),
@@ -325,55 +335,36 @@ class OrderPdfBuilder {
           ],
         ),
         for (var i = 0; i < order.items.length; i++)
-          _itemRow(i + 1, order.items[i], zebra: i.isOdd),
+          _itemRow(i + 1, order.items[i]),
       ],
     );
   }
 
-  static pw.TableRow _itemRow(
-    int index,
-    OrderLineItem line, {
-    required bool zebra,
-  }) {
+  static pw.TableRow _itemRow(int index, OrderLineItem line) {
     final discounted = line.discountPercent > 0;
     return pw.TableRow(
-      decoration: zebra ? pw.BoxDecoration(color: _zebra) : null,
       children: <pw.Widget>[
         _cell('$index', align: pw.TextAlign.center, color: _muted),
         pw.Padding(
-          padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: <pw.Widget>[
-              pw.Text(
-                line.name,
-                style: pw.TextStyle(
-                  fontSize: 9.5,
-                  fontWeight: pw.FontWeight.bold,
-                  color: _ink,
-                ),
-              ),
-              if (discounted)
-                pw.Padding(
-                  padding: const pw.EdgeInsets.only(top: 2),
-                  child: pw.Text(
-                    'List ${_money.format(line.listedPrice)}',
-                    style: pw.TextStyle(
-                      fontSize: 8,
-                      color: _hint,
-                      decoration: pw.TextDecoration.lineThrough,
-                    ),
-                  ),
-                ),
-            ],
+          padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: pw.Text(
+            line.name,
+            style: pw.TextStyle(
+              fontSize: 9.5,
+              fontWeight: pw.FontWeight.bold,
+              color: _ink,
+            ),
           ),
         ),
         _cell('${line.quantity}', align: pw.TextAlign.center),
-        _cell(_money.format(line.basePrice), align: pw.TextAlign.right),
+        _cell(
+          _money.format(line.listedPrice > 0 ? line.listedPrice : line.basePrice),
+          align: pw.TextAlign.right,
+        ),
         _cell(
           discounted ? '${_pct(line.discountPercent)}%' : '—',
           align: pw.TextAlign.center,
-          color: discounted ? _negative : _muted,
+          color: discounted ? _ink : _muted,
         ),
         _cell(
           _money.format(line.subtotal),
@@ -384,46 +375,35 @@ class OrderPdfBuilder {
     );
   }
 
-  // ── Totals summary + amount in words ────────────────────────────────────
-  static pw.Widget _summary(Order order, PdfColor accent) {
-    final savings =
-        order.items.fold<double>(0, (sum, i) => sum + i.savings) +
-        order.overallDiscountAmount;
-
+  // ── Summary & Amount in Words ───────────────────────────────────────────
+  static pw.Widget _summary(Order order) {
     return pw.Row(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      crossAxisAlignment: pw.CrossAxisAlignment.end,
       children: <pw.Widget>[
+        // Left: Amount in words
         pw.Expanded(
+          flex: 3,
           child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: <pw.Widget>[
-              _sectionLabel('AMOUNT IN WORDS', accent),
-              pw.SizedBox(height: 4),
+              _sectionLabel('AMOUNT IN WORDS'),
+              pw.SizedBox(height: 5),
               pw.Text(
                 _amountInWords(order.grandTotal),
                 style: pw.TextStyle(
                   fontSize: 10,
-                  color: _ink,
+                  fontWeight: pw.FontWeight.bold,
+                  color: _charcoal,
                   fontStyle: pw.FontStyle.italic,
                 ),
               ),
-              if (savings > 0) ...<pw.Widget>[
-                pw.SizedBox(height: 12),
-                pw.Text(
-                  'You save ${_money.format(savings)}',
-                  style: pw.TextStyle(
-                    fontSize: 10,
-                    fontWeight: pw.FontWeight.bold,
-                    color: _positive,
-                  ),
-                ),
-              ],
             ],
           ),
         ),
         pw.SizedBox(width: 24),
+        // Right: Accounting Totals Table with Double Underline
         pw.SizedBox(
-          width: 230,
+          width: 240,
           child: pw.Column(
             children: <pw.Widget>[
               _sumRow('Subtotal', _money.format(order.itemsSubtotal)),
@@ -431,43 +411,34 @@ class OrderPdfBuilder {
                 _sumRow(
                   'Discount (${_pct(order.overallDiscountPercent)}%)',
                   '- ${_money.format(order.overallDiscountAmount)}',
-                  valueColor: _negative,
                 ),
               if (order.tax.rate > 0) ...<pw.Widget>[
-                _sumRow('Taxable amount', _money.format(order.taxableBase)),
+                _sumRow('Taxable Amount', _money.format(order.taxableBase)),
                 _sumRow(order.tax.label, _money.format(order.taxAmount)),
               ],
               pw.SizedBox(height: 8),
-              pw.Container(
-                padding: const pw.EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 9,
-                ),
-                decoration: pw.BoxDecoration(
-                  color: accent,
-                  borderRadius: pw.BorderRadius.circular(6),
-                ),
-                child: pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: <pw.Widget>[
-                    pw.Text(
-                      'TOTAL',
-                      style: pw.TextStyle(
-                        fontSize: 12,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.white,
-                      ),
+              pw.Container(height: 1.2, color: _ink),
+              pw.SizedBox(height: 6),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: <pw.Widget>[
+                  pw.Text(
+                    'GRAND TOTAL',
+                    style: pw.TextStyle(
+                      fontSize: 12,
+                      fontWeight: pw.FontWeight.bold,
+                      color: _ink,
                     ),
-                    pw.Text(
-                      _money.format(order.grandTotal),
-                      style: pw.TextStyle(
-                        fontSize: 13,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.white,
-                      ),
+                  ),
+                  pw.Text(
+                    _money.format(order.grandTotal),
+                    style: pw.TextStyle(
+                      fontSize: 13,
+                      fontWeight: pw.FontWeight.bold,
+                      color: _ink,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -476,11 +447,7 @@ class OrderPdfBuilder {
     );
   }
 
-  static pw.Widget _sumRow(
-    String label,
-    String value, {
-    PdfColor? valueColor,
-  }) {
+  static pw.Widget _sumRow(String label, String value) {
     return pw.Container(
       padding: const pw.EdgeInsets.symmetric(vertical: 5),
       decoration: pw.BoxDecoration(
@@ -489,13 +456,13 @@ class OrderPdfBuilder {
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: <pw.Widget>[
-          pw.Text(label, style: pw.TextStyle(fontSize: 10, color: _muted)),
+          pw.Text(label, style: pw.TextStyle(fontSize: 9.5, color: _muted)),
           pw.Text(
             value,
             style: pw.TextStyle(
               fontSize: 10,
               fontWeight: pw.FontWeight.bold,
-              color: valueColor ?? _ink,
+              color: _ink,
             ),
           ),
         ],
@@ -503,39 +470,22 @@ class OrderPdfBuilder {
     );
   }
 
-  // ── Notes + signature ───────────────────────────────────────────────────
-  static pw.Widget _notes(bool isEstimate, PdfColor accent) {
-    return pw.Row(
-      crossAxisAlignment: pw.CrossAxisAlignment.end,
+  // ── Notes Block ─────────────────────────────────────────────────────────
+  static pw.Widget _notesAndSignature(bool isEstimate) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: <pw.Widget>[
-        pw.Expanded(
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: <pw.Widget>[
-              _sectionLabel('NOTES', accent),
-              pw.SizedBox(height: 4),
-              pw.Text(
-                isEstimate
-                    ? 'Prices are subject to change after the validity '
-                          'period. Taxes applied as indicated above.'
-                    : 'Thank you for your business. Goods once sold follow '
-                          'the agreed return policy.',
-                style: pw.TextStyle(fontSize: 9, color: _muted),
-              ),
-            ],
-          ),
-        ),
-        pw.SizedBox(width: 40),
-        pw.Column(
-          children: <pw.Widget>[
-            pw.SizedBox(height: 30),
-            pw.Container(width: 150, height: 0.8, color: _ink),
-            pw.SizedBox(height: 4),
-            pw.Text(
-              'Authorised Signatory',
-              style: pw.TextStyle(fontSize: 9, color: _muted),
-            ),
-          ],
+        _sectionLabel('TERMS & CONDITIONS'),
+        pw.SizedBox(height: 4),
+        pw.Text(
+          isEstimate
+              ? '1. This estimate is valid for $_estimateValidityDays days from the date of issue.\n'
+                '2. Prices and stock availability are subject to confirmation upon order.\n'
+                '3. Applicable taxes applied as itemized above.'
+              : '1. Goods once sold follow the agreed commercial return policy.\n'
+                '2. Payment terms are strictly as per agreed credit arrangements.\n'
+                '3. All disputes subject to local jurisdiction.',
+          style: pw.TextStyle(fontSize: 8.5, color: _charcoal, height: 1.4),
         ),
       ],
     );
@@ -543,25 +493,24 @@ class OrderPdfBuilder {
 
   static pw.Widget _footer(pw.Context context, bool isEstimate) {
     return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: <pw.Widget>[
-        pw.Divider(color: _line, thickness: 0.5),
-        pw.SizedBox(height: 3),
+        _notesAndSignature(isEstimate),
+        pw.SizedBox(height: 10),
+        pw.Divider(color: _ink, thickness: 0.8),
+        pw.SizedBox(height: 4),
         pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: <pw.Widget>[
-            pw.Expanded(
-              child: pw.Text(
-                isEstimate
-                    ? 'This quotation is not a demand for payment.'
-                    : 'This is a computer-generated document and does not '
-                          'require a signature.',
-                style: pw.TextStyle(fontSize: 8, color: _hint),
-              ),
+            pw.Text(
+              isEstimate
+                  ? 'This document is a commercial quotation and not a formal invoice.'
+                  : 'This is an official computer-generated order confirmation.',
+              style: pw.TextStyle(fontSize: 8, color: _charcoal),
             ),
-            pw.SizedBox(width: 12),
             pw.Text(
               'Page ${context.pageNumber} of ${context.pagesCount}',
-              style: pw.TextStyle(fontSize: 8, color: _hint),
+              style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: _ink),
             ),
           ],
         ),
@@ -569,36 +518,36 @@ class OrderPdfBuilder {
     );
   }
 
-  // ── Small shared builders ───────────────────────────────────────────────
+  // ── Small Shared Builders ───────────────────────────────────────────────
   static pw.Widget _muteLine(String text) {
     return pw.Padding(
       padding: const pw.EdgeInsets.only(top: 2),
-      child: pw.Text(text, style: pw.TextStyle(fontSize: 9.5, color: _muted)),
+      child: pw.Text(text, style: pw.TextStyle(fontSize: 9.5, color: _charcoal)),
     );
   }
 
-  static pw.Widget _sectionLabel(String text, PdfColor accent) {
+  static pw.Widget _sectionLabel(String text) {
     return pw.Text(
       text,
       style: pw.TextStyle(
         fontSize: 9,
         fontWeight: pw.FontWeight.bold,
-        color: accent,
-        letterSpacing: 0.6,
+        color: _ink,
+        letterSpacing: 0.8,
       ),
     );
   }
 
   static pw.Widget _headCell(String text, pw.TextAlign align) {
     return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       child: pw.Text(
         text,
         textAlign: align,
         style: pw.TextStyle(
           fontSize: 9.5,
           fontWeight: pw.FontWeight.bold,
-          color: PdfColors.white,
+          color: _ink,
         ),
       ),
     );
@@ -611,7 +560,7 @@ class OrderPdfBuilder {
     bool bold = false,
   }) {
     return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       child: pw.Text(
         text,
         textAlign: align,
@@ -628,11 +577,18 @@ class OrderPdfBuilder {
       ? value.toInt().toString()
       : value.toStringAsFixed(1);
 
-  // ── Amount in words (Indian/Nepali numbering: Lakh / Crore) ─────────────
+  // ── Amount in Words (Exact 2-Decimal Accounting with Paise) ─────────────
   static String _amountInWords(double amount) {
-    final rupees = amount.round();
-    if (rupees <= 0) return 'Zero Rupees Only';
-    return '${_words(rupees)} Rupees Only';
+    final rupees = amount.floor();
+    final paise = ((amount - rupees) * 100).round();
+
+    if (rupees <= 0 && paise <= 0) return 'Zero Rupees Only';
+
+    final rupeeWords = rupees > 0 ? _words(rupees) : '';
+    if (paise <= 0) return '$rupeeWords Rupees Only';
+    if (rupees <= 0) return '${_twoDigits(paise)} Paisa Only';
+
+    return '$rupeeWords Rupees and ${_twoDigits(paise)} Paisa Only';
   }
 
   static const List<String> _ones = <String>[
@@ -663,7 +619,7 @@ class OrderPdfBuilder {
 
   static String _words(int value) {
     var n = value;
-    final crore = n ~/  10000000;
+    final crore = n ~/ 10000000;
     n %= 10000000;
     final lakh = n ~/ 100000;
     n %= 100000;

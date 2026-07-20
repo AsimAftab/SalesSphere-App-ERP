@@ -178,7 +178,7 @@ class CatalogProductCard extends ConsumerWidget {
   }
 }
 
-/// A clean pill badge conveying availability: soft green when comfortably
+/// A clean indicator conveying availability: emerald dot when comfortably
 /// stocked, amber when running low, red when out.
 class _StockBadge extends StatelessWidget {
   const _StockBadge({required this.remaining});
@@ -187,60 +187,69 @@ class _StockBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (Color bg, Color dot, Color text, String label) = switch (remaining) {
+    final (Color dot, String status, Color statusColor, String? qtyText) =
+        switch (remaining) {
       <= 0 => (
-        const Color(0xFFFFEBEE),
-        AppColors.red500,
         AppColors.red500,
         'Sold out',
+        AppColors.red500,
+        null,
       ),
       <= _lowStockThreshold => (
-        const Color(0xFFFFF8E1),
-        AppColors.warning,
-        const Color(0xFFE65100),
-        'Only $remaining left',
+        AppColors.orange500,
+        'Low stock',
+        AppColors.orange500,
+        '• Only $remaining left',
       ),
       _ => (
-        const Color(0xFFE8F5E9),
-        AppColors.green500,
-        const Color(0xFF2E7D32),
-        '$remaining in stock',
+        const Color(0xFF10B981),
+        'In stock',
+        const Color(0xFF0F766E),
+        '• $remaining units',
       ),
     };
 
     return Skeleton.replace(
       replacement: Bone(
-        width: 80.w,
-        height: 22.h,
-        borderRadius: BorderRadius.circular(6.r),
+        width: 90.w,
+        height: 16.h,
+        borderRadius: BorderRadius.circular(4.r),
       ),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 3.h),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(6.r),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Container(
-              width: 5.5.r,
-              height: 5.5.r,
-              decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
-            ),
-            SizedBox(width: 4.w),
-            Text(
-              label,
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 6.r,
+            height: 6.r,
+            decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+          ),
+          SizedBox(width: 6.w),
+          Expanded(
+            child: RichText(
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 10.5.sp,
-                fontWeight: FontWeight.w700,
-                color: text,
+              text: TextSpan(
+                style: TextStyle(fontSize: 11.sp),
+                children: <TextSpan>[
+                  TextSpan(
+                    text: status,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: statusColor,
+                    ),
+                  ),
+                  if (qtyText != null)
+                    TextSpan(
+                      text: '  $qtyText',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
