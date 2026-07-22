@@ -10,3 +10,4 @@ against (envelope, endpoints, permissions, request/response shapes).
 | [unplanned-visits-mobile-integration.md](unplanned-visits-mobile-integration.md) | Unplanned (ad-hoc) field visits — customer/prospect/site target, client-side geofence, start/stop with photo + follow-up date. **Backend not yet implemented.** |
 | [beat-plan-stop-visit.md](beat-plan-stop-visit.md) | Beat-plan stop visit check-in/out flow (planned visits with live tracking). |
 | [live-tracking-socket.md](live-tracking-socket.md) | Live-tracking socket protocol for beat-plan field tracking. |
+| [module-gating-entitlements.md](module-gating-entitlements.md) | Plan-based module gating + RBAC/PBAC architecture — entitlements provider, module registry, drift snapshot cache, route/tab/tile gating. **Design approved, not yet implemented.** |
