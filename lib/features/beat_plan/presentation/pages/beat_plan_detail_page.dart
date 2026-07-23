@@ -97,7 +97,7 @@ class _BeatPlanDetailPageState extends ConsumerState<BeatPlanDetailPage> {
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
                   error: (e, _) =>
-                      Center(child: Text('Could not load this beat plan.')),
+                      const Center(child: Text('Could not load this beat plan.')),
                 ),
               ),
             ],

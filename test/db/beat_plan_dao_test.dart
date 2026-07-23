@@ -34,7 +34,7 @@ void main() {
     test('upsertPlanWithStops persists plan + ordered stops', () async {
       await db.beatPlanDao.upsertPlanWithStops(plan('bp1'), <BeatPlanStopsCompanion>[
         stop('s2', plan: 'bp1', sortOrder: 1),
-        stop('s1', plan: 'bp1', sortOrder: 0),
+        stop('s1', plan: 'bp1'),
       ]);
 
       final row = await db.beatPlanDao.findById('bp1');

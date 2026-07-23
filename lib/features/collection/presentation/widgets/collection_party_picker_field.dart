@@ -4,7 +4,9 @@ import 'package:sales_sphere_erp/features/collection/domain/collection_party.dar
 import 'package:sales_sphere_erp/shared/widgets/party_picker.dart';
 
 /// Party selection field built on the shared [PartyPickerField] — the
-/// searchable bottom-sheet the collection form opens to pick who paid.
+/// searchable bottom-sheet the collection form opens *first*. Once a party
+/// is chosen the form surfaces that party's outstanding invoices, so the
+/// user picks who paid before deciding what it settles.
 ///
 /// The picker carries no `validator`; required-ness is enforced by the
 /// add/edit pages on submit (they guard on a null party).

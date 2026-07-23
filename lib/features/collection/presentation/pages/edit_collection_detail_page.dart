@@ -5,18 +5,24 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
 import 'package:sales_sphere_erp/features/collection/domain/cheque_status.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collection.dart';
+import 'package:sales_sphere_erp/features/collection/domain/collection_allocation.dart';
+import 'package:sales_sphere_erp/features/collection/domain/collection_invoice.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collection_party.dart';
+import 'package:sales_sphere_erp/features/collection/domain/collection_status.dart';
+import 'package:sales_sphere_erp/features/collection/domain/invoice_due.dart';
+import 'package:sales_sphere_erp/features/collection/domain/payment_allocator.dart';
 import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart';
 import 'package:sales_sphere_erp/features/collection/domain/repositories/collection_repository.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/controllers/collection_controller.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/providers/collection_providers.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/widgets/bank_name_field.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/widgets/cheque_status_field.dart';
+import 'package:sales_sphere_erp/features/collection/presentation/widgets/invoice_multi_picker_field.dart';
+import 'package:sales_sphere_erp/features/collection/presentation/widgets/outstanding_invoices_section.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/widgets/payment_mode_field.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
@@ -28,7 +34,7 @@ import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/section_card.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 
-final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 0);
+final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 2);
 
 class EditCollectionDetailPage extends ConsumerStatefulWidget {
   const EditCollectionDetailPage({required this.id, this.initial, super.key});
@@ -58,10 +64,14 @@ class _EditCollectionDetailPageState
 
   static const _maxImages = 2;
 
-  // The party a receipt belongs to is fixed — only the amount and the
-  // metadata (date/mode/bank/cheque/notes) can change.
+  // The party a receipt belongs to is fixed — only the amount, the
+  // invoice allocation, and the metadata (date/mode/bank/cheque/notes)
+  // can change. [_allocations] holds the last-saved split; in edit mode
+  // it's recomputed FIFO from [_selectedInvoiceIds] + the amount.
+  List<CollectionAllocation> _allocations = const <CollectionAllocation>[];
   double _amount = 0;
   CollectionParty? _party;
+  final Set<String> _selectedInvoiceIds = <String>{};
   DateTime? _receivedDate;
   PaymentMode? _paymentMode;
   String? _bankName;
@@ -73,18 +83,14 @@ class _EditCollectionDetailPageState
   bool _editing = false;
   bool _saving = false;
 
-  /// Whether the form fields have been seeded from a resolved row.
-  ///
-  /// The row arrives one of two ways: pushed through `extra` from the list
-  /// (the common case, instant), or resolved asynchronously by
-  /// `collectionByIdProvider` on a cold-start deep link. We can't decide
-  /// "not found" until that read has actually settled — doing it in
-  /// `initState`, as the mock version did, would flash a spurious not-found
-  /// screen at anyone opening the app straight onto a receipt.
+  /// Whether the form has been seeded from a resolved row. The row arrives
+  /// either through `extra` (from the list, instant) or asynchronously on a
+  /// cold-start deep link — so "not found" can't be decided until the read
+  /// settles.
   bool _populated = false;
 
-  /// The saved row, kept so the edit lifecycle can render sync/status chrome
-  /// and so Cancel can restore the last-known-good values.
+  /// The saved row, so Cancel can restore it and the chrome can reflect
+  /// status / sync state.
   Collection? _saved;
 
   @override
@@ -117,11 +123,15 @@ class _EditCollectionDetailPageState
       : amount.toStringAsFixed(2);
 
   void _populate(Collection c) {
+    _allocations = c.allocations;
     _amount = c.amount;
     _party = c.party;
     _partyController.text = c.party.name;
     // Currency-formatted while viewing; switched to a raw number on edit.
     _amountController.text = _currency.format(c.amount);
+    _selectedInvoiceIds
+      ..clear()
+      ..addAll(c.allocations.map((a) => a.invoiceId));
     _receivedDate = c.receivedDate;
     _receivedDateController.text =
         DateFormat('dd MMM yyyy').format(c.receivedDate);
@@ -155,6 +165,14 @@ class _EditCollectionDetailPageState
     if (saved != null) _populate(saved);
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _editing = false);
+  }
+
+  void _onInvoicesChanged(Set<String> ids) {
+    setState(() {
+      _selectedInvoiceIds
+        ..clear()
+        ..addAll(ids);
+    });
   }
 
   /// When the payment mode changes, drop conditional state the new mode
@@ -194,20 +212,29 @@ class _EditCollectionDetailPageState
     setState(() => _imagePaths.removeAt(index));
   }
 
-  /// Amount validator: required, > 0.
-  String? _validateAmount(String? value) {
+  /// Amount validator: required, > 0, and never more than the party's
+  /// total outstanding (computed with this collection released).
+  String? _validateAmount(String? value, double totalOutstanding) {
     final v = value?.trim() ?? '';
     if (v.isEmpty) return 'Amount is required';
     final parsed = double.tryParse(v);
     if (parsed == null) return 'Enter a valid amount';
     if (parsed <= 0) return 'Amount must be greater than 0';
+    if (parsed > totalOutstanding + 0.0001) {
+      return 'Exceeds total outstanding of '
+          '${_currency.format(totalOutstanding)}';
+    }
     return null;
   }
 
-  Future<void> _save() async {
+  Future<void> _save(List<InvoiceDue> selectedDues) async {
     final party = _party;
     if (party == null) {
       SnackbarUtils.showError(context, 'Missing party.');
+      return;
+    }
+    if (selectedDues.isEmpty) {
+      SnackbarUtils.showError(context, 'Please select at least one invoice.');
       return;
     }
 
@@ -236,17 +263,32 @@ class _EditCollectionDetailPageState
     if (!formValid || receivedDate == null) return;
 
     final amount = double.parse(_amountController.text.trim());
-
+    final selectedOutstanding = PaymentAllocator.totalOutstanding(selectedDues);
+    if (amount > selectedOutstanding + 0.0001) {
+      SnackbarUtils.showError(
+        context,
+        'Selected invoices cover only ${_currency.format(selectedOutstanding)}. '
+        'Select more to cover ${_currency.format(amount)}.',
+      );
+      return;
+    }
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _saving = true);
     try {
+      // Allocations stay empty here: the client sends the *selection*, and the
+      // server re-runs FIFO against live balances. On an edit it first releases
+      // this receipt's own allocations back into the pool — which is exactly
+      // what `excludeCollectionId` mirrors on the outstanding read — then
+      // re-splits the new amount.
       final updated = Collection(
         id: widget.id,
         collectionNo: _saved?.collectionNo ?? '',
+        allocations: const <CollectionAllocation>[],
         party: party,
         amount: amount,
         receivedDate: receivedDate,
         paymentMode: mode,
+        status: _saved?.status ?? CollectionStatus.draft,
         bankName: mode.requiresBank ? _bankName : null,
         chequeNumber: mode.requiresChequeDetails
             ? _chequeNumberController.text.trim()
@@ -254,19 +296,24 @@ class _EditCollectionDetailPageState
         chequeDate: mode.requiresChequeDetails ? _chequeDate : null,
         chequeStatus: mode.requiresChequeDetails ? _chequeStatus : null,
         description: _descriptionController.text.trim(),
-        // Only newly-picked local files are uploaded; already-stored proofs
-        // live in `imageUrls` and aren't re-sent.
         imagePaths: List<String>.unmodifiable(_imagePaths),
         createdAt: _createdAt ?? DateTime.now(),
       );
-      await ref
+      final saved = await ref
           .read(collectionControllerProvider.notifier)
-          .updateCollection(updated);
+          .updateCollection(
+            updated,
+            invoiceIds: selectedDues
+                .map((d) => d.invoice.id)
+                .toList(growable: false),
+          );
       if (!mounted) return;
       setState(() {
         _saving = false;
         _editing = false;
         _amount = amount;
+        // The server's split, not the preview's.
+        _allocations = saved.allocations;
         _amountController.text = _currency.format(amount);
       });
       SnackbarUtils.showSuccess(context, 'Collection updated.');
@@ -282,8 +329,8 @@ class _EditCollectionDetailPageState
         '${e.firstMessage}',
       );
     } on ApiException catch (e) {
-      // Surface the server's own copy rather than a generic "Could not save" —
-      // e.g. "Received date cannot be in the future."
+      // Surfaces the coverage-short 422 and the "Only DRAFT collections can be
+      // updated" 409 verbatim.
       if (!mounted) return;
       setState(() => _saving = false);
       SnackbarUtils.showError(context, e.message);
@@ -296,14 +343,13 @@ class _EditCollectionDetailPageState
 
   /// Advance the cheque through its clearing lifecycle.
   ///
-  /// Goes through `PATCH /collections/:id/cheque-status` rather than the form's
-  /// generic update, because only that route enforces the state machine — and
-  /// only this flow tells the user what the move actually means.
+  /// Unlike the plain module, these transitions do **real accounting** once the
+  /// receipt is posted: clearing writes a contra entry moving the money out of
+  /// Cheque-in-Hand into the bank, and bouncing writes a reversal that cancels
+  /// the receipt and puts every invoice it settled back to outstanding.
   ///
-  /// On a plain Collection these transitions are **metadata**: no voucher is
-  /// written and no money moves. They record what the cheque did in the real
-  /// world. The one consequence worth stating is the bounce: the receipt stops
-  /// counting towards collection targets.
+  /// That is why it goes through the dedicated endpoint and behind a
+  /// confirmation naming the entries — not through a generic form save.
   Future<void> _advanceChequeStatus() async {
     final current = _chequeStatus;
     if (current == null || current.isTerminal) return;
@@ -330,11 +376,12 @@ class _EditCollectionDetailPageState
           .read(collectionControllerProvider.notifier)
           .updateChequeStatus(id: widget.id, status: next);
       if (!mounted) return;
-      setState(() => _chequeStatus = updated.chequeStatus);
+      setState(() {
+        _chequeStatus = updated.chequeStatus;
+        _allocations = updated.allocations;
+      });
       SnackbarUtils.showSuccess(context, 'Cheque marked as ${next.label}.');
     } on ApiException catch (e) {
-      // A 409 here means someone else already moved the cheque on — surface the
-      // server's own copy rather than a generic failure.
       if (!mounted) return;
       SnackbarUtils.showError(context, e.message);
     } on Exception catch (_) {
@@ -349,23 +396,19 @@ class _EditCollectionDetailPageState
 
   @override
   Widget build(BuildContext context) {
-    // Drift-backed stream: the row re-emits when a background sync lands or a
-    // cheque status changes, so the page stays live without a manual refresh.
-    final rowAsync = ref.watch(collectionByIdProvider(widget.id));
-
-    rowAsync.whenData((row) {
+    final rowAsync = ref.watch(collectionByIdProvider(widget.id))
+      ..whenData((row) {
       if (row == null) return;
       _saved = row;
-      // Seed the form the first time the row resolves (cold-start deep link),
-      // and re-seed on later emissions only while the user isn't mid-edit —
-      // clobbering a half-typed form because a sync landed would be hostile.
+      // Seed on first resolve (cold-start deep link), and re-seed on later
+      // emissions only while the user isn't mid-edit — clobbering a half-typed
+      // form because a sync landed would be hostile.
       if (!_populated || !_editing) {
         _populate(row);
         _populated = true;
       }
     });
 
-    // Only call it missing once the read has actually settled on nothing.
     if (rowAsync.hasValue && rowAsync.value == null && widget.initial == null) {
       return const _NotFoundScaffold();
     }
@@ -375,10 +418,86 @@ class _EditCollectionDetailPageState
     final showBank = mode?.requiresBank ?? false;
     final showCheque = mode?.requiresChequeDetails ?? false;
 
-    // A plain Collection has no posted ledger entry to protect, so the server
-    // allows edit and delete at any time. The only thing that withdraws the
-    // Edit affordance is a row still queued in the outbox — it has no server id
-    // to address yet.
+    final party = _party;
+
+    // Outstanding with THIS receipt's own allocations released, so its money is
+    // available to re-allocate. Without `excludeCollectionId` the collection
+    // being edited still holds down the very amount it's about to re-spend, and
+    // re-saving it unchanged fails validation every single time.
+    final dues = party == null
+        ? const <InvoiceDue>[]
+        : ref
+                  .watch(
+                    outstandingInvoicesForPartyProvider(
+                      party.id,
+                      excludeCollectionId: widget.id,
+                      // Cap the pool to the receipt's Received Date so editing a
+                      // backdated collection sees the balances that existed
+                      // then — future invoices and future payments excluded.
+                      asOfDate: _receivedDate,
+                    ),
+                  )
+                  .value ??
+              const <InvoiceDue>[];
+
+    // Invoice lookup for the read-mode breakdown, so each settled invoice shows
+    // its date and total alongside what this receipt put against it.
+    //
+    // Uses `invoice-meta` rather than the outstanding read: an invoice this
+    // receipt *fully settled* has no outstanding balance left and so is absent
+    // from that list — but it still has to render here.
+    final settledIds = _allocations
+        .map((a) => a.invoiceId)
+        .toList(growable: false);
+    final metaDues = settledIds.isEmpty
+        ? const <InvoiceDue>[]
+        : ref
+                  .watch(
+                    invoiceMetaProvider(
+                      settledIds,
+                      excludeCollectionId: widget.id,
+                    ),
+                  )
+                  .value ??
+              const <InvoiceDue>[];
+    final allDuesMap = <String, InvoiceDue>{
+      for (final d in metaDues) d.invoice.id: d,
+      for (final d in dues) d.invoice.id: d,
+    };
+    final pickerDues = allDuesMap.values.toList(growable: false);
+    final invoiceById = <String, CollectionInvoice>{
+      for (final d in allDuesMap.values) d.invoice.id: d.invoice,
+    };
+    final dueByInvoiceId = allDuesMap;
+    final totalOutstanding = PaymentAllocator.totalOutstanding(dues);
+    final selectedDues = pickerDues
+        .where((d) => _selectedInvoiceIds.contains(d.invoice.id))
+        .toList(growable: false);
+    final selectedOutstanding = PaymentAllocator.totalOutstanding(selectedDues);
+
+    final entered = double.tryParse(_amountController.text.trim()) ?? 0;
+    final capped =
+        entered > selectedOutstanding ? selectedOutstanding : entered;
+    final allocations = PaymentAllocator.allocate(capped, selectedDues);
+    final allocatedById = <String, double>{
+      for (final a in allocations) a.invoiceId: a.amount,
+    };
+    final unallocated = entered - selectedOutstanding > 0.0001
+        ? entered - selectedOutstanding
+        : 0.0;
+    final amountText = _amountController.text.trim();
+    final parsedAmount = double.tryParse(amountText);
+    final amountLiveError = _editing &&
+            amountText.isNotEmpty &&
+            parsedAmount != null &&
+            parsedAmount > totalOutstanding + 0.0001
+        ? 'Exceeds total outstanding of ${_currency.format(totalOutstanding)}'
+        : null;
+
+    // Editable only while it's a DRAFT that has reached the server: a posted
+    // receipt is 409'd by any PATCH, and a row still queued in the outbox has
+    // no server id to address. Withdraw the affordance rather than offer it and
+    // then have the server refuse.
     final canEdit = _saved?.isEditable ?? true;
 
     return DarkStatusBar(
@@ -388,7 +507,7 @@ class _EditCollectionDetailPageState
             ? _SubmitBar(
                 editing: _editing,
                 isLoading: _saving,
-                onPressed: _editing ? _save : _toggleEdit,
+                onPressed: _editing ? () => _save(selectedDues) : _toggleEdit,
               )
             : null,
         body: Stack(
@@ -437,7 +556,10 @@ class _EditCollectionDetailPageState
                                         RegExp(r'^\d*\.?\d*'),
                                       ),
                                     ],
-                                    validator: _validateAmount,
+                                    errorText: amountLiveError,
+                                    onChanged: (_) => setState(() {}),
+                                    validator: (v) =>
+                                        _validateAmount(v, totalOutstanding),
                                   )
                                 else
                                   PrimaryTextField(
@@ -447,6 +569,52 @@ class _EditCollectionDetailPageState
                                     enabled: false,
                                     readOnly: true,
                                   ),
+                                if (_editing) ...<Widget>[
+                                  SizedBox(height: 6.h),
+                                  Row(
+                                    children: <Widget>[
+                                      Icon(
+                                        Icons.account_balance_wallet_outlined,
+                                        size: 13.sp,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                      SizedBox(width: 6.w),
+                                      Text(
+                                        'Total outstanding: '
+                                        '${_currency.format(totalOutstanding)}',
+                                        style: TextStyle(
+                                          color: AppColors.textSecondary,
+                                          fontSize: 11.sp,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                                SizedBox(height: 12.h),
+                                if (_editing) ...<Widget>[
+                                  InvoiceMultiPickerField(
+                                    dues: pickerDues,
+                                    selectedIds: _selectedInvoiceIds,
+                                    targetAmount: entered,
+                                    onChanged: _onInvoicesChanged,
+                                  ),
+                                  if (selectedDues.isNotEmpty) ...<Widget>[
+                                    SizedBox(height: 12.h),
+                                    OutstandingInvoicesSection(
+                                      dues: selectedDues,
+                                      allocatedById: allocatedById,
+                                      totalOutstanding: selectedOutstanding,
+                                      unallocated: unallocated,
+                                    ),
+                                  ],
+                                ] else
+                                _AllocationBreakdown(
+                                  allocations: _allocations,
+                                  invoiceById: invoiceById,
+                                  dueByInvoiceId: dueByInvoiceId,
+                                  isCancelled: _saved?.status == CollectionStatus.cancelled,
+                                ),
                                 SizedBox(height: 12.h),
                                 CustomDatePicker(
                                   controller: _receivedDateController,
@@ -475,9 +643,7 @@ class _EditCollectionDetailPageState
                                     value: _bankName,
                                     enabled: _editing,
                                     banks:
-                                        ref
-                                            .watch(collectionBankNamesProvider)
-                                            .value ??
+                                        ref.watch(bankNamesProvider).value ??
                                         const <String>[],
                                     onChanged: (next) =>
                                         setState(() => _bankName = next),
@@ -514,13 +680,10 @@ class _EditCollectionDetailPageState
                                     onChanged: (next) =>
                                         setState(() => _chequeStatus = next),
                                   ),
-                                  // Advancing a cheque goes through the
-                                  // dedicated endpoint, not the form: only that
-                                  // route enforces the state machine, and it's
-                                  // the one place the user is told what the
-                                  // move actually does. Hidden while editing
-                                  // (the picker is live then) and once the
-                                  // cheque reaches a terminal state.
+                                  // Goes through the dedicated cheque-status
+                                  // endpoint: on a POSTED receipt these moves
+                                  // write real vouchers, so they must not ride
+                                  // in on a generic form save.
                                   if (!_editing &&
                                       _chequeStatus != null &&
                                       !_chequeStatus!.isTerminal &&
@@ -601,6 +764,257 @@ class _EditCollectionDetailPageState
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Read-only list of which invoices the payment settled and by how much.
+/// For each, shows the invoice date and total (resolved from
+/// [invoiceById]) alongside the amount collected against it.
+class _AllocationBreakdown extends StatelessWidget {
+  const _AllocationBreakdown({
+    required this.allocations,
+    required this.invoiceById,
+    required this.dueByInvoiceId,
+    this.isCancelled = false,
+  });
+
+  final List<CollectionAllocation> allocations;
+  final Map<String, CollectionInvoice> invoiceById;
+  final Map<String, InvoiceDue> dueByInvoiceId;
+  final bool isCancelled;
+
+  @override
+  Widget build(BuildContext context) {
+    if (allocations.isEmpty) return const SizedBox.shrink();
+    final dateFmt = DateFormat('dd MMM yyyy');
+    final totalCollected =
+        allocations.fold<double>(0, (sum, a) => sum + a.amount);
+
+    return Container(
+      decoration: BoxDecoration(
+        // Match the disabled `PrimaryTextField` fill + faded border so the
+        // card reads as one of the other read-only fields on the page.
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(14.r),
+        border: Border.all(
+          color: AppColors.border.withValues(alpha: 0.2),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          // Header (no icon) — labelled distinctly from the add form.
+          Padding(
+            padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 10.h),
+            child: Row(
+              children: <Widget>[
+                Text(
+                  'Settled Invoices',
+                  style: TextStyle(
+                    color: AppColors.textSecondary.withValues(alpha: 0.6),
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  allocations.length == 1
+                      ? '1 invoice'
+                      : '${allocations.length} invoices',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Divider(height: 1, color: AppColors.border.withValues(alpha: 0.6)),
+          for (var i = 0; i < allocations.length; i++) ...<Widget>[
+            if (i > 0)
+              Divider(height: 1, color: AppColors.border.withValues(alpha: 0.4)),
+            _SettledInvoiceRow(
+              allocation: allocations[i],
+              invoice: invoiceById[allocations[i].invoiceId],
+              due: dueByInvoiceId[allocations[i].invoiceId],
+              dateFmt: dateFmt,
+              isCancelled: isCancelled,
+            ),
+          ],
+          Divider(height: 1, color: AppColors.border.withValues(alpha: 0.6)),
+          Padding(
+            padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 12.h),
+            child: Row(
+              children: <Widget>[
+                Text(
+                  'Total collected',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  _currency.format(totalCollected),
+                  style: TextStyle(
+                    color: AppColors.textSecondary.withValues(alpha: 0.6),
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettledInvoiceRow extends StatelessWidget {
+  const _SettledInvoiceRow({
+    required this.allocation,
+    required this.invoice,
+    required this.due,
+    required this.dateFmt,
+    this.isCancelled = false,
+  });
+
+  final CollectionAllocation allocation;
+  final CollectionInvoice? invoice;
+  final InvoiceDue? due;
+  final DateFormat dateFmt;
+  final bool isCancelled;
+
+  @override
+  Widget build(BuildContext context) {
+    final inv = invoice ?? due?.invoice;
+    final d = due;
+    final remaining = inv == null
+        ? 0.0
+        : (inv.amount - (d?.paid ?? 0) - allocation.amount)
+            .clamp(0.0, double.infinity);
+    final isSettled = inv != null && remaining <= 0.0001;
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 11.h),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    allocation.invoiceNumber,
+                    style: TextStyle(
+                      color: AppColors.textSecondary.withValues(alpha: 0.6),
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (inv != null) ...<Widget>[
+                  SizedBox(height: 3.h),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Total ${_currency.format(inv.amount)} · ${dateFmt.format(inv.invoiceDate)}',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12.sp,
+                      ),
+                    ),
+                  ),
+                ],
+                if (d != null && d.paid > 0.0001) ...<Widget>[
+                  // Prefer a line per prior payment (amount + received date).
+                  // Falls back to the grouped "Paid" figure for older receipts
+                  // recorded before the server emitted the breakdown.
+                  if (d.priorPayments.isNotEmpty)
+                    for (final PriorPayment p in d.priorPayments) ...<Widget>[
+                      SizedBox(height: 2.h),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Paid ${_currency.format(p.amount)} · ${dateFmt.format(p.receivedDate)}',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12.sp,
+                          ),
+                        ),
+                      ),
+                    ]
+                  else ...<Widget>[
+                    SizedBox(height: 2.h),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        d.lastPaidOn == null
+                            ? 'Paid ${_currency.format(d.paid)}'
+                            : 'Paid ${_currency.format(d.paid)} · last on ${dateFmt.format(d.lastPaidOn!)}',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12.sp,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+                if (inv != null) ...<Widget>[
+                  SizedBox(height: 3.h),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      isCancelled
+                          ? 'Void — bill not settled'
+                          : isSettled
+                              ? 'Bill settled'
+                              : 'Outstanding ${_currency.format(remaining)}',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12.sp,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          SizedBox(width: 12.w),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
+              Text(
+                _currency.format(allocation.amount),
+                style: TextStyle(
+                  color: AppColors.textSecondary.withValues(alpha: 0.6),
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              SizedBox(height: 2.h),
+              Text(
+                'Collected',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 10.sp,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -750,7 +1164,6 @@ class _NotFoundScaffold extends StatelessWidget {
 }
 
 /// Shown while a cold-start deep link resolves the receipt from the server.
-/// Only reachable when the page wasn't handed the row through `extra`.
 class _LoadingScaffold extends StatelessWidget {
   const _LoadingScaffold();
 
@@ -769,3 +1182,6 @@ class _LoadingScaffold extends StatelessWidget {
     );
   }
 }
+
+
+

@@ -56,9 +56,9 @@ class ValidationException extends ApiException {
 
 class ServerException extends ApiException {
   const ServerException([
-    String message = 'Something went wrong on our end.',
+    super.message = 'Something went wrong on our end.',
     int statusCode = 500,
-  ]) : super(message, statusCode: statusCode);
+  ]) : super(statusCode: statusCode);
 }
 
 class NetworkException extends ApiException {
@@ -70,8 +70,8 @@ class NetworkException extends ApiException {
 /// the form open and invite a retry rather than showing a generic error.
 class UploadFailedException extends ApiException {
   const UploadFailedException([
-    String message = 'Photo upload failed. Check your connection and retry.',
-  ]) : super(message, statusCode: 502);
+    super.message = 'Photo upload failed. Check your connection and retry.',
+  ]) : super(statusCode: 502);
 }
 
 /// Client-side gate: the device couldn't obtain a location fix, so an

@@ -17,7 +17,6 @@ import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 import 'package:sales_sphere_erp/shared/widgets/refreshable_list.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_badge.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
-import 'package:skeletonizer/skeletonizer.dart';
 
 /// Per-status colour palette for the badge on each list-row card.
 /// Matches the leaves module so the two list surfaces read as the same

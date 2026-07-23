@@ -92,10 +92,7 @@ abstract class ProfileOrganizationDto with _$ProfileOrganizationDto {
   const factory ProfileOrganizationDto({
     required String id,
     required String name,
-    String? panNo,
-    required String country,
-    required String status,
-    required String timezone,
+    required String country, required String status, required String timezone, String? panNo,
     @Default([]) List<String> weeklyOffDays,
     String? checkInTime,
     String? checkOutTime,
@@ -114,7 +111,7 @@ abstract class ProfileBranchDto with _$ProfileBranchDto {
     required String id,
     required String name,
     required String code,
-    String? address,
+    required String status, String? address,
     String? phone,
     String? panNo,
     double? latitude,
@@ -122,7 +119,6 @@ abstract class ProfileBranchDto with _$ProfileBranchDto {
     String? googleMapLink,
     @Default([]) List<String> weeklyOffDays,
     @Default(false) bool isHeadOffice,
-    required String status,
   }) = _ProfileBranchDto;
 
   factory ProfileBranchDto.fromJson(Map<String, dynamic> json) =>

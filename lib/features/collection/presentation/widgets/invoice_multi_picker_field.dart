@@ -3,8 +3,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
-import 'package:sales_sphere_erp/features/collection_plus/domain/invoice_due.dart';
-import 'package:sales_sphere_erp/features/collection_plus/domain/payment_allocator.dart';
+import 'package:sales_sphere_erp/features/collection/domain/invoice_due.dart';
+import 'package:sales_sphere_erp/features/collection/domain/payment_allocator.dart';
 import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
 import 'package:sales_sphere_erp/shared/widgets/primary_text_field.dart';
 

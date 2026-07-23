@@ -35,16 +35,15 @@ extension ChequeStatusX on ChequeStatus {
 
 /// The cheque clearing lifecycle, mirrored from the server:
 ///
-/// ```
+/// `	ext`
 /// pending ──► deposited ──► cleared   (terminal)
 ///    │            │
 ///    └────────────┴───────► bounced   (terminal)
-/// ```
+/// `	ext`
 ///
-/// `pending → cleared` directly is allowed — a cheque can be banked and clear
-/// without a separate deposit step ever being recorded. Nothing moves backwards
-/// and nothing leaves a terminal state; the server refuses with a 409, so the
-/// UI simply doesn't offer the move.
+/// `pending → cleared` directly is allowed. Nothing moves backwards and nothing
+/// leaves a terminal state; the server refuses with a 409, so the UI doesn't
+/// offer the move.
 extension ChequeStatusTransitions on ChequeStatus {
   List<ChequeStatus> get nextStates => switch (this) {
     ChequeStatus.pending => const <ChequeStatus>[
@@ -62,29 +61,25 @@ extension ChequeStatusTransitions on ChequeStatus {
 
   bool get isTerminal => nextStates.isEmpty;
 
-  /// What actually happens when a cheque on a **plain Collection** moves here.
+  /// What actually happens when a cheque on a **Collection Plus** receipt moves
+  /// here.
   ///
-  /// A plain Collection has no ledger: these transitions write no voucher and
-  /// move no money. They record what the cheque did in the real world, and
-  /// nothing more. So the copy says what *happened*, not what didn't — telling
-  /// a rep "no accounting entry was created" is both confusing and beside the
-  /// point.
-  ///
-  /// The bounce copy names the targets consequence on purpose. A rep watching
-  /// their collection number drop deserves to know why it dropped.
+  /// Unlike a plain Collection, this module is ledger-backed, so these
+  /// transitions do real PDC accounting — and the copy names the entries,
+  /// because an accountant reading it needs to know what was written.
   String get confirmationCopy => switch (this) {
     ChequeStatus.pending => 'The cheque goes back to pending.',
     ChequeStatus.deposited =>
       'The cheque has been handed in at the bank. The money has not arrived '
-          'yet — it is not yours until the bank clears it.',
+          'yet — it stays in Cheque-in-Hand until the bank clears it.',
     ChequeStatus.cleared =>
-      'The bank honoured the cheque and the money is now in your account. '
-          'This closes the cheque — the customer has paid.',
+      'The bank honoured the cheque. A contra entry moves the money from '
+          'Cheque-in-Hand into the bank account. This closes the cheque.',
     ChequeStatus.bounced =>
-      'The bank refused the cheque, so the money never arrived. The customer '
-          'still owes you, and this receipt stops counting towards your '
-          'collection targets. This is final — record a new collection if they '
-          'pay again.',
+      'The bank refused the cheque. A reversal is written: the receipt is '
+          'cancelled, every invoice it settled goes back to outstanding, and it '
+          'stops counting towards collection targets. This is final — record a '
+          'new collection if the customer pays again.',
   };
 }
 
@@ -98,3 +93,5 @@ ChequeStatus? chequeStatusFromLabel(String? label) {
   }
   return null;
 }
+
+

@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import 'package:sales_sphere_erp/features/collection_plus/domain/collection_invoice.dart';
+import 'package:sales_sphere_erp/features/collection/domain/collection_invoice.dart';
 
 /// An outstanding invoice for a party — what the collection form's
 /// invoice list and allocation preview work off.
@@ -22,7 +22,7 @@ class InvoiceDue {
     this.priorPayments = const <PriorPayment>[],
   });
 
-  final CollectionPlusInvoice invoice;
+  final CollectionInvoice invoice;
   final double paid;
   final double outstanding;
   final DateTime? lastPaidOn;

@@ -40,7 +40,7 @@ class OutboxDao extends DatabaseAccessor<AppDatabase> with _$OutboxDaoMixin {
   Future<bool> markInFlight(int id) {
     return (update(mutationOutbox)..where((o) => o.id.equals(id)))
         .write(
-          MutationOutboxCompanion(
+          const MutationOutboxCompanion(
             status: Value(OutboxStatus.inFlight),
           ),
         )
@@ -50,9 +50,9 @@ class OutboxDao extends DatabaseAccessor<AppDatabase> with _$OutboxDaoMixin {
   Future<bool> markSucceeded(int id) {
     return (update(mutationOutbox)..where((o) => o.id.equals(id)))
         .write(
-          MutationOutboxCompanion(
+          const MutationOutboxCompanion(
             status: Value(OutboxStatus.succeeded),
-            lastError: const Value(null),
+            lastError: Value(null),
           ),
         )
         .then((rows) => rows > 0);
@@ -64,7 +64,6 @@ class OutboxDao extends DatabaseAccessor<AppDatabase> with _$OutboxDaoMixin {
           MutationOutboxCompanion(
             status: const Value(OutboxStatus.pending),
             lastError: Value(error),
-            attempts: const Value.absent(),
             nextAttemptAt: Value(nextAttempt),
           ),
         )

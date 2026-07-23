@@ -3,7 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
-import 'package:sales_sphere_erp/features/collection_plus/domain/invoice_due.dart';
+import 'package:sales_sphere_erp/features/collection/domain/invoice_due.dart';
 
 final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 2);
 final _dateFmt = DateFormat('dd MMM yyyy');
@@ -22,6 +22,7 @@ class OutstandingInvoicesSection extends StatelessWidget {
     required this.allocatedById,
     required this.totalOutstanding,
     this.unallocated = 0,
+    this.isAdvancePayment = false,
     super.key,
   });
 
@@ -29,6 +30,7 @@ class OutstandingInvoicesSection extends StatelessWidget {
   final Map<String, double> allocatedById;
   final double totalOutstanding;
   final double unallocated;
+  final bool isAdvancePayment;
 
   @override
   Widget build(BuildContext context) {
@@ -151,7 +153,9 @@ class OutstandingInvoicesSection extends StatelessWidget {
           Padding(
             padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 12.h),
             child: unallocated > 0.0001
-                ? _FooterPrompt(unallocated: unallocated)
+                ? (isAdvancePayment
+                    ? _AdvanceUnallocatedPrompt(unallocated: unallocated)
+                    : _FooterPrompt(unallocated: unallocated))
                 : unusedCount > 0
                     ? _OverSelectedPrompt(count: unusedCount)
                     : _FooterTotal(applied: applied, due: totalOutstanding),
@@ -389,6 +393,32 @@ class _OverSelectedPrompt extends StatelessWidget {
               color: AppColors.textOrange,
               fontSize: 12.sp,
               fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AdvanceUnallocatedPrompt extends StatelessWidget {
+  const _AdvanceUnallocatedPrompt({required this.unallocated});
+
+  final double unallocated;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Icon(Icons.info_outline, size: 16.sp, color: AppColors.secondary),
+        SizedBox(width: 8.w),
+        Expanded(
+          child: Text(
+            'Advance Amount: ${_currency.format(unallocated)}',
+            style: TextStyle(
+              color: AppColors.secondary,
+              fontSize: 12.sp,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),

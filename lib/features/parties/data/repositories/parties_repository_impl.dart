@@ -154,7 +154,7 @@ class PartiesRepositoryImpl implements PartiesRepository {
       postedOutstanding: dto.postedOutstanding,
       draftOrdersTotal: dto.draftOrdersTotal,
       totalExposure: dto.totalExposure,
-      availableCredit: dto.availableCredit,
+      advanceBalance: dto.advanceBalance,
     );
   }
 

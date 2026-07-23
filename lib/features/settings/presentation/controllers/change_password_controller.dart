@@ -25,9 +25,9 @@ abstract class ChangePasswordState with _$ChangePasswordState {
   const ChangePasswordState._();
 
   bool get hasMinLength => newPassword.length >= 8;
-  bool get hasUppercase => newPassword.contains(RegExp(r'[A-Z]'));
-  bool get hasLowercase => newPassword.contains(RegExp(r'[a-z]'));
-  bool get hasNumber => newPassword.contains(RegExp(r'[0-9]'));
+  bool get hasUppercase => newPassword.contains(RegExp('[A-Z]'));
+  bool get hasLowercase => newPassword.contains(RegExp('[a-z]'));
+  bool get hasNumber => newPassword.contains(RegExp('[0-9]'));
   bool get hasSpecialChar => newPassword.contains(RegExp(r'[!@#\$%^&*(),.?":{}|<>]'));
 
   bool get isValid =>

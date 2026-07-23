@@ -7,23 +7,23 @@ import 'package:sales_sphere_erp/features/collection/data/dto/collection_dto.dar
 import 'package:sales_sphere_erp/features/collection/data/repositories/collection_repository_impl.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/providers/collection_providers.dart';
 
-/// Bridges the outbox drain back into the collections drift cache and the
-/// list notifier's `loadedIds`.
+/// Bridges the outbox drain back into the Collection Plus drift cache.
 ///
-/// **On 2xx** — replace the `local_<uuid>` row with the server-issued one and
-/// patch the visible list so the rendered row keeps its position. The response
-/// is the full collection either way: `201` for a fresh create, `200` when the
-/// server recognised the `clientRequestId` and returned the row it already
-/// had. We don't care which — the row is the row.
+/// **On 2xx** — swap the `local_<uuid>` row for the server's, *including its
+/// allocations*. This is the moment the real split lands: the queued row had
+/// none, because the client never computes one. If balances moved while the
+/// receipt sat offline, the split that comes back may not be the one the rep
+/// previewed — and that's fine, the server is the authority.
 ///
-/// **On dead-letter** — flag the drift row with the server's own message. The
-/// card flips from an orange "pending" badge to a red one carrying the reason.
+/// **On dead-letter** — flag the row with the server's own message.
 ///
-/// That red badge *is* the server-authoritative rejection surface. A
-/// Collection Plus receipt allocated offline against a balance that has since
-/// moved comes back `422 "Selected invoices cover only Rs X…"`, and the rep
-/// sees exactly that. Do not silently re-allocate to make it fit — the whole
-/// point is that the server won.
+/// The dead-letter path is the whole point of `ConflictPolicy.serverAuthoritative`
+/// here. Two reps can each record a receipt against the same invoice while
+/// offline, both having previewed against a balance that was already stale.
+/// Whoever syncs second gets `422 "Selected invoices cover only Rs X. Select
+/// more to cover Rs Y."`, the row turns red, and it carries exactly that text.
+/// Do **not** silently re-allocate to make it fit — the rep has to know the
+/// money didn't land where they thought.
 class CollectionSyncHandler implements MutationHandler {
   CollectionSyncHandler(this._ref);
 
@@ -38,7 +38,7 @@ class CollectionSyncHandler implements MutationHandler {
     required Object? responseBody,
   }) async {
     final localId = entry.localEntityId;
-    if (localId == null) return; // defensive — always set for collections.
+    if (localId == null) return;
     if (responseBody is! Map<String, dynamic>) return;
     final inner = responseBody['data'];
     if (inner is! Map<String, dynamic>) return;
@@ -46,7 +46,7 @@ class CollectionSyncHandler implements MutationHandler {
     final serverDto = CollectionDto.fromJson(inner);
     await _ref
         .read(collectionsDaoProvider)
-        .markSyncSucceeded(localId, CollectionKind.onAccount, serverDto);
+        .markSyncSucceeded(localId, CollectionKind.allocated, serverDto);
     _ref
         .read(collectionListProvider.notifier)
         .replaceLocalId(localId, serverDto.id);

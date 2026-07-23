@@ -165,7 +165,7 @@ class _AttendanceHomePageState extends ConsumerState<AttendanceHomePage> {
                                       8.w,
                                       14.h,
                                     ),
-                                    child: Divider(
+                                    child: const Divider(
                                       height: 1,
                                       color: AppColors.border,
                                     ),

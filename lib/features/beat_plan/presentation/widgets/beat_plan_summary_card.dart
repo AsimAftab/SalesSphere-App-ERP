@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/router/routes.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../../../../shared/widgets/status_badge.dart';
-import '../../../../shared/widgets/custom_button.dart';
-import '../../../../shared/utils/snackbar_utils.dart';
-import '../../../tracking/domain/usecases/start_tracking_usecase.dart';
-import '../../../tracking/presentation/controllers/tracking_controller.dart';
-import '../../domain/beat_plan.dart';
+import 'package:intl/intl.dart';
+import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/core/router/routes.dart';
+import 'package:sales_sphere_erp/features/beat_plan/domain/beat_plan.dart';
+import 'package:sales_sphere_erp/features/tracking/domain/usecases/start_tracking_usecase.dart';
+import 'package:sales_sphere_erp/features/tracking/presentation/controllers/tracking_controller.dart';
+import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
+import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
+import 'package:sales_sphere_erp/shared/widgets/status_badge.dart';
 
 class BeatPlanSummaryCard extends ConsumerWidget {
   final BeatPlan plan;
 
-  const BeatPlanSummaryCard({super.key, required this.plan});
+  const BeatPlanSummaryCard({required this.plan, super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -27,7 +27,6 @@ class BeatPlanSummaryCard extends ConsumerWidget {
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 24.r,
-            spreadRadius: 0,
             offset: const Offset(0, 8),
           ),
         ],

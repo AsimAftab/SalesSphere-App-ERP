@@ -11,7 +11,7 @@ class PartyCredit {
     required this.draftOrdersTotal,
     required this.totalExposure,
     this.creditLimitAmount,
-    this.availableCredit,
+    this.advanceBalance,
   });
 
   final String customerId;
@@ -28,9 +28,19 @@ class PartyCredit {
   /// `postedOutstanding + draftOrdersTotal`.
   final String totalExposure;
 
+  /// Unallocated advance balance.
+  final String? advanceBalance;
+
   /// Credit left before the backend blocks order create; negative =
   /// already over-limit, null = unlimited.
-  final String? availableCredit;
+  String? get availableCredit {
+    if (creditLimitAmount == null) return null;
+    final limit = double.tryParse(creditLimitAmount!) ?? 0;
+    final posted = double.tryParse(postedOutstanding) ?? 0;
+    final draft = double.tryParse(draftOrdersTotal) ?? 0;
+    final advance = double.tryParse(advanceBalance ?? '0') ?? 0;
+    return (limit - posted - draft + advance).toStringAsFixed(2);
+  }
 
   bool get isUnlimited => creditLimitAmount == null;
 

@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sales_sphere_erp/features/collection_plus/domain/collection_invoice.dart';
-import 'package:sales_sphere_erp/features/collection_plus/domain/invoice_due.dart';
-import 'package:sales_sphere_erp/features/collection_plus/domain/payment_allocator.dart';
+import 'package:sales_sphere_erp/features/collection/domain/collection_invoice.dart';
+import 'package:sales_sphere_erp/features/collection/domain/invoice_due.dart';
+import 'package:sales_sphere_erp/features/collection/domain/payment_allocator.dart';
 
 InvoiceDue _due(
   String number,
@@ -9,7 +9,7 @@ InvoiceDue _due(
   required DateTime date,
   double? total,
 }) => InvoiceDue(
-  invoice: CollectionPlusInvoice(
+  invoice: CollectionInvoice(
     id: 'inv_${number.toLowerCase()}',
     number: number,
     amount: total ?? outstanding,
@@ -33,7 +33,7 @@ void main() {
       // trusting it.
       final dues = <InvoiceDue>[
         _due('INV-NEW', 30000, date: DateTime(2026, 7)),
-        _due('INV-OLD', 20000, date: DateTime(2026, 1)),
+        _due('INV-OLD', 20000, date: DateTime(2026)),
       ];
 
       final result = PaymentAllocator.allocate(25000, dues);

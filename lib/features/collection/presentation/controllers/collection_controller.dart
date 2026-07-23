@@ -2,40 +2,37 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:sales_sphere_erp/features/collection/domain/cheque_status.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collection.dart';
+import 'package:sales_sphere_erp/features/collection/domain/collection_allocation.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collection_party.dart';
 import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart';
 import 'package:sales_sphere_erp/features/collection/domain/repositories/collection_repository.dart';
-// `collection_providers.dart` re-exports `collectionRepositoryProvider` so the
-// controller stays out of `features/.../data/`.
+// `collection_providers.dart` re-exports `collectionRepositoryProvider` so
+// the controller stays out of `features/.../data/`.
 import 'package:sales_sphere_erp/features/collection/presentation/providers/collection_providers.dart';
 
 part 'collection_controller.g.dart';
 
-/// Routes collection write actions from the UI through the repository. Reads
-/// stay on `collectionsListVisibleProvider` / `collectionByIdProvider`.
-///
-/// The list is patched in place (`prependLocal` / `removeLocal`) rather than
-/// invalidated — that keeps the new row visible without a refetch and without
-/// throwing away the user's scroll position. Edits need no patch at all: row
-/// *content* streams from drift, which the repository has already written.
-///
-/// Each write opens a `ref.keepAlive()` link for the duration of its in-flight
-/// await and closes it in `finally`, keeping the notifier valid through the
-/// post-await state patch without permanently pinning a write-only controller
-/// in memory.
+/// Routes Collection Plus write actions from the UI through the repository.
+/// Reads stay on `collectionListVisibleProvider` /
+/// `collectionByIdProvider`.
 @riverpod
 class CollectionController extends _$CollectionController {
   @override
   void build() {}
 
-  /// Record a receipt. The server lands it as a DRAFT — nothing reaches the
-  /// ledger until an accountant posts it.
+  /// Record a receipt against the selected invoices.
   ///
-  /// **Offline this still succeeds.** The repository caches the row and queues
-  /// the create against a UUID replay key; the returned collection carries
-  /// `syncPending`. Callers must not treat that as a failure — the money is
-  /// recorded, and the receipt syncs when the device reconnects.
+  /// Takes **[invoiceIds], not a split.** The on-screen FIFO preview is a
+  /// courtesy; the server re-runs the allocation against live balances and
+  /// returns the authoritative one. Sending a client-computed split would be
+  /// asking the server to trust arithmetic done against a balance that may
+  /// already be stale — which, offline, it almost certainly is.
+  ///
+  /// If the selection no longer covers the amount (another rep collected
+  /// against the same invoice first), the server refuses with a 422 carrying
+  /// "Selected invoices cover only Rs X…". Let that surface.
   Future<Collection> addCollection({
+    required List<String> invoiceIds,
     required CollectionParty party,
     required double amount,
     required DateTime receivedDate,
@@ -49,11 +46,12 @@ class CollectionController extends _$CollectionController {
   }) async {
     final link = ref.keepAlive();
     try {
-      // `id` / `collectionNo` / `createdAt` are server-owned. The placeholders
-      // here are overwritten by the created row (or by a `local_<uuid>` id on
-      // the offline path).
+      // `id` / `collectionNo` / `allocations` / `createdAt` are all
+      // server-owned. Allocations in particular stay empty here — the client
+      // never invents a split.
       final draft = Collection(
         id: '',
+        allocations: const <CollectionAllocation>[],
         party: party,
         amount: amount,
         receivedDate: receivedDate,
@@ -68,12 +66,10 @@ class CollectionController extends _$CollectionController {
       );
       final created = await ref
           .read(collectionRepositoryProvider)
-          .addCollection(draft);
+          .addCollection(draft, invoiceIds: invoiceIds);
       ref.read(collectionListProvider.notifier).prependLocal(created);
       return created;
     } on PartialImageUploadException catch (e) {
-      // The receipt saved; only a proof photo didn't. Show the row anyway and
-      // let the page surface the upload failure.
       ref.read(collectionListProvider.notifier).prependLocal(e.collection);
       rethrow;
     } finally {
@@ -81,21 +77,28 @@ class CollectionController extends _$CollectionController {
     }
   }
 
-  /// Save edits to a draft. The server 409s once the receipt is posted or
-  /// cancelled, and the party is immutable.
-  Future<Collection> updateCollection(Collection collection) async {
+  /// Save edits to a draft.
+  ///
+  /// The invoice selection is resent so the server can re-derive the split —
+  /// it releases this receipt's own allocations first (that's what
+  /// `excludeCollectionId` on the outstanding read mirrors), then re-runs FIFO
+  /// over the new amount.
+  Future<Collection> updateCollection(
+    Collection collection, {
+    required List<String> invoiceIds,
+  }) async {
     final link = ref.keepAlive();
     try {
       return await ref
           .read(collectionRepositoryProvider)
-          .updateCollection(collection);
+          .updateCollection(collection, invoiceIds: invoiceIds);
     } finally {
       link.close();
     }
   }
 
-  /// Delete a draft. A posted receipt cannot be deleted — it must be
-  /// cancelled, which writes a reversal voucher. The server enforces that.
+  /// Delete a draft. A posted receipt must be cancelled instead — that writes a
+  /// reversal voucher and restores the invoices' outstanding balances.
   Future<void> deleteCollection(String id) async {
     final link = ref.keepAlive();
     try {
@@ -109,12 +112,9 @@ class CollectionController extends _$CollectionController {
   /// Advance a cheque through its clearing lifecycle.
   ///
   /// On a posted receipt this moves real money: clearing writes a contra
-  /// voucher (cheque-in-hand → bank), and bouncing writes a reversal that
-  /// cancels the receipt and restores the customer's outstanding balance.
-  /// Illegal moves are refused server-side (409) — `cleared` and `bounced`
-  /// are terminal.
-  ///
-  /// No list patch: the new status streams back out of drift.
+  /// voucher, and **bouncing writes a reversal that cancels the receipt and
+  /// restores the invoices' outstanding balances** — so an invoice this
+  /// receipt settled becomes collectible again.
   Future<Collection> updateChequeStatus({
     required String id,
     required ChequeStatus status,

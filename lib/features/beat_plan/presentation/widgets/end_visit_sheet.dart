@@ -21,9 +21,7 @@ class EndVisitSheet extends StatefulWidget {
   }) onEndVisit;
 
   const EndVisitSheet({
-    super.key,
-    required this.entity,
-    required this.onEndVisit,
+    required this.entity, required this.onEndVisit, super.key,
   });
 
   @override

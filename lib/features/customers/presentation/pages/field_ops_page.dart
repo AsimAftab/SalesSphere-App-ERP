@@ -101,16 +101,7 @@ class FieldOpsPage extends StatelessWidget {
       iconColor: AppColors.purple500,
       onTap: () => context.push(Routes.unplannedVisits),
     ),
-    // The two collection modules are genuinely different products, so they no
-    // longer share an icon and a subtitle — identical tiles only ever read as a
-    // duplicate.
-    _TileSpec(
-      icon: Icons.receipt_long_outlined,
-      title: 'Collection Plus',
-      subtitle: 'Settle payments against specific invoices',
-      iconColor: AppColors.yellow500,
-      onTap: () => context.push(Routes.collectionPlus),
-    ),
+    // The single Collection module now handles all payment types.
     _TileSpec(
       icon: Icons.account_balance_wallet_outlined,
       title: 'Collection',

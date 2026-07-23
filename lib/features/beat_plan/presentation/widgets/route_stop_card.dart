@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/utils/geo_distance.dart';
-import '../../../../shared/widgets/custom_button.dart';
-import '../../../../shared/widgets/visit_detail_field.dart';
+import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/core/utils/geo_distance.dart';
+import 'package:sales_sphere_erp/shared/widgets/custom_button.dart';
+import 'package:sales_sphere_erp/shared/widgets/visit_detail_field.dart';
 
 class RouteStopCard extends StatefulWidget {
   final String name;
@@ -37,23 +37,11 @@ class RouteStopCard extends StatefulWidget {
   final bool canCheckIn;
 
   const RouteStopCard({
-    super.key,
-    required this.name,
-    required this.ownerName,
-    required this.type,
-    required this.address,
-    required this.status,
-    required this.distance,
+    required this.name, required this.ownerName, required this.type, required this.address, required this.status, required this.distance, required this.onTap, required this.onOpenMap, required this.onOpenDirections, required this.onStart, required this.onStop, required this.onSkip, super.key,
     this.isActive = false,
     this.startTime,
     this.endTime,
     this.timeSpent,
-    required this.onTap,
-    required this.onOpenMap,
-    required this.onOpenDirections,
-    required this.onStart,
-    required this.onStop,
-    required this.onSkip,
     this.isStarted = false,
     this.notes,
     this.photoUrl,
@@ -73,7 +61,7 @@ class _RouteStopCardState extends State<RouteStopCard> {
 
   @override
   Widget build(BuildContext context) {
-    final String initial =
+    final initial =
         widget.name.isNotEmpty ? widget.name[0].toUpperCase() : '?';
     final isVisited = widget.status.toLowerCase() == 'visited';
     final isPending = widget.status.toLowerCase() == 'pending';
@@ -345,7 +333,6 @@ class _RouteStopCardState extends State<RouteStopCard> {
                       label: 'Start',
                       onPressed: widget.canCheckIn ? widget.onStart : null,
                       isDisabled: !widget.canCheckIn,
-                      type: ButtonType.primary,
                     ),
                   SizedBox(height: 12.h),
                   if (!widget.isStarted)

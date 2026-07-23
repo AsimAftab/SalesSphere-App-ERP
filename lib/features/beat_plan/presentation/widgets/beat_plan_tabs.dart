@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../providers/beat_plan_providers.dart';
+import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/features/beat_plan/presentation/providers/beat_plan_providers.dart';
 
 class BeatPlanTabs extends ConsumerWidget {
   const BeatPlanTabs({super.key});

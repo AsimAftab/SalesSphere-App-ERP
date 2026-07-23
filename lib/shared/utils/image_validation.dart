@@ -30,7 +30,7 @@ const String kUnsupportedImageMessage =
 String imageTooLargeMessage(int actualBytes) {
   final mb = (actualBytes / (1024 * 1024)).toStringAsFixed(1);
   final cap = (kMaxImageBytes / (1024 * 1024)).toStringAsFixed(0);
-  return 'Image too large (${mb} MB). Maximum size is $cap MB.';
+  return 'Image too large ($mb MB). Maximum size is $cap MB.';
 }
 
 /// Returns `true` when [path]'s extension is one of the accepted

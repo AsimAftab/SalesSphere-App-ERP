@@ -67,7 +67,7 @@ class AuthController extends Notifier<AsyncValue<AuthUser?>> {
   /// what we already have.
   Future<void> _attemptBiometricUnlock(AuthUser cachedUser) async {
     final ok = await _biometric.authenticate(
-      localizedReason: 'Unlock SalesSphere',
+      
     );
     if (!ok) {
       _emit(const AuthState.unauthenticated(), null);

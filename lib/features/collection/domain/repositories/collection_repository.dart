@@ -1,14 +1,13 @@
 import 'package:sales_sphere_erp/features/collection/domain/cheque_status.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collection.dart';
+import 'package:sales_sphere_erp/features/collection/domain/collection_status.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collections_page.dart';
+import 'package:sales_sphere_erp/features/collection/domain/invoice_due.dart';
 import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart';
 
-/// Thrown by [CollectionRepository.addCollection] when the receipt was created
-/// but at least one payment-proof upload failed.
-///
-/// Carries the created [collection] so the caller can still reflect the new
-/// row in the UI — the money is recorded, only the photo is missing — plus
-/// per-slot [failures] keyed by 1-indexed slot with the backend's message.
+/// Thrown when the receipt was created but a payment-proof upload failed.
+/// Carries the created [collection] so the UI can still show the row — the
+/// money is recorded, only the photo is missing.
 class PartialImageUploadException implements Exception {
   const PartialImageUploadException({
     required this.collection,
@@ -18,7 +17,6 @@ class PartialImageUploadException implements Exception {
   final Collection collection;
   final Map<int, String> failures;
 
-  /// 1-indexed slots that failed, sorted so the snackbar copy is stable.
   List<int> get failedSlots => failures.keys.toList()..sort();
 
   String get firstMessage =>
@@ -30,79 +28,83 @@ class PartialImageUploadException implements Exception {
       'failures=$failures)';
 }
 
-/// Domain-side contract for on-account collections. The implementation (DTO
-/// mapping, drift persistence, outbox enqueue) lives in
-/// `data/repositories/collection_repository_impl.dart`.
+/// Domain-side contract for invoice-allocated collections.
 abstract class CollectionRepository {
-  /// Fetch one cursor-paginated slice, upserting it into drift so the
-  /// reactive list re-renders.
-  ///
-  /// Filtering is **server-side**. [excludePaymentMode] is what separates the
-  /// two list tabs: the main tab excludes `cheque`, the PDC tab selects it via
-  /// [paymentMode]. [createdById] takes a user id. [fromDate] / [toDate]
-  /// filter on creation time, matching the "Created From / To" labels.
-  Future<CollectionsPage> getCollectionsPage({
+  Future<CollectionPage> getCollectionsPage({
     int limit,
     String? cursor,
     String? search,
     PaymentMode? paymentMode,
     PaymentMode? excludePaymentMode,
     ChequeStatus? chequeStatus,
+    CollectionStatus? status,
     String? createdById,
     DateTime? fromDate,
     DateTime? toDate,
   });
 
-  /// Drift-first single-row read, falling back to the API for cold-start
-  /// deep-links. Returns `null` only when the row genuinely doesn't exist.
   Future<Collection?> getCollectionById(String id);
 
-  /// Record a receipt. Lands `DRAFT` server-side.
+  /// The party's unsettled invoices, **oldest-first with fully-paid rows
+  /// dropped** — the same order the server's FIFO uses.
   ///
-  /// Offline, the row is cached optimistically and the create is queued in the
-  /// outbox against a v4-UUID `clientRequestId`, which makes the eventual
-  /// `POST` idempotent — a replay returns the original row rather than
-  /// duplicating the receipt.
+  /// [excludeCollectionId] is **mandatory when editing**. It releases that
+  /// receipt's own allocations back into the pool; without it the collection
+  /// being edited still holds down the money it's about to re-allocate, and
+  /// re-saving it unchanged fails validation every time.
   ///
-  /// Throws [PartialImageUploadException] when the receipt saved but a proof
-  /// image didn't.
-  Future<Collection> addCollection(Collection draft);
+  /// Only POSTED invoices are collectible. An empty list means "nothing to
+  /// settle yet", not a bug — a rep's order sits DRAFT until the web app posts
+  /// it, and on-account `/collections` is the escape hatch until then.
+  ///
+  /// [asOfDate] caps the read to what was due on that date — the server drops
+  /// invoices issued after it and ignores payments received after it. Pass the
+  /// receipt's Received Date so a backdated collection sees the balances that
+  /// existed then, not today's.
+  Future<List<InvoiceDue>> getOutstandingInvoices({
+    required String partyId,
+    String? excludeCollectionId,
+    DateTime? asOfDate,
+  });
 
-  /// Edit a collection. Always allowed (there's no posted state to protect);
-  /// only the party is immutable.
-  Future<Collection> updateCollection(Collection collection);
+  /// Re-hydrate specific invoices by id, keeping rows that are already fully
+  /// paid — so an invoice this receipt settled still renders in the edit
+  /// picker.
+  Future<List<InvoiceDue>> getInvoiceMeta({
+    required List<String> invoiceIds,
+    String? excludeCollectionId,
+  });
 
-  /// Delete a collection. Always allowed — a plain Collection has no posted
-  /// ledger entry to protect.
+  /// Record a receipt against [invoiceIds].
+  ///
+  /// The client sends the **selection, never a split**. The server runs FIFO
+  /// against live balances and returns the authoritative allocations. If the
+  /// selection no longer covers the amount, it refuses with a 422 rather than
+  /// re-allocating — surface that, don't paper over it.
+  Future<Collection> addCollection(
+    Collection draft, {
+    required List<String> invoiceIds,
+  });
+
+  Future<Collection> updateCollection(
+    Collection collection, {
+    required List<String> invoiceIds,
+  });
+
   Future<void> deleteCollection(String id);
 
-  /// Advance a cheque through its clearing lifecycle.
-  ///
-  /// Legal moves: `pending → deposited | cleared | bounced`,
-  /// `deposited → cleared | bounced`. `cleared` and `bounced` are terminal;
-  /// anything else is refused.
-  ///
-  /// **Metadata only.** On a plain Collection this writes no voucher and moves
-  /// no money — it records what the cheque did in the real world. (Collection
-  /// Plus is the module with real PDC accounting.) One consequence that matters
-  /// to the rep: a bounced receipt stops counting towards collection targets.
   Future<Collection> updateChequeStatus({
     required String id,
     required ChequeStatus status,
   });
 
-  /// Bank catalogue for the cheque / bank-transfer picker. A **suggestion
-  /// list**, not an enum — the field is free text and the picker offers an
-  /// "add a different bank" escape hatch.
   Future<List<String>> getBankNames();
 
-  /// Upload (or replace) one payment-proof slot, 1-indexed, max 2.
   Future<void> uploadImage({
     required String collectionId,
     required String filePath,
     required int slot,
   });
 
-  /// Delete one payment-proof slot.
   Future<void> removeImage({required String collectionId, required int slot});
 }

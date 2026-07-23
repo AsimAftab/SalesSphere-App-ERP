@@ -1,5 +1,5 @@
-import 'package:sales_sphere_erp/features/collection_plus/domain/collection_allocation.dart';
-import 'package:sales_sphere_erp/features/collection_plus/domain/invoice_due.dart';
+import 'package:sales_sphere_erp/features/collection/domain/collection_allocation.dart';
+import 'package:sales_sphere_erp/features/collection/domain/invoice_due.dart';
 
 /// Pure FIFO payment allocation — **preview only**.
 ///
@@ -50,19 +50,19 @@ abstract final class PaymentAllocator {
   /// to detect it. The form blocks submission while it's non-zero, because the
   /// server refuses that receipt anyway (there is no advance / on-account
   /// credit in Collection Plus — plain Collection is the escape hatch).
-  static List<CollectionPlusAllocation> allocate(
+  static List<CollectionAllocation> allocate(
     double amount,
     List<InvoiceDue> dues,
   ) {
     var remaining = toPaisa(amount);
-    final result = <CollectionPlusAllocation>[];
+    final result = <CollectionAllocation>[];
     for (final due in _oldestFirst(dues)) {
       if (remaining <= 0) break;
       final outstanding = toPaisa(due.outstanding);
       if (outstanding <= 0) continue;
       final take = remaining < outstanding ? remaining : outstanding;
       result.add(
-        CollectionPlusAllocation(
+        CollectionAllocation(
           invoiceId: due.invoice.id,
           invoiceNumber: due.invoice.number,
           amount: fromPaisa(take),
@@ -92,8 +92,7 @@ abstract final class PaymentAllocator {
   /// The server's ordering: `invoiceDate` ascending, ties broken by
   /// `invoiceNumber` ascending.
   static List<InvoiceDue> _oldestFirst(List<InvoiceDue> dues) {
-    final sorted = <InvoiceDue>[...dues];
-    sorted.sort((a, b) {
+    final sorted = <InvoiceDue>[...dues]..sort((a, b) {
       final byDate = a.invoice.invoiceDate.compareTo(b.invoice.invoiceDate);
       if (byDate != 0) return byDate;
       return a.invoice.number.compareTo(b.invoice.number);
@@ -101,3 +100,5 @@ abstract final class PaymentAllocator {
     return sorted;
   }
 }
+
+
