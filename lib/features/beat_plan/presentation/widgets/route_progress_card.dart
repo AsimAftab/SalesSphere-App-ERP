@@ -153,7 +153,6 @@ class RouteProgressCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(12.r),
             ),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Icon(Icons.info_outline_rounded, color: AppColors.primary, size: 20.sp),
                 SizedBox(width: 12.w),

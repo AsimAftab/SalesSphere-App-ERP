@@ -12,6 +12,7 @@ import 'package:sales_sphere_erp/core/db/daos/outbox_dao.dart';
 import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
 import 'package:sales_sphere_erp/core/utils/uuid.dart';
 import 'package:sales_sphere_erp/features/beat_plan/data/beat_plan_api.dart';
+import 'package:sales_sphere_erp/features/beat_plan/data/beat_plan_sync_handler.dart' show BeatPlanStopSyncHandler;
 import 'package:sales_sphere_erp/features/beat_plan/data/dto/beat_plan_dto.dart';
 import 'package:sales_sphere_erp/features/beat_plan/domain/beat_plan.dart';
 import 'package:sales_sphere_erp/features/beat_plan/domain/beat_plan_stop.dart';
@@ -319,7 +320,7 @@ class BeatPlanRepositoryImpl implements BeatPlanRepository {
       assignedDate: r.scheduledDate,
       startedDate: r.startedAt ?? r.scheduledDate,
       completedAt: r.completedAt,
-      progress: progress.toDouble(),
+      progress: progress,
       total: total,
       visited: visited,
       pending: pending,

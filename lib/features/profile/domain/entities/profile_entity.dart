@@ -50,8 +50,7 @@ abstract class ProfileAssignedBranchEntity with _$ProfileAssignedBranchEntity {
   const factory ProfileAssignedBranchEntity({
     required String id,
     required String name,
-    String? code,
-    required bool isHeadOffice,
+    required bool isHeadOffice, String? code,
   }) = _ProfileAssignedBranchEntity;
 }
 
@@ -70,16 +69,10 @@ abstract class ProfileOrganizationEntity with _$ProfileOrganizationEntity {
   const factory ProfileOrganizationEntity({
     required String id,
     required String name,
-    String? panNo,
-    required String country,
-    required String status,
-    required String timezone,
-    required List<String> weeklyOffDays,
+    required String country, required String status, required String timezone, required List<String> weeklyOffDays, required bool enableGeoFencingAttendance, required List<ProfileBranchEntity> branches, String? panNo,
     String? checkInTime,
     String? checkOutTime,
     String? halfDayCheckOutTime,
-    required bool enableGeoFencingAttendance,
-    required List<ProfileBranchEntity> branches,
   }) = _ProfileOrganizationEntity;
 }
 
@@ -89,14 +82,11 @@ abstract class ProfileBranchEntity with _$ProfileBranchEntity {
     required String id,
     required String name,
     required String code,
-    String? address,
+    required List<String> weeklyOffDays, required bool isHeadOffice, required String status, String? address,
     String? phone,
     String? panNo,
     double? latitude,
     double? longitude,
     String? googleMapLink,
-    required List<String> weeklyOffDays,
-    required bool isHeadOffice,
-    required String status,
   }) = _ProfileBranchEntity;
 }

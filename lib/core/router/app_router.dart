@@ -20,10 +20,6 @@ import 'package:sales_sphere_erp/features/collection/domain/collection.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/pages/add_collection_page.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/pages/collection_list_page.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/pages/edit_collection_detail_page.dart';
-import 'package:sales_sphere_erp/features/collection_plus/domain/collection.dart';
-import 'package:sales_sphere_erp/features/collection_plus/presentation/pages/add_collection_plus_page.dart';
-import 'package:sales_sphere_erp/features/collection_plus/presentation/pages/collection_plus_list_page.dart';
-import 'package:sales_sphere_erp/features/collection_plus/presentation/pages/edit_collection_plus_detail_page.dart';
 import 'package:sales_sphere_erp/features/customers/presentation/pages/field_ops_page.dart';
 import 'package:sales_sphere_erp/features/expenses/domain/expense_claim.dart';
 import 'package:sales_sphere_erp/features/expenses/presentation/pages/add_expense_claim_page.dart';
@@ -362,28 +358,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
-        path: Routes.collectionPlus,
-        name: Routes.collectionPlusName,
-        builder: (_, __) => const CollectionPlusListPage(),
-      ),
-      GoRoute(
-        path: Routes.addCollectionPlus,
-        name: Routes.addCollectionPlusName,
-        builder: (_, __) => const AddCollectionPlusPage(),
-      ),
-      GoRoute(
-        path: Routes.collectionPlusDetail,
-        name: Routes.collectionPlusDetailName,
-        builder: (context, state) {
-          final id = state.pathParameters['id']!;
-          final extra = state.extra;
-          return EditCollectionPlusDetailPage(
-            id: id,
-            initial: extra is CollectionPlus ? extra : null,
-          );
-        },
-      ),
-      GoRoute(
         path: Routes.collection,
         name: Routes.collectionName,
         builder: (_, __) => const CollectionListPage(),
@@ -405,6 +379,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
+
       GoRoute(
         path: Routes.attendance,
         name: Routes.attendanceName,

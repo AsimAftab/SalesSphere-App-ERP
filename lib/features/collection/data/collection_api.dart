@@ -4,58 +4,41 @@ import 'package:http_parser/http_parser.dart';
 
 import 'package:sales_sphere_erp/core/api/dio_client.dart';
 import 'package:sales_sphere_erp/features/collection/data/dto/collection_dto.dart';
-import 'package:sales_sphere_erp/features/collection/data/dto/collections_page_dto.dart';
+import 'package:sales_sphere_erp/features/collection/data/dto/collection_page_dto.dart';
 
-/// Infinite-scroll page size. The backend caps `limit` at 200 and defaults
-/// to 50; the bank catalogue is a small reference list fetched in one go.
-const int _kCollectionsPageSize = 15;
+const int _kCollectionPageSize = 15;
 
-/// HTTP layer for the Collection feature (on-account receipts — available on
-/// every plan, including CRM-only orgs with no ledger).
+/// HTTP layer for Collection Plus â€” receipts allocated across specific
+/// invoices, oldest-first.
 ///
-/// Three contract details that bite if you miss them:
+/// **ACCOUNTING plans only.** The permission keys `collection-plus:*` simply
+/// don't exist in a CRM-only tenant's session, so every route here 403s for
+/// them. That's the whole feature gate; the UI just hides the tile.
 ///
-///  * **Every GET query is `.strict()` server-side.** One unknown param — a
-///    stray `page`, `offset`, `sort` — is a hard 422, not a silent ignore.
-///    Only send what the schema declares.
-///  * **`POST` is idempotent on `clientRequestId`** (a v4 UUID from the
-///    outbox). A replay of a key the server has seen returns **200 with the
-///    original row**, not a duplicate and not a 409. 201 means newly created.
-///  * **`imageNumber` must be streamed before the file part** — Multer fills
-///    `req.body` as it reads, and a text field after the file can be missed.
+/// Speaks [CollectionDto], which extends the plain `CollectionDto` with the
+/// three things only a ledger-backed receipt has: `status`, `voucherId` and
+/// `allocations`. `/collections` returns none of them â€” sharing one DTO across
+/// both endpoints is what made `status` a required field the server never sent.
 class CollectionApi {
   CollectionApi(this._dio);
 
   final Dio _dio;
 
-  /// `GET /collections` — cursor-paginated, newest first.
-  ///
-  /// [excludePaymentMode] is what powers the two list tabs: "My Collections"
-  /// passes `CHEQUE` to exclude cheques, and the PDC tab passes
-  /// `paymentMode: CHEQUE` to select only them. Both are server-side, so the
-  /// tabs no longer filter a fully-loaded list in Dart.
-  ///
-  /// [createdById] takes a **user id**, and the row renders `createdBy.name`.
-  /// [fromDate] / [toDate] filter on `createdAt` (the UI labels read
-  /// "Created From / To"), *not* on the received date.
-  ///
-  /// There is deliberately **no `status` param**. A plain Collection has no
-  /// ledger lifecycle, so the server dropped the field — and because the query
-  /// schema is `.strict()`, sending it is a hard 400 rather than a silently
-  /// ignored key. (`/collection-plus` still accepts it.)
-  Future<CollectionsPageDto> list({
-    int limit = _kCollectionsPageSize,
+  /// `GET /collection-plus` â€” cursor-paginated, newest first.
+  Future<CollectionPageDto> list({
+    int limit = _kCollectionPageSize,
     String? cursor,
     String? search,
     String? paymentMode,
     String? excludePaymentMode,
     String? chequeStatus,
+    String? status,
     String? createdById,
     DateTime? fromDate,
     DateTime? toDate,
   }) async {
     final response = await _dio.get<Map<String, dynamic>>(
-      Endpoints.collections,
+      Endpoints.collection,
       queryParameters: <String, dynamic>{
         'limit': limit,
         if (cursor != null) 'cursor': cursor,
@@ -64,6 +47,7 @@ class CollectionApi {
         if (excludePaymentMode != null)
           'excludePaymentMode': excludePaymentMode,
         if (chequeStatus != null) 'chequeStatus': chequeStatus,
+        if (status != null) 'status': status,
         if (createdById != null) 'createdById': createdById,
         if (fromDate != null) 'fromDate': _dateToWire(fromDate),
         if (toDate != null) 'toDate': _dateToWire(toDate),
@@ -72,7 +56,6 @@ class CollectionApi {
     return _pageFrom(_unwrapMap(response.data));
   }
 
-  /// `GET /collections/{id}` — single-row read for cold-start deep-links.
   Future<CollectionDto> getById(String id) async {
     final response = await _dio.get<Map<String, dynamic>>(
       Endpoints.collectionById(id),
@@ -80,40 +63,41 @@ class CollectionApi {
     return CollectionDto.fromJson(_unwrapMap(response.data));
   }
 
-  /// `POST /collections`. Lands `DRAFT` — nothing reaches the ledger until an
-  /// accountant posts it. Returns the created row (201) or, on an idempotent
-  /// replay of the same `clientRequestId`, the original row (200). Both bodies
-  /// are the full DTO, so callers don't need to distinguish.
-  Future<CollectionDto> create(CollectionDto draft) async {
+  /// `POST /collection-plus`.
+  ///
+  /// Sends the **selected `invoiceIds`, never a split**. The server runs FIFO
+  /// against live balances and returns the authoritative `allocations`. If the
+  /// selection no longer covers the amount â€” because another rep collected
+  /// against the same invoice while this one was offline â€” it refuses with a
+  /// 422 rather than re-allocating.
+  Future<CollectionDto> create(
+    CollectionDto draft, {
+    required List<String> invoiceIds,
+  }) async {
     final response = await _dio.post<Map<String, dynamic>>(
-      Endpoints.collections,
-      data: draft.toCreateJson(),
+      Endpoints.collection,
+      data: draft.toCreateJson(invoiceIds: invoiceIds),
     );
     return CollectionDto.fromJson(_unwrapMap(response.data));
   }
 
-  /// `PATCH /collections/{id}` — DRAFT only; the server 409s once POSTED or
-  /// CANCELLED. The party is immutable and is not sent.
-  Future<CollectionDto> update(CollectionDto collection) async {
+  /// `PATCH /collection-plus/{id}` â€” DRAFT only.
+  Future<CollectionDto> update(
+    CollectionDto collection, {
+    required List<String> invoiceIds,
+  }) async {
     final response = await _dio.patch<Map<String, dynamic>>(
       Endpoints.collectionById(collection.id),
-      data: collection.toUpdateJson(),
+      data: collection.toUpdateJson(invoiceIds: invoiceIds),
     );
     return CollectionDto.fromJson(_unwrapMap(response.data));
   }
 
-  /// `DELETE /collections/{id}` — DRAFT only (409 otherwise; a posted receipt
-  /// must be cancelled, which writes a reversal voucher). 204, empty body.
   Future<void> delete(String id) async {
     await _dio.delete<void>(Endpoints.collectionById(id));
   }
 
-  /// `PATCH /collections/{id}/cheque-status`.
-  ///
-  /// The body key is **`status`**, not `chequeStatus`, and the schema is
-  /// strict. Legal moves: `PENDING → DEPOSITED | CLEARED | BOUNCED`,
-  /// `DEPOSITED → CLEARED | BOUNCED`. `CLEARED` and `BOUNCED` are terminal;
-  /// anything else is a 409.
+  /// `PATCH /collection-plus/{id}/cheque-status`. Body key is `status`.
   Future<CollectionDto> updateChequeStatus({
     required String id,
     required String status,
@@ -125,18 +109,67 @@ class CollectionApi {
     return CollectionDto.fromJson(_unwrapMap(response.data));
   }
 
-  /// `POST /collections/{id}/images` — slot-based upsert, slots 1–2. Posting
-  /// an occupied slot replaces it (the old Cloudinary blob is destroyed).
+  /// `GET /collection-plus/parties/{partyId}/outstanding`.
   ///
-  /// The response body is the raw image row (a 0-indexed `sortOrder` shape
-  /// that differs from the `images[]` embedded in the collection), so we
-  /// ignore it — callers refetch the collection to get the canonical list.
+  /// Returns the party's unsettled invoices **oldest-first, fully-paid rows
+  /// already dropped** â€” the same order the server's FIFO uses, so the preview
+  /// can consume it as-is.
   ///
-  /// Two non-obvious details, same as the notes / expenses / parties uploads:
-  ///   * `imageNumber` is streamed **before** the file part.
-  ///   * `Content-Type` is set explicitly from the extension. Without it
-  ///     `MultipartFile.fromFile` ships `application/octet-stream`, Cloudinary
-  ///     refuses the blob, and the failure surfaces as a generic 500.
+  /// [excludeCollectionId] is **mandatory in edit mode.** It releases that
+  /// receipt's own allocations back into the pool. Without it, the collection
+  /// being edited is still holding down the very money it's about to
+  /// re-allocate, and re-saving it unchanged fails validation every single
+  /// time.
+  ///
+  /// Only POSTED invoices are collectible â€” a rep's order that's still DRAFT
+  /// isn't a receivable yet and won't appear. An empty list means "nothing to
+  /// settle", not a bug.
+  ///
+  /// [asOfDate] caps the read to what was actually due on that calendar date:
+  /// the server drops invoices issued after it and ignores payments received
+  /// after it. Pass the receipt's Received Date so a backdated collection sees
+  /// the balances that existed then â€” a July-15 invoice must not appear in a
+  /// July-10 receipt's picker, and a July-15 payment must not erase a balance
+  /// the July-10 receipt is settling.
+  Future<List<OutstandingInvoiceDto>> outstandingForParty({
+    required String partyId,
+    String? excludeCollectionId,
+    DateTime? asOfDate,
+  }) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      Endpoints.collectionOutstanding(partyId),
+      queryParameters: <String, dynamic>{
+        if (excludeCollectionId != null)
+          'excludeCollectionId': excludeCollectionId,
+        if (asOfDate != null) 'asOfDate': _dateToWire(asOfDate),
+      },
+    );
+    return _outstandingFrom(_unwrapList(response.data));
+  }
+
+  /// `GET /collection-plus/invoice-meta?ids=a,b,c`.
+  ///
+  /// Hydrates the picker when editing: unlike the outstanding read, this keeps
+  /// rows that are already fully paid, so an invoice this receipt settled
+  /// still renders. Note `ids` is a **comma-joined string**, not repeated
+  /// query params.
+  Future<List<OutstandingInvoiceDto>> invoiceMeta({
+    required List<String> invoiceIds,
+    String? excludeCollectionId,
+  }) async {
+    if (invoiceIds.isEmpty) return const <OutstandingInvoiceDto>[];
+    final response = await _dio.get<Map<String, dynamic>>(
+      Endpoints.collectionInvoiceMeta,
+      queryParameters: <String, dynamic>{
+        'ids': invoiceIds.join(','),
+        if (excludeCollectionId != null)
+          'excludeCollectionId': excludeCollectionId,
+      },
+    );
+    return _outstandingFrom(_unwrapList(response.data));
+  }
+
+  /// Slot-based proof upload, 1â€“2. `imageNumber` streams before the file.
   Future<void> uploadImage({
     required String collectionId,
     required String filePath,
@@ -158,7 +191,6 @@ class CollectionApi {
     );
   }
 
-  /// `DELETE /collections/{id}/images/{imageNumber}` — 204, empty body.
   Future<void> removeImage({
     required String collectionId,
     required int imageNumber,
@@ -168,26 +200,17 @@ class CollectionApi {
     );
   }
 
-  /// `GET /collections/bank-names` — the bank catalogue.
-  ///
-  /// A **suggestion list, not an enum**: `bankName` is free text on write, and
-  /// the picker offers an "add a different bank" escape hatch. Unlike the
-  /// other reference lists this returns a bare array, not a paginated page.
+  /// `GET /collection-plus/bank-names` â€” same catalogue as `/collections`.
   Future<List<String>> bankNames() async {
     final response = await _dio.get<Map<String, dynamic>>(
       Endpoints.collectionBankNames,
     );
-    return _unwrapList(response.data)
-        .whereType<String>()
-        .toList(growable: false);
+    return _unwrapList(
+      response.data,
+    ).whereType<String>().toList(growable: false);
   }
 
-  /// `GET /collections/summary` — count + total for the targets module.
-  ///
-  /// Note the param is **`employeeId`**, not `createdById`, and its
-  /// `fromDate`/`toDate` filter the *received* date — unlike the list query,
-  /// whose identically-named params filter `createdAt`. The schema is strict,
-  /// so don't send a `branchId`.
+  /// `GET /collection-plus/summary` â€” count + total for the targets module.
   Future<CollectionSummary> summary({
     String? employeeId,
     DateTime? fromDate,
@@ -208,15 +231,13 @@ class CollectionApi {
     );
   }
 
-  // ── Envelope helpers ──────────────────────────────────────────────────────
-  // Mirrors `expenses_api.dart`. Duplicated per-feature by house convention
-  // so the FormatException copy names the feature that failed.
+  // â”€â”€ Envelope helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  CollectionsPageDto _pageFrom(Map<String, dynamic> data) {
+  CollectionPageDto _pageFrom(Map<String, dynamic> data) {
     final rawItems = data['items'];
     if (rawItems is! List<dynamic>) {
       throw const FormatException(
-        'Malformed collections page: missing or invalid `items` array',
+        'Malformed collection-plus page: missing or invalid `items` array',
       );
     }
     final items = rawItems
@@ -224,14 +245,19 @@ class CollectionApi {
         .toList(growable: false);
     final hasMore = (data['hasMore'] as bool?) ?? false;
     final nextCursor = hasMore ? data['nextCursor'] as String? : null;
-    return CollectionsPageDto(items: items, nextCursor: nextCursor);
+    return CollectionPageDto(items: items, nextCursor: nextCursor);
   }
+
+  List<OutstandingInvoiceDto> _outstandingFrom(List<dynamic> raw) => raw
+      .whereType<Map<String, dynamic>>()
+      .map(OutstandingInvoiceDto.fromJson)
+      .toList(growable: false);
 
   Map<String, dynamic> _unwrapMap(Map<String, dynamic>? body) {
     final inner = _unwrapData(body);
     if (inner is! Map<String, dynamic>) {
       throw const FormatException(
-        'Malformed collections envelope: missing or invalid `data` object',
+        'Malformed collection-plus envelope: missing or invalid `data` object',
       );
     }
     return inner;
@@ -241,7 +267,7 @@ class CollectionApi {
     final inner = _unwrapData(body);
     if (inner is! List<dynamic>) {
       throw const FormatException(
-        'Malformed collections envelope: missing or invalid `data` array',
+        'Malformed collection-plus envelope: missing or invalid `data` array',
       );
     }
     return inner;
@@ -249,14 +275,12 @@ class CollectionApi {
 
   Object? _unwrapData(Map<String, dynamic>? body) {
     if (body == null) {
-      throw const FormatException('Empty collections response body');
+      throw const FormatException('Empty collection-plus response body');
     }
-    // Require `success` to be explicitly `true`. A missing / null / non-bool
-    // flag must NOT slip past — that's a malformed envelope.
     final success = body['success'];
     if (success is! bool || !success) {
       throw const FormatException(
-        'Malformed collections envelope: invalid `success` flag',
+        'Malformed collection-plus envelope: invalid `success` flag',
       );
     }
     return body['data'];
@@ -272,8 +296,6 @@ class CollectionApi {
       case 'png':
         return MediaType('image', 'png');
       default:
-        // The server only accepts JPEG / PNG — let its mime filter reject
-        // anything else explicitly (415) rather than guessing here.
         return MediaType('application', 'octet-stream');
     }
   }
@@ -284,19 +306,11 @@ class CollectionApi {
       '${d.day.toString().padLeft(2, '0')}';
 }
 
-/// `{ count, totalAmount }` from `/collections/summary`. Feeds the targets
-/// module's "No. of collections" / "Value of collections" rules.
-///
-/// A collection counts at **creation** — a DRAFT is included. The rep
-/// physically collected the money; whether an accountant has posted it yet
-/// isn't something they control. CANCELLED and BOUNCED are excluded.
-class CollectionSummary {
-  const CollectionSummary({required this.count, required this.totalAmount});
-
-  final int count;
-  final double totalAmount;
-}
-
 final collectionApiProvider = Provider<CollectionApi>(
   (ref) => CollectionApi(ref.watch(dioProvider)),
 );
+class CollectionSummary {
+  const CollectionSummary({required this.count, required this.totalAmount});
+  final int count;
+  final double totalAmount;
+}

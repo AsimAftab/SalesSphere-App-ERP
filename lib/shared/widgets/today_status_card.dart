@@ -62,7 +62,7 @@ class TodayStatusCard extends StatelessWidget {
             SizedBox(height: 6.h),
             Align(
               alignment: Alignment.centerRight,
-              child: trailingWidget!,
+              child: trailingWidget,
             ),
           ],
         ],

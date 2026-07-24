@@ -1,10 +1,10 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
-
+import 'package:sales_sphere_erp/core/api/endpoints.dart';
+import 'package:sales_sphere_erp/core/api/interceptors/connectivity_interceptor.dart' show ConnectivityInterceptor;
+import 'package:sales_sphere_erp/core/auth/token_storage.dart';
 import 'package:sales_sphere_erp/features/auth/domain/token_pair.dart';
-import '../../auth/token_storage.dart';
-import '../endpoints.dart';
 
 /// Attaches the access token to every outgoing request. On 401, it attempts a
 /// single refresh-and-retry; on refresh failure it propagates the original

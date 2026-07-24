@@ -57,7 +57,6 @@ Future<void> configureTrackingService() async {
         AndroidForegroundType.location,
       ],
       notificationChannelId: kTrackingChannelId,
-      foregroundServiceNotificationId: kTrackingNotificationId,
       initialNotificationTitle: 'SalesSphere',
       initialNotificationContent: 'Starting live tracking…',
     ),
@@ -508,7 +507,7 @@ class _TrackingRuntime {
     final socket = _socket;
     if (socket == null || !socket.isConnected || _beatPlanId == null) return;
     while (true) {
-      final rows = await _pingsDao.pendingForBeatPlan(_beatPlanId!, limit: 500);
+      final rows = await _pingsDao.pendingForBeatPlan(_beatPlanId!);
       if (rows.isEmpty) break;
       final ack = await socket.updateLocationBatch(
         beatPlanId: _beatPlanId!,

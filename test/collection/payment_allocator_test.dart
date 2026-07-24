@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sales_sphere_erp/features/collection_plus/domain/collection_invoice.dart';
-import 'package:sales_sphere_erp/features/collection_plus/domain/invoice_due.dart';
-import 'package:sales_sphere_erp/features/collection_plus/domain/payment_allocator.dart';
+import 'package:sales_sphere_erp/features/collection/domain/collection_invoice.dart';
+import 'package:sales_sphere_erp/features/collection/domain/invoice_due.dart';
+import 'package:sales_sphere_erp/features/collection/domain/payment_allocator.dart';
 
 InvoiceDue _due(String id, double outstanding, {double? amount}) => InvoiceDue(
-      invoice: CollectionPlusInvoice(
+      invoice: CollectionInvoice(
         id: id,
         number: id.toUpperCase(),
         amount: amount ?? outstanding,

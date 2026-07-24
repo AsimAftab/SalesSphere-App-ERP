@@ -42,7 +42,6 @@ class AppTheme {
       appBarElevation: 0,
       tabBarStyle: FlexTabBarStyle.forAppBar,
       visualDensity: VisualDensity.adaptivePlatformDensity,
-      useMaterial3: true,
       fontFamily: _fontFamily,
       subThemesData: const FlexSubThemesData(
         defaultRadius: 8,
@@ -66,7 +65,6 @@ class AppTheme {
       appBarElevation: 0,
       tabBarStyle: FlexTabBarStyle.forAppBar,
       visualDensity: VisualDensity.adaptivePlatformDensity,
-      useMaterial3: true,
       fontFamily: _fontFamily,
       subThemesData: const FlexSubThemesData(
         defaultRadius: 8,

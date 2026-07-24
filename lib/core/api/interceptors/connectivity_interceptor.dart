@@ -1,7 +1,7 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 
-import '../../exceptions/api_exception.dart';
+import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
 
 /// Short-circuits requests when the device has no network connectivity, so we
 /// don't waste time hitting Dio's connect-timeout. Must run BEFORE the auth

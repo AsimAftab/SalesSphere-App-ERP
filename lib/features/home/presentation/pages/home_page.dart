@@ -3,15 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/router/routes.dart';
-import '../../../../shared/widgets/empty_state_view.dart';
-import '../../../auth/presentation/controllers/auth_controller.dart';
-import '../../../beat_plan/domain/beat_plan.dart';
-import '../../../beat_plan/presentation/providers/beat_plan_providers.dart';
-import '../../../beat_plan/presentation/widgets/beat_plan_summary_card.dart';
-import '../../../beat_plan/presentation/widgets/beat_plan_tabs.dart';
-import '../../../tracking/domain/usecases/reconcile_tracking_usecase.dart';
+import 'package:sales_sphere_erp/core/constants/app_colors.dart';
+import 'package:sales_sphere_erp/core/router/routes.dart';
+import 'package:sales_sphere_erp/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:sales_sphere_erp/features/beat_plan/domain/beat_plan.dart';
+import 'package:sales_sphere_erp/features/beat_plan/presentation/providers/beat_plan_providers.dart';
+import 'package:sales_sphere_erp/features/beat_plan/presentation/widgets/beat_plan_summary_card.dart';
+import 'package:sales_sphere_erp/features/beat_plan/presentation/widgets/beat_plan_tabs.dart';
+import 'package:sales_sphere_erp/features/tracking/domain/usecases/reconcile_tracking_usecase.dart';
+import 'package:sales_sphere_erp/shared/widgets/empty_state_view.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -62,7 +62,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       backgroundColor: const Color(0xFFF4F7FB),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -125,9 +125,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                       const SizedBox(height: 20),
                       const BeatPlanTabs(),
                       const SizedBox(height: 40),
-                      Expanded(
+                      const Expanded(
                         child: Center(
-                          child: const Text(
+                          child: Text(
                             'Unable to load beat plans. Please check your connection and try again.',
                             textAlign: TextAlign.center,
                             style: TextStyle(color: Colors.red),
@@ -290,7 +290,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       child: filteredPlans.isEmpty
           ? ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.only(bottom: 80.0, top: 40.0),
+              padding: const EdgeInsets.only(bottom: 80, top: 40),
               children: [
                 EmptyStateView(
                   icon: tabIndex == 0
@@ -307,11 +307,11 @@ class _HomePageState extends ConsumerState<HomePage> {
             )
           : ListView.builder(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.only(bottom: 80.0),
+              padding: const EdgeInsets.only(bottom: 80),
               itemCount: filteredPlans.length,
               itemBuilder: (context, index) {
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 16.0),
+                  padding: const EdgeInsets.only(bottom: 16),
                   child: BeatPlanSummaryCard(plan: filteredPlans[index]),
                 );
               },
@@ -323,13 +323,13 @@ class _HomePageState extends ConsumerState<HomePage> {
 class _CurvePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    var paint = Paint()
+    final paint = Paint()
       ..color = AppColors.textOrange
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5
       ..strokeCap = StrokeCap.round;
 
-    var path = Path();
+    final path = Path();
     path.moveTo(0, size.height);
     path.quadraticBezierTo(size.width / 2, 0, size.width, size.height * 0.8);
 

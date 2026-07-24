@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:sales_sphere_erp/core/db/tables/beat_plan_stops_table.dart' show BeatPlanStops;
 
 /// Local mirror of a beat plan from `GET /beat-plans` (+ `/beat-plans/:id`).
 /// UI reads come from here so the route list works offline; the repository

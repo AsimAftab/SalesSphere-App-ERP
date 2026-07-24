@@ -64,13 +64,6 @@ class Routes {
   static String expenseClaimDetailPath(String id) =>
       '/expense-claims/detail/$id';
 
-  static const collectionPlus = '/collection-plus';
-  static const addCollectionPlus = '/collection-plus/add';
-  static const collectionPlusDetail = '/collection-plus/detail/:id';
-
-  static String collectionPlusDetailPath(String id) =>
-      '/collection-plus/detail/$id';
-
   static const collection = '/collection';
   static const addCollection = '/collection/add';
   static const collectionDetail = '/collection/detail/:id';
@@ -139,9 +132,6 @@ class Routes {
   static const expenseClaimsName = 'expenseClaims';
   static const addExpenseClaimName = 'addExpenseClaim';
   static const expenseClaimDetailName = 'expenseClaimDetail';
-  static const collectionPlusName = 'collectionPlus';
-  static const addCollectionPlusName = 'addCollectionPlus';
-  static const collectionPlusDetailName = 'collectionPlusDetail';
   static const collectionName = 'collection';
   static const addCollectionName = 'addCollection';
   static const collectionDetailName = 'collectionDetail';

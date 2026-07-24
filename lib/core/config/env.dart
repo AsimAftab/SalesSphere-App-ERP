@@ -1,4 +1,4 @@
-import 'flavors.dart';
+import 'package:sales_sphere_erp/core/config/flavors.dart';
 
 class Env {
   const Env._({

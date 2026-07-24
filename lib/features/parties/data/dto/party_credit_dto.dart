@@ -17,6 +17,7 @@ class PartyCreditDto {
     required this.totalExposure,
     this.creditLimitAmount,
     this.availableCredit,
+    this.advanceBalance,
   });
 
   factory PartyCreditDto.fromJson(Map<String, dynamic> json) {
@@ -27,6 +28,7 @@ class PartyCreditDto {
       draftOrdersTotal: json['draftOrdersTotal'] as String,
       totalExposure: json['totalExposure'] as String,
       availableCredit: json['availableCredit'] as String?,
+      advanceBalance: json['advanceBalance'] as String? ?? '0',
     );
   }
 
@@ -47,4 +49,7 @@ class PartyCreditDto {
   /// `creditLimitAmount - totalExposure`; negative = over-limit,
   /// null = unlimited.
   final String? availableCredit;
+
+  /// Advance balance (unallocated).
+  final String? advanceBalance;
 }

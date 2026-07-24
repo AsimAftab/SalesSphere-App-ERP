@@ -1,9 +1,9 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-
 import 'package:sales_sphere_erp/core/db/app_database.dart';
 import 'package:sales_sphere_erp/features/collection/data/repositories/collection_repository_impl.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collection.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collection_party.dart';
+import 'package:sales_sphere_erp/features/collection/domain/invoice_due.dart';
 import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart';
 import 'package:sales_sphere_erp/features/parties/domain/party.dart';
 import 'package:sales_sphere_erp/features/parties/presentation/providers/parties_providers.dart';
@@ -15,14 +15,10 @@ export 'package:sales_sphere_erp/features/collection/data/repositories/collectio
 
 part 'collection_providers.g.dart';
 
-const int _kCollectionsPageSize = 15;
+const int _kCollectionPageSize = 15;
 
 /// Parties offered in the "Select party" bottom sheet, mapped from the live
-/// customers list to the slim shape the picker already consumes.
-///
-/// Watching [partiesListVisibleProvider] auto-loads the first page of
-/// customers on demand — the same source the notes and expense-claim pickers
-/// use. (The module used to ship its own hardcoded fixtures because it was
+/// customers list. (The module used to ship hardcoded fixtures because it was
 /// built before the parties API landed.)
 @riverpod
 List<CollectionParty> collectionParties(Ref ref) {
@@ -39,23 +35,68 @@ List<CollectionParty> collectionParties(Ref ref) {
       .toList(growable: false);
 }
 
-/// Bank catalogue for the cheque / bank-transfer picker.
-///
-/// A **suggestion list, not an enum** — `bankName` is free text on the wire,
-/// and the picker keeps its "add a different bank" escape hatch.
+/// Bank catalogue for the cheque / bank-transfer picker — a suggestion list,
+/// not an enum.
 @riverpod
-Future<List<String>> collectionBankNames(Ref ref) =>
+Future<List<String>> bankNames(Ref ref) =>
     ref.watch(collectionRepositoryProvider).getBankNames();
 
-/// Session-scoped pagination + filter state.
+/// A party's outstanding invoices, oldest-first — the pool the form allocates
+/// across.
 ///
-/// Drift owns the row *content*; this notifier owns the *order*, the cursor
-/// and the active filters. That split is what lets a sync-handler write
-/// re-render the list without the page knowing sync happened.
+/// **Read from the server, never computed here.** The mock used to derive this
+/// by summing allocations across every loaded collection, which was wrong the
+/// moment the list outgrew one page and hopeless once two devices were
+/// involved. Outstanding is derived server-side on every read, which is also
+/// what lets a bounced cheque restore a balance with no compensating row.
 ///
-/// Every filter is applied **server-side** — the mock used to load everything
-/// and filter in Dart, which quietly broke as soon as the list outgrew one
-/// page.
+/// [excludeCollectionId] is **mandatory in the edit flow**. It releases that
+/// receipt's own allocations back into the pool. Without it, the collection
+/// being edited is still holding down the money it's about to re-allocate, and
+/// re-saving it unchanged fails validation every single time.
+///
+/// Only POSTED invoices are collectible, so an empty list means "nothing to
+/// settle yet" — not a bug. A rep's order stays DRAFT until the web app posts
+/// it; until then, plain Collection (on-account) is the way to take the money.
+///
+/// [asOfDate] joins the family key so the pool re-fetches when the rep picks a
+/// different Received Date. Pass the picked date and the server caps the read
+/// to what was due then — future invoices and future payments are excluded, so
+/// a backdated receipt allocates against the balances that existed that day.
+@riverpod
+Future<List<InvoiceDue>> outstandingInvoicesForParty(
+  Ref ref,
+  String partyId, {
+  String? excludeCollectionId,
+  DateTime? asOfDate,
+}) {
+  return ref
+      .watch(collectionRepositoryProvider)
+      .getOutstandingInvoices(
+        partyId: partyId,
+        excludeCollectionId: excludeCollectionId,
+        asOfDate: asOfDate,
+      );
+}
+
+/// Re-hydrate specific invoices by id, keeping rows that are already fully
+/// paid — so an invoice this receipt settled still renders in the edit picker.
+@riverpod
+Future<List<InvoiceDue>> invoiceMeta(
+  Ref ref,
+  List<String> invoiceIds, {
+  String? excludeCollectionId,
+}) {
+  return ref
+      .watch(collectionRepositoryProvider)
+      .getInvoiceMeta(
+        invoiceIds: invoiceIds,
+        excludeCollectionId: excludeCollectionId,
+      );
+}
+
+/// Session-scoped pagination + filter state. Drift owns row content; this owns
+/// order, cursor and filters. Every filter is applied server-side.
 class CollectionListState {
   const CollectionListState({
     this.loadedIds = const <String>[],
@@ -107,7 +148,7 @@ class CollectionList extends _$CollectionList {
   Future<CollectionListState> build() async {
     final page = await ref
         .read(collectionRepositoryProvider)
-        .getCollectionsPage(limit: _kCollectionsPageSize);
+        .getCollectionsPage(limit: _kCollectionPageSize);
     return CollectionListState(
       loadedIds: page.items.map((c) => c.id).toList(growable: false),
       nextCursor: page.nextCursor,
@@ -149,17 +190,14 @@ class CollectionList extends _$CollectionList {
       final page = await ref
           .read(collectionRepositoryProvider)
           .getCollectionsPage(
-            limit: _kCollectionsPageSize,
+            limit: _kCollectionPageSize,
             cursor: s.nextCursor,
             search: s.searchQuery.isEmpty ? null : s.searchQuery,
             paymentMode: s.paymentModeFilter,
           );
       state = AsyncValue<CollectionListState>.data(
         s.copyWith(
-          loadedIds: <String>[
-            ...s.loadedIds,
-            ...page.items.map((c) => c.id),
-          ],
+          loadedIds: <String>[...s.loadedIds, ...page.items.map((c) => c.id)],
           nextCursor: page.nextCursor,
           clearNextCursor: page.nextCursor == null,
           isLoadingMore: false,
@@ -172,9 +210,6 @@ class CollectionList extends _$CollectionList {
     }
   }
 
-  /// Insert [id] at the head after a successful add, so an optimistic row
-  /// appears immediately regardless of where the server's ordering would put
-  /// it. Skipped when the active payment-mode filter wouldn't include it.
   void prependLocal(Collection collection) {
     final current = state.value ?? const CollectionListState();
     if (current.paymentModeFilter != null &&
@@ -189,22 +224,19 @@ class CollectionList extends _$CollectionList {
     );
   }
 
-  /// Drop a row after a successful delete.
   void removeLocal(String id) {
     final current = state.value;
     if (current == null) return;
     state = AsyncValue<CollectionListState>.data(
       current.copyWith(
-        loadedIds: current.loadedIds.where((x) => x != id).toList(
-          growable: false,
-        ),
+        loadedIds: current.loadedIds
+            .where((x) => x != id)
+            .toList(growable: false),
       ),
     );
   }
 
   /// Swap a `local_<uuid>` id for the server-issued one once the outbox drains.
-  /// Called by the sync handler *after* drift has been reconciled, so the
-  /// rendered row keeps its position instead of blinking out and back.
   void replaceLocalId(String localId, String serverId) {
     final current = state.value;
     if (current == null) return;
@@ -225,7 +257,7 @@ class CollectionList extends _$CollectionList {
       final page = await ref
           .read(collectionRepositoryProvider)
           .getCollectionsPage(
-            limit: _kCollectionsPageSize,
+            limit: _kCollectionPageSize,
             paymentMode: paymentMode,
             search: search.isEmpty ? null : search,
           );
@@ -243,28 +275,29 @@ class CollectionList extends _$CollectionList {
   }
 }
 
-/// Drift-backed view of the currently-loaded collections. Re-emits whenever
-/// the rows change or the notifier's `loadedIds` do — which is how a
-/// background sync silently upgrades a pending row to a synced one.
+/// Drift-backed view of the loaded Collection Plus rows, with their
+/// allocations. Re-emits when either the rows or the loaded ids change.
 @riverpod
-Stream<List<Collection>> collectionsListVisible(Ref ref) {
+Stream<List<Collection>> collectionListVisible(Ref ref) {
   final ids =
       ref.watch(collectionListProvider).value?.loadedIds ?? const <String>[];
   final dao = ref.watch(collectionsDaoProvider);
-  return dao.watchByIds(ids).map(
-    (rows) => rows.map(collectionRowToDomain).toList(growable: false),
-  );
+  if (ids.isEmpty) {
+    return Stream<List<Collection>>.value(const <Collection>[]);
+  }
+  return dao.watchByIds(ids).asyncMap((rows) async {
+    final out = <Collection>[];
+    for (final row in rows) {
+      out.add(
+        collectionRowToDomain(row, await dao.allocationsFor(row.id)),
+      );
+    }
+    return out;
+  });
 }
 
-/// Detail-page lookup: hydrate, then watch.
-///
-/// Drift answers instantly for a row already in the list. A cold-start deep
-/// link won't be cached, so we fetch it once and then hand over to the drift
-/// stream — which means the page also live-updates when a cheque-status change
-/// or a background sync rewrites the row, with no manual refresh.
-///
-/// A `local_<uuid>` row only ever exists on this device, so there's nothing to
-/// fetch for it.
+/// Detail-page lookup: hydrate, then watch — so the page live-updates when a
+/// cheque-status change or a background sync rewrites the row.
 @riverpod
 Stream<Collection?> collectionById(Ref ref, String id) async* {
   final dao = ref.watch(collectionsDaoProvider);
@@ -272,7 +305,8 @@ Stream<Collection?> collectionById(Ref ref, String id) async* {
   if (cached == null && !id.startsWith('local_')) {
     await ref.read(collectionRepositoryProvider).getCollectionById(id);
   }
-  yield* dao.watchById(id).map(
-    (row) => row == null ? null : collectionRowToDomain(row),
-  );
+  yield* dao.watchById(id).asyncMap((row) async {
+    if (row == null) return null;
+    return collectionRowToDomain(row, await dao.allocationsFor(row.id));
+  });
 }

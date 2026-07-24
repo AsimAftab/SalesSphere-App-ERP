@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:sales_sphere_erp/core/db/tables/beat_plans_table.dart' show BeatPlans;
 
 /// A single stop on a beat plan's route (from `GET /beat-plans/:id`).
 /// One [BeatPlans] row owns many of these; the detail page renders them in

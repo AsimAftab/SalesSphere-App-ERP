@@ -4,9 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
 import 'package:sales_sphere_erp/app.dart';
 import 'package:sales_sphere_erp/core/config/env.dart';
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
@@ -15,6 +12,8 @@ import 'package:sales_sphere_erp/core/providers/shared_prefs_provider.dart';
 import 'package:sales_sphere_erp/core/sync/mutation_handler_overrides.dart';
 import 'package:sales_sphere_erp/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:sales_sphere_erp/features/tracking/service/tracking_service.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> bootstrap() async {
   await runZonedGuarded<Future<void>>(

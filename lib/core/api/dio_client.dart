@@ -62,11 +62,7 @@ final dioProvider = Provider<Dio>((ref) {
     ),
     if (kDebugMode)
       PrettyDioLogger(
-        requestHeader: false,
         requestBody: true,
-        responseBody: true,
-        responseHeader: false,
-        compact: true,
       ),
     LoggingInterceptor(logger),
     const ErrorInterceptor(),

@@ -1,4 +1,5 @@
 import 'package:sales_sphere_erp/core/db/app_database.dart';
+import 'package:sales_sphere_erp/core/sync/sync_service.dart' show SyncService;
 
 /// Per-feature handler invoked by [SyncService] when an outbox mutation comes
 /// back successfully. Each feature registers a handler keyed by its

@@ -6,11 +6,12 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/router/routes.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collection.dart';
+import 'package:sales_sphere_erp/features/collection/domain/collection_allocation.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collection_party.dart';
+import 'package:sales_sphere_erp/features/collection/domain/collection_status.dart';
 import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/providers/collection_providers.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/widgets/collection_sync_badge.dart';
@@ -35,10 +36,12 @@ class CollectionListPage extends ConsumerStatefulWidget {
   const CollectionListPage({super.key});
 
   @override
-  ConsumerState<CollectionListPage> createState() => _CollectionListPageState();
+  ConsumerState<CollectionListPage> createState() =>
+      _CollectionListPageState();
 }
 
-class _CollectionListPageState extends ConsumerState<CollectionListPage> {
+class _CollectionListPageState
+    extends ConsumerState<CollectionListPage> {
   final _searchController = TextEditingController();
   final _scrollController = ScrollController();
   Timer? _searchDebounce;
@@ -68,9 +71,9 @@ class _CollectionListPageState extends ConsumerState<CollectionListPage> {
     ref.read(collectionListProvider.notifier).loadMore();
   }
 
-  /// Search and the payment-mode filter are both applied **server-side** —
-  /// the list is cursor-paginated, so filtering the loaded page in Dart would
-  /// silently hide matches that live on a later page.
+  /// Search and the payment-mode filter are applied **server-side** — the list
+  /// is cursor-paginated, so filtering the loaded page in Dart would silently
+  /// hide matches living on a later page.
   void _onSearchChanged(String value) {
     setState(() {});
     _searchDebounce?.cancel();
@@ -98,7 +101,7 @@ class _CollectionListPageState extends ConsumerState<CollectionListPage> {
   @override
   Widget build(BuildContext context) {
     final listState = ref.watch(collectionListProvider);
-    final rows = ref.watch(collectionsListVisibleProvider);
+    final rows = ref.watch(collectionListVisibleProvider);
     final modeFilter = listState.value?.paymentModeFilter;
     final hasActiveFilter =
         (listState.value?.searchQuery.isNotEmpty ?? false) ||
@@ -221,8 +224,6 @@ class _CollectionListPageState extends ConsumerState<CollectionListPage> {
       child: child,
     );
 
-    // First load — paint a skeleton. Pull-to-refresh stays available so a
-    // stuck initial fetch can be retried.
     if (listState.isLoading && !listState.hasValue) {
       return wrapRefresh(
         Skeletonizer(
@@ -252,8 +253,9 @@ class _CollectionListPageState extends ConsumerState<CollectionListPage> {
       );
     }
 
-    // Rows stream out of drift, so a background sync landing (or a cheque
-    // status change) re-renders without a refetch.
+    // Rows stream out of drift, so a background sync landing — which is when
+    // the server's real allocation split first arrives — re-renders the card
+    // without a refetch.
     final items = rows.value ?? const <Collection>[];
     final state = listState.value;
 
@@ -304,6 +306,47 @@ class _CollectionListPageState extends ConsumerState<CollectionListPage> {
   }
 }
 
+class _LoadMoreFooter extends StatelessWidget {
+  const _LoadMoreFooter({
+    required this.isLoading,
+    required this.error,
+    required this.onRetry,
+  });
+
+  final bool isLoading;
+  final Object? error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (error != null) {
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 16.h),
+        child: Center(
+          child: TextButton(
+            onPressed: onRetry,
+            child: Text(
+              "Couldn't load more. Tap to retry.",
+              style: TextStyle(color: AppColors.primary, fontSize: 13.sp),
+            ),
+          ),
+        ),
+      );
+    }
+    if (!isLoading) return const SizedBox.shrink();
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 20.h),
+      child: Center(
+        child: SizedBox(
+          width: 22.w,
+          height: 22.w,
+          child: const CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+    );
+  }
+}
+
 class _AppBar extends StatelessWidget {
   const _AppBar({required this.onBack});
 
@@ -316,13 +359,17 @@ class _AppBar extends StatelessWidget {
       child: Row(
         children: <Widget>[
           IconButton(
-            icon: Icon(Icons.arrow_back, color: AppColors.textdark, size: 20.sp),
+            icon: Icon(
+              Icons.arrow_back,
+              color: AppColors.textdark,
+              size: 20.sp,
+            ),
             onPressed: onBack,
             tooltip: 'Back',
           ),
           SizedBox(width: 12.w),
           Text(
-            'Collection',
+            'Collections',
             style: TextStyle(
               color: AppColors.primary,
               fontSize: 20.sp,
@@ -336,8 +383,8 @@ class _AppBar extends StatelessWidget {
   }
 }
 
-/// Collection row — who the money came from, how it was paid, how much, when,
-/// and whether it has made it to the server yet.
+/// Minimal collection row — who the money came from (party), how it was
+/// paid (payment-mode chip), how much (amount) and when (date).
 class _CollectionCard extends StatelessWidget {
   const _CollectionCard({required this.collection, required this.onTap});
 
@@ -390,7 +437,7 @@ class _CollectionCard extends StatelessWidget {
                     StatusBadge(label: mode.label, color: mode.accent),
                   ],
                 ),
-                SizedBox(height: 8.h),
+                SizedBox(height: 6.h),
                 Row(
                   children: <Widget>[
                     if (collection.hasServerIdentity)
@@ -420,6 +467,28 @@ class _CollectionCard extends StatelessWidget {
                 SizedBox(height: 8.h),
                 Row(
                   children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        // A queued row has no allocations yet — the server
+                        // hasn't computed the split. Say so, rather than
+                        // rendering an empty "Against ".
+                        collection.allocations.isEmpty
+                            ? 'Allocation pending'
+                            : 'Against ${collection.invoiceSummary}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 8.h),
+                Row(
+                  children: <Widget>[
                     Text(
                       _currency.format(collection.amount),
                       style: TextStyle(
@@ -429,6 +498,10 @@ class _CollectionCard extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
+                    StatusBadge(
+                      label: collection.status.label,
+                      color: collection.status.color,
+                    ),
                   ],
                 ),
               ],
@@ -441,9 +514,17 @@ class _CollectionCard extends StatelessWidget {
 }
 
 /// Sample collection fed to [_CollectionCard] while the list is loading.
+/// Skeletonizer paints bones over the rendered party / receipt no / invoices / amount.
 final _placeholder = Collection(
   id: 'loading-id',
   collectionNo: 'RCPT-00-0000',
+  allocations: const <CollectionAllocation>[
+    CollectionAllocation(
+      invoiceId: '',
+      invoiceNumber: 'INV-0000-0000',
+      amount: 10000,
+    ),
+  ],
   party: const CollectionParty(
     id: '',
     name: 'Loading party name',
@@ -454,47 +535,6 @@ final _placeholder = Collection(
   paymentMode: PaymentMode.cash,
   createdAt: DateTime(2026),
 );
-
-class _LoadMoreFooter extends StatelessWidget {
-  const _LoadMoreFooter({
-    required this.isLoading,
-    required this.error,
-    required this.onRetry,
-  });
-
-  final bool isLoading;
-  final Object? error;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    if (error != null) {
-      return Padding(
-        padding: EdgeInsets.symmetric(vertical: 16.h),
-        child: Center(
-          child: TextButton(
-            onPressed: onRetry,
-            child: Text(
-              "Couldn't load more. Tap to retry.",
-              style: TextStyle(color: AppColors.primary, fontSize: 13.sp),
-            ),
-          ),
-        ),
-      );
-    }
-    if (!isLoading) return const SizedBox.shrink();
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 20.h),
-      child: Center(
-        child: SizedBox(
-          width: 22.w,
-          height: 22.w,
-          child: const CircularProgressIndicator(strokeWidth: 2),
-        ),
-      ),
-    );
-  }
-}
 
 class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.hasActiveFilter});

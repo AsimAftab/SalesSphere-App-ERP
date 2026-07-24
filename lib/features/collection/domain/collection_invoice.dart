@@ -15,8 +15,8 @@ import 'package:flutter/foundation.dart';
 /// Equality is by [id] so a stored selection can be matched back to its
 /// list entry inside the picker regardless of instance identity.
 @immutable
-class CollectionPlusInvoice {
-  const CollectionPlusInvoice({
+class CollectionInvoice {
+  const CollectionInvoice({
     required this.id,
     required this.number,
     required this.amount,
@@ -40,7 +40,7 @@ class CollectionPlusInvoice {
 
   @override
   bool operator ==(Object other) =>
-      other is CollectionPlusInvoice && other.id == id;
+      other is CollectionInvoice && other.id == id;
 
   @override
   int get hashCode => id.hashCode;

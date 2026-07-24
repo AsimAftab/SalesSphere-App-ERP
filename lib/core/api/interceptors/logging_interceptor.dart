@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 
-import '../../utils/app_logger.dart';
+import 'package:sales_sphere_erp/core/utils/app_logger.dart';
 
 /// Lightweight request/response/error logger sitting alongside
 /// `pretty_dio_logger`. The pretty logger is great in dev for full payload

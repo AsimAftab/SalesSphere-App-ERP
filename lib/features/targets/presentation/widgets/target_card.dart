@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:skeletonizer/skeletonizer.dart';
-
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/features/targets/domain/target_enums.dart';
 import 'package:sales_sphere_erp/features/targets/domain/target_item.dart';
 import 'package:sales_sphere_erp/features/targets/presentation/widgets/target_progress_color.dart';
 import 'package:sales_sphere_erp/shared/widgets/status_badge.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 /// A sleek, modern card displaying an employee's assigned target,
 /// status badge (Completed/Active), formatted values (currency/number),

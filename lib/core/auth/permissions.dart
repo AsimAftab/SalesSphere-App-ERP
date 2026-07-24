@@ -37,15 +37,15 @@ abstract final class Permissions {
   // `role ∩ plan`, so these keys simply don't exist in a CRM-only tenant's
   // session and every `/collection-plus` route 403s. That's the whole
   // feature gate: no flag, no special-casing — just hide the tile.
-  static const collectionPlusView = 'collection-plus:view';
-  static const collectionPlusViewOwn = 'collection-plus:view-own';
-  static const collectionPlusCreate = 'collection-plus:create';
-  static const collectionPlusUpdate = 'collection-plus:update';
-  static const collectionPlusDelete = 'collection-plus:delete';
-  static const collectionPlusPost = 'collection-plus:post';
-  static const collectionPlusCancel = 'collection-plus:cancel';
-  static const collectionPlusChequeStatus = 'collection-plus:cheque-status';
-  static const collectionPlusManageImages = 'collection-plus:manage-images';
+  static const collectionView = 'collection-plus:view';
+  static const collectionViewOwn = 'collection-plus:view-own';
+  static const collectionCreate = 'collection-plus:create';
+  static const collectionUpdate = 'collection-plus:update';
+  static const collectionDelete = 'collection-plus:delete';
+  static const collectionPost = 'collection-plus:post';
+  static const collectionCancel = 'collection-plus:cancel';
+  static const collectionChequeStatus = 'collection-plus:cheque-status';
+  static const collectionManageImages = 'collection-plus:manage-images';
 }
 
 /// Whether the signed-in user's active-membership role grants [permission].

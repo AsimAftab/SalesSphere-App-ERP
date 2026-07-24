@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 
 import 'package:sales_sphere_erp/core/db/app_database.dart';
+import 'package:sales_sphere_erp/core/db/daos/parties_dao.dart' show PartiesDao;
 import 'package:sales_sphere_erp/core/db/tables/collections_table.dart';
 import 'package:sales_sphere_erp/features/collection/data/dto/collection_dto.dart';
-import 'package:sales_sphere_erp/features/collection_plus/data/dto/collection_plus_dto.dart';
 
 part 'collections_dao.g.dart';
 
@@ -139,9 +139,7 @@ class CollectionsDao extends DatabaseAccessor<AppDatabase>
   /// Allocations exist only on a Collection Plus row. A plain Collection is an
   /// on-account receipt booked against the party, not against any invoice.
   static List<CollectionAllocationDto> _allocationsOf(CollectionDto dto) =>
-      dto is CollectionPlusDto
-      ? dto.allocations
-      : const <CollectionAllocationDto>[];
+      dto.allocations;
 
   /// Allocations are a pure mirror of the server's answer, so replace rather
   /// than merge — a re-post can move money between invoices, and a stale slice
@@ -181,7 +179,7 @@ class CollectionsDao extends DatabaseAccessor<AppDatabase>
     bool? syncPending,
     bool clearSyncError = false,
   }) {
-    final plus = dto is CollectionPlusDto ? dto : null;
+    final plus = dto;
     return CollectionsCompanion(
       id: Value<String>(dto.id),
       kind: Value<CollectionKind>(kind),
@@ -199,8 +197,8 @@ class CollectionsDao extends DatabaseAccessor<AppDatabase>
       chequeDate: Value<DateTime?>(dto.chequeDate),
       chequeStatus: Value<String?>(dto.chequeStatus),
       description: Value<String?>(dto.description),
-      status: Value<String?>(plus?.status),
-      voucherId: Value<String?>(plus?.voucherId),
+      status: Value<String?>(plus.status),
+      voucherId: Value<String?>(plus.voucherId),
       createdById: Value<String?>(dto.createdBy?.id),
       createdByName: Value<String?>(dto.createdBy?.name),
       createdAt: Value<DateTime>(dto.createdAt),

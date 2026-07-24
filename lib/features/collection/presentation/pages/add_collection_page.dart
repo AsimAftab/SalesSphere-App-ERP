@@ -3,11 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
 import 'package:sales_sphere_erp/features/collection/domain/cheque_status.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collection_party.dart';
+import 'package:sales_sphere_erp/features/collection/domain/invoice_due.dart';
+import 'package:sales_sphere_erp/features/collection/domain/payment_allocator.dart';
 import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart';
 import 'package:sales_sphere_erp/features/collection/domain/repositories/collection_repository.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/controllers/collection_controller.dart';
@@ -15,6 +18,8 @@ import 'package:sales_sphere_erp/features/collection/presentation/providers/coll
 import 'package:sales_sphere_erp/features/collection/presentation/widgets/bank_name_field.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/widgets/cheque_status_field.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/widgets/collection_party_picker_field.dart';
+import 'package:sales_sphere_erp/features/collection/presentation/widgets/invoice_multi_picker_field.dart';
+import 'package:sales_sphere_erp/features/collection/presentation/widgets/outstanding_invoices_section.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/widgets/payment_mode_field.dart';
 import 'package:sales_sphere_erp/shared/utils/snackbar_utils.dart';
 import 'package:sales_sphere_erp/shared/utils/validators.dart';
@@ -45,6 +50,12 @@ class _AddCollectionPageState extends ConsumerState<AddCollectionPage> {
   static const _maxImages = 2;
 
   CollectionParty? _party;
+
+  /// Ids of the invoices the user ticked in the picker. The payment is
+  /// FIFO-split across these (oldest-first); the user adds another when
+  /// the amount overflows beyond the ones already chosen.
+  final Set<String> _selectedInvoiceIds = <String>{};
+
   DateTime? _receivedDate;
   PaymentMode? _paymentMode;
   String? _bankName;
@@ -52,6 +63,7 @@ class _AddCollectionPageState extends ConsumerState<AddCollectionPage> {
   ChequeStatus? _chequeStatus;
   final List<String> _imagePaths = <String>[];
   bool _submitting = false;
+  bool _isAdvancePayment = false;
 
   @override
   void dispose() {
@@ -63,8 +75,24 @@ class _AddCollectionPageState extends ConsumerState<AddCollectionPage> {
     super.dispose();
   }
 
+  /// Picking a (different) party changes which invoices the payment can
+  /// settle, so clear the invoice selection and amount — both only make
+  /// sense against the previously chosen party.
   void _onPartyPicked(CollectionParty? party) {
-    setState(() => _party = party);
+    setState(() {
+      _party = party;
+      _selectedInvoiceIds.clear();
+      _amountController.clear();
+    });
+  }
+
+  /// The user changed the ticked invoices in the picker.
+  void _onInvoicesChanged(Set<String> ids) {
+    setState(() {
+      _selectedInvoiceIds
+        ..clear()
+        ..addAll(ids);
+    });
   }
 
   /// When the payment mode changes, drop any conditional state that the
@@ -104,20 +132,31 @@ class _AddCollectionPageState extends ConsumerState<AddCollectionPage> {
     setState(() => _imagePaths.removeAt(index));
   }
 
-  /// Amount validator: required, a number > 0.
-  String? _validateAmount(String? value) {
+  /// Amount validator: required, a number > 0, and never more than the
+  /// party's total outstanding (overpayment is blocked). Whether the
+  /// *selected* invoices cover the amount is enforced separately on submit
+  /// — that's a "tick another bill" nudge, not a hard amount error.
+  String? _validateAmount(String? value, double totalOutstanding) {
     final v = value?.trim() ?? '';
     if (v.isEmpty) return 'Amount is required';
     final parsed = double.tryParse(v);
     if (parsed == null) return 'Enter a valid amount';
     if (parsed <= 0) return 'Amount must be greater than 0';
+    if (!_isAdvancePayment && parsed > totalOutstanding + 0.0001) {
+      return 'Exceeds total outstanding of '
+          '${_currency.format(totalOutstanding)}';
+    }
     return null;
   }
 
-  Future<void> _submit() async {
+  Future<void> _submit(List<InvoiceDue> selectedDues) async {
     final party = _party;
     if (party == null) {
       SnackbarUtils.showError(context, 'Please select a party.');
+      return;
+    }
+    if (!_isAdvancePayment && selectedDues.isEmpty) {
+      SnackbarUtils.showError(context, 'Please select at least one invoice.');
       return;
     }
 
@@ -148,13 +187,32 @@ class _AddCollectionPageState extends ConsumerState<AddCollectionPage> {
     if (!formValid || receivedDate == null) return;
 
     final amount = double.parse(_amountController.text.trim());
-
+    // The selected invoices must cover the whole amount; otherwise part of
+    // the payment would have nowhere to land — nudge to tick another bill.
+    final selectedOutstanding = PaymentAllocator.totalOutstanding(selectedDues);
+    if (!_isAdvancePayment && amount > selectedOutstanding + 0.0001) {
+      SnackbarUtils.showError(
+        context,
+        'Selected invoices cover only ${_currency.format(selectedOutstanding)}. '
+        'Select more to cover ${_currency.format(amount)}.',
+      );
+      return;
+    }
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _submitting = true);
     try {
+      // Send the **selection, not the split**. The FIFO preview above is a
+      // courtesy for the user; the server re-runs the same algorithm against
+      // live balances and returns the allocation it actually booked. Sending a
+      // client-computed split would be asking it to trust arithmetic done
+      // against a balance that may already be stale — which, offline, it
+      // almost certainly is.
       final created = await ref
           .read(collectionControllerProvider.notifier)
           .addCollection(
+            invoiceIds: selectedDues
+                .map((d) => d.invoice.id)
+                .toList(growable: false),
             party: party,
             amount: amount,
             receivedDate: receivedDate,
@@ -169,9 +227,6 @@ class _AddCollectionPageState extends ConsumerState<AddCollectionPage> {
             imagePaths: List<String>.unmodifiable(_imagePaths),
           );
       if (!mounted) return;
-      // Offline is a success, not a failure: the receipt is cached and queued,
-      // and it syncs when the device reconnects. Say so plainly rather than
-      // letting the rep think the money wasn't recorded.
       SnackbarUtils.showSuccess(
         context,
         created.syncPending
@@ -180,8 +235,6 @@ class _AddCollectionPageState extends ConsumerState<AddCollectionPage> {
       );
       context.pop();
     } on PartialImageUploadException catch (e) {
-      // The money is recorded; only a proof photo failed. Don't imply the
-      // receipt was lost.
       if (!mounted) return;
       SnackbarUtils.showError(
         context,
@@ -190,9 +243,11 @@ class _AddCollectionPageState extends ConsumerState<AddCollectionPage> {
       );
       context.pop();
     } on ApiException catch (e) {
-      // Surface the backend's own copy — "Received date cannot be in the
-      // future.", "Customer not found", and so on. A generic "Could not save"
-      // hides exactly the information the rep needs to fix it.
+      // The message that matters here is the server's coverage-short 422:
+      // "Selected invoices cover only Rs X. Select more to cover Rs Y." It
+      // means another rep settled that invoice first, and the rep needs to
+      // read it — a generic "Could not save" would leave them re-trying
+      // forever.
       if (!mounted) return;
       SnackbarUtils.showError(context, e.message);
     } on Exception catch (_) {
@@ -210,13 +265,62 @@ class _AddCollectionPageState extends ConsumerState<AddCollectionPage> {
     final showCheque = mode?.requiresChequeDetails ?? false;
 
     final party = _party;
+    // Read from the server — never derived on-device. An empty list means the
+    // party has nothing POSTED to settle yet (a rep's order stays DRAFT until
+    // the web app posts it), which is a normal state, not a bug.
+    final dues = party == null
+        ? const <InvoiceDue>[]
+        : ref
+                  .watch(
+                    outstandingInvoicesForPartyProvider(
+                      party.id,
+                      // Cap the pool to what was due on the picked Received
+                      // Date: a backdated receipt must not be offered invoices
+                      // issued later, nor have its balances erased by payments
+                      // taken later. Null (date not yet picked) reads as today.
+                      asOfDate: _receivedDate,
+                    ),
+                  )
+                  .value ??
+              const <InvoiceDue>[];
+    // Party-level cap: a collection can never exceed everything the party
+    // owes. The selected invoices must then *cover* the entered amount.
+    final totalOutstanding = PaymentAllocator.totalOutstanding(dues);
+
+    // Selected invoices, kept in the dues' oldest-first order.
+    final selectedDues = dues
+        .where((d) => _selectedInvoiceIds.contains(d.invoice.id))
+        .toList(growable: false);
+    final selectedOutstanding = PaymentAllocator.totalOutstanding(selectedDues);
+
+    // Live FIFO preview of how the entered amount splits across the
+    // selected invoices, plus any portion not yet covered by a selection.
+    final entered = double.tryParse(_amountController.text.trim()) ?? 0;
+    final capped =
+        entered > selectedOutstanding ? selectedOutstanding : entered;
+    final allocations = PaymentAllocator.allocate(capped, selectedDues);
+    final allocatedById = <String, double>{
+      for (final a in allocations) a.invoiceId: a.amount,
+    };
+    final unallocated =
+        entered - selectedOutstanding > 0.0001 ? entered - selectedOutstanding : 0.0;
+
+    // Live overpayment feedback: as soon as the typed amount exceeds what
+    // the party owes in total, flag it (no waiting for submit).
+    final amountText = _amountController.text.trim();
+    final parsedAmount = double.tryParse(amountText);
+    final amountLiveError = !_isAdvancePayment && amountText.isNotEmpty &&
+            parsedAmount != null &&
+            parsedAmount > totalOutstanding + 0.0001
+        ? 'Exceeds total outstanding of ${_currency.format(totalOutstanding)}'
+        : null;
 
     return LightStatusBar(
       child: Scaffold(
         backgroundColor: AppColors.primary,
         bottomNavigationBar: _SubmitBar(
           isLoading: _submitting,
-          onPressed: _submit,
+          onPressed: () => _submit(selectedDues),
         ),
         body: Column(
           children: <Widget>[
@@ -264,8 +368,92 @@ class _AddCollectionPageState extends ConsumerState<AddCollectionPage> {
                             ),
                           ],
                           textInputAction: TextInputAction.next,
-                          validator: _validateAmount,
+                          errorText: amountLiveError,
+                          onChanged: (_) => setState(() {}),
+                          validator: (v) =>
+                              _validateAmount(v, totalOutstanding),
                         ),
+                        if (party != null && dues.isNotEmpty) ...<Widget>[
+                          SizedBox(height: 6.h),
+                          Row(
+                            children: <Widget>[
+                              Icon(
+                                Icons.account_balance_wallet_outlined,
+                                size: 13.sp,
+                                color: AppColors.textSecondary,
+                              ),
+                              SizedBox(width: 6.w),
+                              Text(
+                                'Total outstanding: '
+                                '${_currency.format(totalOutstanding)}',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 11.sp,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (party != null) ...<Widget>[
+                          SizedBox(height: 16.h),
+                          Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: Text(
+                                  'Record Advance Payment',
+                                  style: TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 14.sp,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              Switch(
+                                value: _isAdvancePayment,
+                                activeTrackColor: AppColors.secondary,
+                                activeThumbColor: AppColors.background,
+                                inactiveTrackColor: AppColors.border,
+                                inactiveThumbColor: AppColors.textSecondary,
+                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                onChanged: (val) {
+                                  setState(() {
+                                    _isAdvancePayment = val;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (party != null) ...<Widget>[
+                          SizedBox(height: 16.h),
+                          if (dues.isEmpty)
+                            OutstandingInvoicesSection(
+                              dues: dues,
+                              allocatedById: allocatedById,
+                              totalOutstanding: selectedOutstanding,
+                              unallocated: unallocated,
+                              isAdvancePayment: _isAdvancePayment,
+                            )
+                          else ...<Widget>[
+                            InvoiceMultiPickerField(
+                              dues: dues,
+                              selectedIds: _selectedInvoiceIds,
+                              targetAmount: entered,
+                              onChanged: _onInvoicesChanged,
+                            ),
+                            if (selectedDues.isNotEmpty) ...<Widget>[
+                              SizedBox(height: 16.h),
+                              OutstandingInvoicesSection(
+                                dues: selectedDues,
+                                allocatedById: allocatedById,
+                                totalOutstanding: selectedOutstanding,
+                                unallocated: unallocated,
+                                isAdvancePayment: _isAdvancePayment,
+                              ),
+                            ],
+                          ],
+                        ],
                         SizedBox(height: 16.h),
                         CustomDatePicker(
                           controller: _receivedDateController,
@@ -289,14 +477,11 @@ class _AddCollectionPageState extends ConsumerState<AddCollectionPage> {
                           SizedBox(height: 16.h),
                           BankNameField(
                             value: _bankName,
-                            // A suggestion list, not an enum — the field is
-                            // free text and the picker keeps its "add a
-                            // different bank" escape hatch, so an empty
-                            // catalogue (offline, say) is survivable.
+                            // A suggestion list, not an enum — the picker keeps
+                            // its "add a different bank" escape hatch, so an
+                            // empty catalogue is survivable.
                             banks:
-                                ref
-                                    .watch(collectionBankNamesProvider)
-                                    .value ??
+                                ref.watch(bankNamesProvider).value ??
                                 const <String>[],
                             onChanged: (next) =>
                                 setState(() => _bankName = next),
@@ -383,6 +568,9 @@ class _AddCollectionPageState extends ConsumerState<AddCollectionPage> {
     );
   }
 }
+
+/// `Rs 98,000` style formatter shared by the amount validator.
+final _currency = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 2);
 
 class _SubmitBar extends StatelessWidget {
   const _SubmitBar({required this.isLoading, required this.onPressed});

@@ -2,10 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sales_sphere_erp/features/collection/data/dto/collection_dto.dart';
 import 'package:sales_sphere_erp/features/collection/data/repositories/collection_repository_impl.dart';
 import 'package:sales_sphere_erp/features/collection/domain/cheque_status.dart';
+import 'package:sales_sphere_erp/features/collection/domain/collection_status.dart';
 import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart';
-import 'package:sales_sphere_erp/features/collection_plus/data/dto/collection_plus_dto.dart';
-import 'package:sales_sphere_erp/features/collection_plus/data/repositories/collection_plus_repository_impl.dart';
-import 'package:sales_sphere_erp/features/collection_plus/domain/collection_status.dart';
 
 /// A `/collections` row as the server actually returns it.
 ///
@@ -122,9 +120,9 @@ void main() {
     });
   });
 
-  group('CollectionPlusDto — the ledger-backed shape', () {
+  group('CollectionDto — the ledger-backed shape', () {
     test('carries status, voucherId and the server-computed split', () {
-      final dto = CollectionPlusDto.fromJson(
+      final dto = CollectionDto.fromJson(
         _plusWire(
           status: 'POSTED',
           voucherId: 'vch_9',
@@ -151,12 +149,12 @@ void main() {
     test('is a CollectionDto, so the shared drift cache accepts it', () {
       // The DAO takes List<CollectionDto> and reads the ledger fields only for
       // Plus rows. That only works because Plus *is* a Collection.
-      expect(CollectionPlusDto.fromJson(_plusWire()), isA<CollectionDto>());
+      expect(CollectionDto.fromJson(_plusWire()), isA<CollectionDto>());
     });
 
-    test('a queued row has no allocations — the server hasn\'t split it yet',
+    test("a queued row has no allocations — the server hasn't split it yet",
         () {
-      expect(CollectionPlusDto.fromJson(_plusWire()).allocations, isEmpty);
+      expect(CollectionDto.fromJson(_plusWire()).allocations, isEmpty);
     });
   });
 
@@ -176,7 +174,7 @@ void main() {
     });
 
     test('Collection Plus sends the selection, never a split', () {
-      final dto = CollectionPlusDto.fromJson(_plusWire());
+      final dto = CollectionDto.fromJson(_plusWire());
       expect(
         dto.toCreateJson(invoiceIds: <String>['inv_a'])['invoiceIds'],
         <String>['inv_a'],
@@ -213,7 +211,7 @@ void main() {
 
     test('neither write body ever sends `status`', () {
       // It's server-owned on Plus and doesn't exist at all on Collection.
-      final plus = CollectionPlusDto.fromJson(_plusWire());
+      final plus = CollectionDto.fromJson(_plusWire());
       expect(plus.toCreateJson(), isNot(contains('status')));
       expect(plus.toUpdateJson(), isNot(contains('status')));
     });

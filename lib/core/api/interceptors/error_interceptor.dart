@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 
-import '../../exceptions/api_exception.dart';
+import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
 
 /// Maps Dio exceptions into the app's [ApiException] hierarchy so feature
 /// code never has to inspect [DioException] directly. Always the LAST

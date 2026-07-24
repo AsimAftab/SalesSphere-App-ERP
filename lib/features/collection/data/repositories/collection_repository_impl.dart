@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:sales_sphere_erp/core/api/dio_client.dart';
 import 'package:sales_sphere_erp/core/db/app_database.dart';
 import 'package:sales_sphere_erp/core/db/daos/collections_dao.dart';
@@ -14,19 +13,23 @@ import 'package:sales_sphere_erp/core/exceptions/api_exception.dart';
 import 'package:sales_sphere_erp/core/utils/uuid.dart';
 import 'package:sales_sphere_erp/features/collection/data/collection_api.dart';
 import 'package:sales_sphere_erp/features/collection/data/dto/collection_dto.dart';
-import 'package:sales_sphere_erp/features/collection/domain/cheque_status.dart';
+import 'package:sales_sphere_erp/features/collection/domain/cheque_status.dart'
+    as plus;
 import 'package:sales_sphere_erp/features/collection/domain/collection.dart';
+import 'package:sales_sphere_erp/features/collection/domain/collection_allocation.dart';
+import 'package:sales_sphere_erp/features/collection/domain/collection_invoice.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collection_party.dart';
+import 'package:sales_sphere_erp/features/collection/domain/collection_status.dart';
 import 'package:sales_sphere_erp/features/collection/domain/collections_page.dart';
-import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart';
+import 'package:sales_sphere_erp/features/collection/domain/invoice_due.dart';
+import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart'
+    as plus;
 import 'package:sales_sphere_erp/features/collection/domain/repositories/collection_repository.dart';
 
-/// Logical operation key for `POST /collections`. Must match the `operation`
-/// getter on `CollectionSyncHandler` so the drain can route the response back
-/// into drift.
+/// Logical operation key for `POST /collection-plus`.
 const String kCollectionCreateOperation = 'collection.create';
 
-const int _kCollectionsPageSize = 15;
+const int _kCollectionPageSize = 15;
 
 class CollectionRepositoryImpl implements CollectionRepository {
   CollectionRepositoryImpl({
@@ -42,13 +45,14 @@ class CollectionRepositoryImpl implements CollectionRepository {
   final OutboxDao _outbox;
 
   @override
-  Future<CollectionsPage> getCollectionsPage({
-    int limit = _kCollectionsPageSize,
+  Future<CollectionPage> getCollectionsPage({
+    int limit = _kCollectionPageSize,
     String? cursor,
     String? search,
-    PaymentMode? paymentMode,
-    PaymentMode? excludePaymentMode,
-    ChequeStatus? chequeStatus,
+    plus.PaymentMode? paymentMode,
+    plus.PaymentMode? excludePaymentMode,
+    plus.ChequeStatus? chequeStatus,
+    CollectionStatus? status,
     String? createdById,
     DateTime? fromDate,
     DateTime? toDate,
@@ -61,15 +65,14 @@ class CollectionRepositoryImpl implements CollectionRepository {
       excludePaymentMode: excludePaymentMode == null
           ? null
           : paymentModeToWire(excludePaymentMode),
-      chequeStatus: chequeStatus == null
-          ? null
-          : chequeStatusToWire(chequeStatus),
+      chequeStatus: chequeStatus == null ? null : chequeStatusToWire(chequeStatus),
+      status: status == null ? null : collectionStatusToWire(status),
       createdById: createdById,
       fromDate: fromDate,
       toDate: toDate,
     );
-    await _dao.upsertPage(CollectionKind.onAccount, page.items);
-    return CollectionsPage(
+    await _dao.upsertPage(CollectionKind.allocated, page.items);
+    return CollectionPage(
       items: page.items.map(_toDomain).toList(growable: false),
       nextCursor: page.nextCursor,
     );
@@ -78,12 +81,14 @@ class CollectionRepositoryImpl implements CollectionRepository {
   @override
   Future<Collection?> getCollectionById(String id) async {
     final cached = await _dao.findById(id);
-    if (cached != null) return _rowToDomain(cached);
-    // A local_<uuid> row that isn't in drift can't exist on the server either.
+    if (cached != null) {
+      final allocations = await _dao.allocationsFor(id);
+      return collectionRowToDomain(cached, allocations);
+    }
     if (id.startsWith('local_')) return null;
     try {
       final dto = await _api.getById(id);
-      await _dao.upsertPage(CollectionKind.onAccount, <CollectionDto>[dto]);
+      await _dao.upsertPage(CollectionKind.allocated, <CollectionDto>[dto]);
       return _toDomain(dto);
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) return null;
@@ -92,37 +97,59 @@ class CollectionRepositoryImpl implements CollectionRepository {
   }
 
   @override
-  Future<Collection> addCollection(Collection draft) async {
-    // One UUID does double duty: it keys the outbox row AND rides in the body
-    // as `clientRequestId`, which is what makes the eventual POST idempotent.
-    // It must be a bare v4 UUID — the server validates the format — so the
-    // `local_` prefix goes on the drift id only, never on the key.
+  Future<List<InvoiceDue>> getOutstandingInvoices({
+    required String partyId,
+    String? excludeCollectionId,
+    DateTime? asOfDate,
+  }) async {
+    final dtos = await _api.outstandingForParty(
+      partyId: partyId,
+      excludeCollectionId: excludeCollectionId,
+      asOfDate: asOfDate,
+    );
+    return dtos.map(_dueFromDto).toList(growable: false);
+  }
+
+  @override
+  Future<List<InvoiceDue>> getInvoiceMeta({
+    required List<String> invoiceIds,
+    String? excludeCollectionId,
+  }) async {
+    final dtos = await _api.invoiceMeta(
+      invoiceIds: invoiceIds,
+      excludeCollectionId: excludeCollectionId,
+    );
+    return dtos.map(_dueFromDto).toList(growable: false);
+  }
+
+  @override
+  Future<Collection> addCollection(
+    Collection draft, {
+    required List<String> invoiceIds,
+  }) async {
+    // One UUID keys the outbox row and rides in the body as `clientRequestId`,
+    // which is what makes the eventual POST idempotent. It must be a bare v4
+    // UUID (the server validates the format), so the `local_` prefix goes on
+    // the drift id only.
     final requestId = generateUuidV4();
     final dto = _toDto(draft, clientRequestId: requestId);
 
     final Collection domain;
     final Map<int, String> failures;
     try {
-      final created = await _api.create(dto);
-      await _dao.upsertPage(CollectionKind.onAccount, <CollectionDto>[created]);
+      final created = await _api.create(dto, invoiceIds: invoiceIds);
+      await _dao.upsertPage(CollectionKind.allocated, <CollectionDto>[created]);
 
       failures = await _uploadProofs(
         collectionId: created.id,
         filePaths: draft.imagePaths,
       );
-      // Proofs land as a separate multipart call, so the row we just cached
-      // doesn't know about them yet. Refetch rather than trusting the upload
-      // response, which returns a different (0-indexed) image shape.
       domain = failures.length == draft.imagePaths.length
           ? _toDomain(created)
           : await _refetch(created.id) ?? _toDomain(created);
     } on DioException catch (e) {
-      // Only the offline branch queues. Every other failure — 4xx, 5xx,
-      // timeout, malformed envelope — bubbles up so the form can surface it.
-      // Without connectivity the request never left the device, so there's no
-      // risk of double-writing.
       if (e.error is! OfflineException) _throwWriteError(e);
-      return _queueOfflineCreate(dto, requestId);
+      return _queueOfflineCreate(dto, requestId, invoiceIds);
     }
 
     if (failures.isNotEmpty) {
@@ -134,30 +161,31 @@ class CollectionRepositoryImpl implements CollectionRepository {
     return domain;
   }
 
-  /// Cache the receipt optimistically and hand the create to the outbox.
+  /// Cache optimistically and queue the create.
   ///
-  /// Payment-proof images are dropped on this path — the outbox carries JSON,
-  /// not binaries. The receipt itself (the money) still syncs, which is what
-  /// matters in the field.
+  /// The cached row carries **no allocations** — the server hasn't computed
+  /// them yet, and inventing a local split would be a lie the UI would then
+  /// render. The preview the rep saw was against balances that may already
+  /// have moved; if they have, this mutation comes back 422 and the row gets a
+  /// red badge carrying the server's coverage message.
   Future<Collection> _queueOfflineCreate(
     CollectionDto dto,
     String requestId,
+    List<String> invoiceIds,
   ) async {
     final localId = 'local_$requestId';
     final local = dto.withId(localId);
-    await _dao.upsertLocal(CollectionKind.onAccount, local);
+    await _dao.upsertLocal(CollectionKind.allocated, local);
     await _outbox.enqueue(
       MutationOutboxCompanion.insert(
         operation: kCollectionCreateOperation,
         method: 'POST',
-        endpoint: Endpoints.collections,
-        payloadJson: Value<String>(jsonEncode(local.toCreateJson())),
+        endpoint: Endpoints.collection,
+        payloadJson: Value<String>(
+          jsonEncode(local.toCreateJson(invoiceIds: invoiceIds)),
+        ),
         idempotencyKey: requestId,
         localEntityId: Value<String?>(localId),
-        // The backend is the final say on a collection: it re-derives the
-        // customer's balance at write time and may refuse a receipt that was
-        // valid when the rep recorded it. A rejection is surfaced, never
-        // silently reconciled away.
         conflictPolicy: const Value<ConflictPolicy>(
           ConflictPolicy.serverAuthoritative,
         ),
@@ -167,10 +195,16 @@ class CollectionRepositoryImpl implements CollectionRepository {
   }
 
   @override
-  Future<Collection> updateCollection(Collection collection) async {
+  Future<Collection> updateCollection(
+    Collection collection, {
+    required List<String> invoiceIds,
+  }) async {
     try {
-      final updated = await _api.update(_toDto(collection));
-      await _dao.upsertPage(CollectionKind.onAccount, <CollectionDto>[updated]);
+      final updated = await _api.update(
+        _toDto(collection),
+        invoiceIds: invoiceIds,
+      );
+      await _dao.upsertPage(CollectionKind.allocated, <CollectionDto>[updated]);
 
       final failures = await _uploadProofs(
         collectionId: updated.id,
@@ -205,14 +239,14 @@ class CollectionRepositoryImpl implements CollectionRepository {
   @override
   Future<Collection> updateChequeStatus({
     required String id,
-    required ChequeStatus status,
+    required plus.ChequeStatus status,
   }) async {
     try {
       final updated = await _api.updateChequeStatus(
         id: id,
         status: chequeStatusToWire(status),
       );
-      await _dao.upsertPage(CollectionKind.onAccount, <CollectionDto>[updated]);
+      await _dao.upsertPage(CollectionKind.allocated, <CollectionDto>[updated]);
       return _toDomain(updated);
     } on DioException catch (e) {
       _throwWriteError(e);
@@ -239,9 +273,6 @@ class CollectionRepositoryImpl implements CollectionRepository {
     required int slot,
   }) => _api.removeImage(collectionId: collectionId, imageNumber: slot);
 
-  /// Best-effort proof upload: slot `i + 1` per picked file. A failure here
-  /// must not lose the receipt — the money is already recorded — so failures
-  /// are collected and reported, not thrown.
   Future<Map<int, String>> _uploadProofs({
     required String collectionId,
     required List<String> filePaths,
@@ -264,21 +295,17 @@ class CollectionRepositoryImpl implements CollectionRepository {
   Future<Collection?> _refetch(String id) async {
     try {
       final fresh = await _api.getById(id);
-      await _dao.upsertPage(CollectionKind.onAccount, <CollectionDto>[fresh]);
+      await _dao.upsertPage(CollectionKind.allocated, <CollectionDto>[fresh]);
       return _toDomain(fresh);
     } on DioException {
-      // The write already succeeded; a failed refetch is cosmetic.
       return null;
     }
   }
 
-  /// Re-throw a write failure as the app's [ApiException] hierarchy,
-  /// preferring the backend's specific copy over the interceptor's generic
-  /// fallback.
-  ///
-  /// This is what surfaces the messages that actually matter here — the
-  /// coverage-short 422, "Only DRAFT collections can be updated", the illegal
-  /// cheque-transition 409, and the missing-ledger 422 on post.
+  /// Surface the backend's own copy rather than the interceptor's generic
+  /// fallback. For this module the message that matters most is the
+  /// coverage-short 422: "Selected invoices cover only Rs X. Select more to
+  /// cover Rs Y." — the user needs to read that, not "Invalid request."
   Never _throwWriteError(DioException e) {
     final backendMsg = extractBackendErrorMessage(e);
     final mapped = e.error;
@@ -308,9 +335,36 @@ class CollectionRepositoryImpl implements CollectionRepository {
 
   // ── Mappers ───────────────────────────────────────────────────────────────
 
+  InvoiceDue _dueFromDto(OutstandingInvoiceDto dto) => InvoiceDue(
+    invoice: CollectionInvoice(
+      id: dto.invoiceId,
+      number: dto.invoiceNumber,
+      amount: dto.totalAmount,
+      invoiceDate: dto.invoiceDate,
+    ),
+    paid: dto.paid,
+    outstanding: dto.outstanding,
+    lastPaidOn: dto.lastPaidOn,
+    priorPayments: dto.priorPayments
+        .map(
+          (PriorPaymentDto p) =>
+              PriorPayment(amount: p.amount, receivedDate: p.receivedDate),
+        )
+        .toList(growable: false),
+  );
+
   Collection _toDomain(CollectionDto dto) => Collection(
     id: dto.id,
     collectionNo: dto.collectionNo,
+    allocations: dto.allocations
+        .map(
+          (a) => CollectionAllocation(
+            invoiceId: a.invoiceId,
+            invoiceNumber: a.invoiceNumber,
+            amount: a.amount,
+          ),
+        )
+        .toList(growable: false),
     party: CollectionParty(
       id: dto.customer.id,
       name: dto.customer.name,
@@ -320,6 +374,7 @@ class CollectionRepositoryImpl implements CollectionRepository {
     amount: dto.amount,
     receivedDate: dto.receivedDate,
     paymentMode: paymentModeFromWire(dto.paymentMode),
+    status: collectionStatusFromWire(dto.status),
     bankName: dto.bankName,
     chequeNumber: dto.chequeNumber,
     chequeDate: dto.chequeDate,
@@ -332,44 +387,50 @@ class CollectionRepositoryImpl implements CollectionRepository {
     createdAt: dto.createdAt,
   );
 
-  Collection _rowToDomain(CollectionRow row) => collectionRowToDomain(row);
-
-  CollectionDto _toDto(Collection c, {String? clientRequestId}) => CollectionDto(
-    id: c.id,
-    collectionNo: c.collectionNo,
-    customer: CollectionCustomerDto(
-      id: c.party.id,
-      name: c.party.name,
-      address: c.party.address,
-      ownerName: c.party.ownerName,
-    ),
-    amount: c.amount,
-    receivedDate: c.receivedDate,
-    paymentMode: paymentModeToWire(c.paymentMode),
-    bankName: c.bankName,
-    chequeNumber: c.chequeNumber,
-    chequeDate: c.chequeDate,
-    chequeStatus: c.chequeStatus == null
-        ? null
-        : chequeStatusToWire(c.chequeStatus!),
-    description: c.description.isEmpty ? null : c.description,
-    images: const <CollectionImageDto>[],
-    createdAt: c.createdAt,
-    clientRequestId: clientRequestId,
-  );
+  CollectionDto _toDto(Collection c, {String? clientRequestId}) =>
+      CollectionDto(
+        id: c.id,
+        collectionNo: c.collectionNo,
+        customer: CollectionCustomerDto(
+          id: c.party.id,
+          name: c.party.name,
+          address: c.party.address,
+          ownerName: c.party.ownerName,
+        ),
+        amount: c.amount,
+        receivedDate: c.receivedDate,
+        paymentMode: paymentModeToWire(c.paymentMode),
+        status: collectionStatusToWire(c.status),
+        bankName: c.bankName,
+        chequeNumber: c.chequeNumber,
+        chequeDate: c.chequeDate,
+        chequeStatus: c.chequeStatus == null
+            ? null
+            : chequeStatusToWire(c.chequeStatus!),
+        description: c.description.isEmpty ? null : c.description,
+        images: const <CollectionImageDto>[],
+        createdAt: c.createdAt,
+        clientRequestId: clientRequestId,
+      );
 }
 
-/// Drift row → domain. Top-level because the reactive list provider maps
-/// straight off the `watchByIds` stream and must not reach into the repository
-/// to do it — but the mapping has to stay identical in both places, so there's
-/// exactly one copy.
-///
-/// This is the only mapper that carries [Collection.syncPending] /
-/// [Collection.syncError]: they're device state, and the wire knows nothing
-/// about them.
-Collection collectionRowToDomain(CollectionRow row) => Collection(
+/// Drift row (+ its allocation rows) → domain. Top-level so the reactive list
+/// provider can map straight off the `watchByIds` stream.
+Collection collectionRowToDomain(
+  CollectionRow row,
+  List<CollectionAllocationRow> allocations,
+) => Collection(
   id: row.id,
   collectionNo: row.collectionNo,
+  allocations: allocations
+      .map(
+        (a) => CollectionAllocation(
+          invoiceId: a.invoiceId,
+          invoiceNumber: a.invoiceNumber,
+          amount: a.amount,
+        ),
+      )
+      .toList(growable: false),
   party: CollectionParty(
     id: row.customerId,
     name: row.customerName,
@@ -379,6 +440,12 @@ Collection collectionRowToDomain(CollectionRow row) => Collection(
   amount: row.amount,
   receivedDate: row.receivedDate,
   paymentMode: paymentModeFromWire(row.paymentMode),
+  // `status` is nullable in drift (on-account rows have none); a Plus row
+  // always carries one, so a missing value means a corrupt cache — default to
+  // draft rather than crashing the list.
+  status: row.status == null
+      ? CollectionStatus.draft
+      : collectionStatusFromWire(row.status!),
   bankName: row.bankName,
   chequeNumber: row.chequeNumber,
   chequeDate: row.chequeDate,
@@ -396,43 +463,63 @@ Collection collectionRowToDomain(CollectionRow row) => Collection(
 );
 
 // ── Wire codecs ─────────────────────────────────────────────────────────────
-// The API speaks SCREAMING_SNAKE; the domain enums carry only display labels.
-// Mapping lives here — one place, both directions — rather than polluting the
-// domain with wire concerns. Top-level so the sync handler can reuse them.
+// Collection Plus is a separate feature and carries its own PaymentMode /
+// ChequeStatus enums, so it needs its own codecs.
+//
+// These are written out as explicit switches rather than bridged through
+// `Enum.index` to the sibling module's copies. Index-bridging would work today
+// — both enums happen to declare their values in the same order — but it turns
+// a future reordering of an unrelated enum into a silent mis-mapping of money,
+// with no compile error. An exhaustive switch fails loudly instead.
 
-String paymentModeToWire(PaymentMode mode) => switch (mode) {
-  PaymentMode.cash => 'CASH',
-  PaymentMode.cheque => 'CHEQUE',
-  PaymentMode.bankTransfer => 'BANK_TRANSFER',
-  PaymentMode.qrPay => 'QR_PAY',
+String paymentModeToWire(plus.PaymentMode mode) => switch (mode) {
+  plus.PaymentMode.cash => 'CASH',
+  plus.PaymentMode.cheque => 'CHEQUE',
+  plus.PaymentMode.bankTransfer => 'BANK_TRANSFER',
+  plus.PaymentMode.qrPay => 'QR_PAY',
 };
 
-PaymentMode paymentModeFromWire(String wire) => switch (wire) {
-  'CASH' => PaymentMode.cash,
-  'CHEQUE' => PaymentMode.cheque,
-  'BANK_TRANSFER' => PaymentMode.bankTransfer,
-  'QR_PAY' => PaymentMode.qrPay,
+plus.PaymentMode paymentModeFromWire(String wire) => switch (wire) {
+  'CASH' => plus.PaymentMode.cash,
+  'CHEQUE' => plus.PaymentMode.cheque,
+  'BANK_TRANSFER' => plus.PaymentMode.bankTransfer,
+  'QR_PAY' => plus.PaymentMode.qrPay,
   _ => throw FormatException('Unsupported payment mode: $wire'),
 };
 
-String chequeStatusToWire(ChequeStatus status) => switch (status) {
-  ChequeStatus.pending => 'PENDING',
-  ChequeStatus.deposited => 'DEPOSITED',
-  ChequeStatus.cleared => 'CLEARED',
-  ChequeStatus.bounced => 'BOUNCED',
+String chequeStatusToWire(plus.ChequeStatus status) => switch (status) {
+  plus.ChequeStatus.pending => 'PENDING',
+  plus.ChequeStatus.deposited => 'DEPOSITED',
+  plus.ChequeStatus.cleared => 'CLEARED',
+  plus.ChequeStatus.bounced => 'BOUNCED',
 };
 
-ChequeStatus chequeStatusFromWire(String wire) => switch (wire) {
-  'PENDING' => ChequeStatus.pending,
-  'DEPOSITED' => ChequeStatus.deposited,
-  'CLEARED' => ChequeStatus.cleared,
-  'BOUNCED' => ChequeStatus.bounced,
+/// Ledger lifecycle codecs — Collection Plus only. A plain Collection has no
+/// status, because it never posts to a ledger.
+String collectionStatusToWire(CollectionStatus status) => switch (status) {
+  CollectionStatus.draft => 'DRAFT',
+  CollectionStatus.posted => 'POSTED',
+  CollectionStatus.cancelled => 'CANCELLED',
+};
+
+CollectionStatus collectionStatusFromWire(String wire) => switch (wire) {
+  'DRAFT' => CollectionStatus.draft,
+  'POSTED' => CollectionStatus.posted,
+  'CANCELLED' => CollectionStatus.cancelled,
+  _ => throw FormatException('Unsupported collection status: $wire'),
+};
+
+plus.ChequeStatus chequeStatusFromWire(String wire) => switch (wire) {
+  'PENDING' => plus.ChequeStatus.pending,
+  'DEPOSITED' => plus.ChequeStatus.deposited,
+  'CLEARED' => plus.ChequeStatus.cleared,
+  'BOUNCED' => plus.ChequeStatus.bounced,
   _ => throw FormatException('Unsupported cheque status: $wire'),
 };
 
-/// Exposes the abstract type so consumers depend on the contract, not the
-/// impl. Tests override this with a fake `CollectionRepository`.
-final collectionRepositoryProvider = Provider<CollectionRepository>((ref) {
+final collectionRepositoryProvider = Provider<CollectionRepository>((
+  ref,
+) {
   return CollectionRepositoryImpl(
     api: ref.watch(collectionApiProvider),
     dao: ref.watch(collectionsDaoProvider),

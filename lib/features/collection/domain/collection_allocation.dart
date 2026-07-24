@@ -11,8 +11,8 @@ import 'package:flutter/foundation.dart';
 /// Carries the invoice's [invoiceNumber] denormalised so the list / detail
 /// cards can render the breakdown without re-resolving the orders corpus.
 @immutable
-class CollectionPlusAllocation {
-  const CollectionPlusAllocation({
+class CollectionAllocation {
+  const CollectionAllocation({
     required this.invoiceId,
     required this.invoiceNumber,
     required this.amount,
