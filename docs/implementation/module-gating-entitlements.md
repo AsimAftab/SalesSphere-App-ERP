@@ -39,8 +39,13 @@ There is **no module table**. Gating is entirely permission-key based:
   - **STANDARD** = BASIC + FIELD_OPS (sites/prospects/beat-plans/tour-plans/
     live-tracking/odometer/unplanned-visits/miscellaneous-work/targets)
     + PURCHASE + INVENTORY + HR (attendance/leaves/expense-claims)
-  - **PREMIUM** = everything, incl. `collection-plus:*`, accounting, reports,
-    `customers:credit-limit`
+  - **PREMIUM** = everything, incl. accounting, reports, `customers:credit-limit`
+    and the ledger-bound keys `collections:post` / `collections:cancel`
+- **Ledger-bound keys are the exception to tier-by-module.** `collections` sits
+  in the CRM group, so the module ships from BASIC up, but `plan-catalog.ts`
+  withholds `collections:post` and `collections:cancel` from every non-accounting
+  tier. So the Collection *tile* is never plan-gated — only posting is, and the
+  app doesn't expose posting at all.
 - Per request, `authGuard` (`src/middleware/authGuard.ts`) computes
   `req.auth.permissions = role.permissions ∩ plan.enabledPermissions` via
   `computeEffectivePermissions` (`src/core/effectivePermissions.ts`). A
@@ -110,7 +115,7 @@ class Entitlements {
 enum ModuleId {
   home, catalog, order,                                  // shell tabs (ungated for now)
   parties, prospects, sites, unplannedVisits,            // field-ops grid
-  collectionPlus, collection, notes, miscWork,
+  collection, notes, miscWork,
   attendance, leaves, odometer, expenseClaims,           // more grid
   tourPlans, targets, settings,
 }
@@ -130,9 +135,9 @@ class AppModule {
 /// THE single source of truth. Order within a surface = display order.
 const kModules = <AppModule>[
   AppModule(
-    id: ModuleId.collectionPlus,
-    routePrefix: Routes.collectionPlus,
-    anyOf: [Permissions.collectionPlusView, Permissions.collectionPlusViewOwn],
+    id: ModuleId.collection,
+    routePrefix: Routes.collection,
+    anyOf: [Permissions.collectionsView, Permissions.collectionsViewOwn],
     surface: ModuleSurface.fieldOpsGrid,
     tile: ModuleTileSpec(...),
   ),
@@ -243,10 +248,12 @@ pattern stays; a shell rewrite is explicitly out of scope.
 String? moduleRedirect(String location, Entitlements e);
 ```
 
-- **Segment-aware longest-prefix match.** `'/collection-plus/add'` matches
-  `collectionPlus`; `'/collection-plus'` must NOT match the `'/collection'`
-  prefix. Match on path segments, never raw `startsWith` — this exact collision
-  exists in `Routes` today.
+- **Segment-aware longest-prefix match.** `'/collection/add'` matches
+  `collection`; a sibling route like `'/collection-x'` must NOT match the
+  `'/collection'` prefix. Match on path segments, never raw `startsWith`. (The
+  original motivating collision, `/collection` vs `/collection-plus`, went away
+  when the two modules merged — but a raw `startsWith` would reintroduce the
+  same class of bug the next time two prefixes share a stem.)
 - Locations owned by no module (splash, auth, profile, order detail…) pass through.
 - Disabled module → `'/module-unavailable?module=<id>'`.
 
@@ -336,8 +343,8 @@ class EntitlementSnapshots extends Table {
 3. Registry + `Entitlements` + controller + drift v16 + rewrite
    `hasPermission`/`hasAnyPermission` as wrappers. Behavior-neutral for the two
    existing gates.
-4. Grids → registry projections (first visible change; Collection Plus finally
-   hides for CRM-only tenants).
+4. Grids → registry projections (first visible change; tiles finally hide for
+   tenants whose role lacks the module's read keys).
 5. Tab gating.
 6. Route guard + `ModuleUnavailablePage`.
 7. 403-refresh hook; delete `module_config.dart`; update this doc's status line.
@@ -350,13 +357,13 @@ The interim fallback (§4) means steps 2–7 do not block on step 1.
    (`none`/`cached`/`live` × wildcard × empty set); **registry invariants test**
    (unique ids, unique route prefixes, every `anyOf` key exists in
    `Permissions`, every tiled module has a registered route); segment-aware
-   prefix matcher incl. the `/collection` vs `/collection-plus` collision.
+   prefix matcher, incl. a route that shares a stem with a shorter one.
 2. **Drift in-memory** (`NativeDatabase.memory()`) — `entitlements_dao_test`:
    upsert/read per membership, JSON round-trip; v15→v16 migration.
 3. **Riverpod `ProviderContainer`** — controller with overridden
    `profileControllerProvider` + fake DAO: cached-then-live emission order,
    `effectivePermissions` preferred over role fallback, `none` fail-open,
    403-refresh debounce.
-4. **Widget** (`ProviderScope.overrides` + pump) — field-ops grid hides
-   Collection Plus for a CRM-only set; `HomeShell` tab count full vs gated;
+4. **Widget** (`ProviderScope.overrides` + pump) — field-ops grid hides a module
+   whose read keys are absent; `HomeShell` tab count full vs gated;
    deep link to a disabled module lands on `ModuleUnavailablePage`.

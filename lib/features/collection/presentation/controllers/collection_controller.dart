@@ -12,7 +12,7 @@ import 'package:sales_sphere_erp/features/collection/presentation/providers/coll
 
 part 'collection_controller.g.dart';
 
-/// Routes Collection Plus write actions from the UI through the repository.
+/// Routes collection write actions from the UI through the repository.
 /// Reads stay on `collectionListVisibleProvider` /
 /// `collectionByIdProvider`.
 @riverpod

@@ -1,6 +1,6 @@
 import 'package:sales_sphere_erp/features/collection/data/dto/collection_dto.dart';
 
-/// One paginated slice of `GET /collection-plus`.
+/// One paginated slice of `GET /collections`.
 ///
 /// Cursor-based, not offset: there is no `page` param and no total count.
 /// `nextCursor` is only meaningful when `hasMore` is true, so it's the sole

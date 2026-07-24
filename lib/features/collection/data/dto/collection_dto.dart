@@ -1,18 +1,20 @@
 import 'package:sales_sphere_erp/features/collection/data/dto/wire_codecs.dart';
 
-/// Wire DTO for a Collection Plus receipt â€” `Collection` plus the three things
-/// only a ledger-backed receipt has.
+/// Wire DTO for a collection receipt.
 ///
-/// The split matters. A plain Collection is a CRM record: money came in, that's
-/// all. Collection Plus is an **accounting document** â€” it allocates across
-/// invoices, posts a voucher, and can be cancelled with a reversal. So:
+/// A receipt is an **accounting document**: it allocates across invoices, posts
+/// a voucher, and can be cancelled with a reversal. Hence:
 ///
-///  * [status] â€” `DRAFT | POSTED | CANCELLED`. Editable only while DRAFT.
-///  * [voucherId] â€” set once posted.
-///  * [allocations] â€” the server's FIFO split across invoices.
+///  * [status] — `DRAFT | POSTED | CANCELLED`. Editable only while DRAFT.
+///  * [voucherId] — set once posted.
+///  * [allocations] — the server's FIFO split across invoices, `[]` for a pure
+///    on-account advance.
 ///
-/// `/collections` returns none of these. Sharing one DTO across both endpoints
-/// is what made `status` a required field the server never sent.
+/// The wire also carries `unallocatedAmount` (`amount` minus the allocations,
+/// floored at zero, as a 2-decimal string). It is deliberately not a field
+/// here: it is exactly derivable from [amount] and [allocations], both of which
+/// the drift cache already stores, so `Collection.unallocatedAmount` recomputes
+/// it and the offline read agrees with the online one by construction.
 class CollectionDto {
   const CollectionDto({
     required this.id,
@@ -97,7 +99,7 @@ class CollectionDto {
   /// the server hasn't allocated yet.
   final List<CollectionAllocationDto> allocations;
 
-  /// Create body. Carries the invoices the rep **selected** â€” never a split.
+  /// Create body. Carries the invoices the rep **selected** — never a split.
   Map<String, dynamic> toCreateJson({List<String>? invoiceIds}) =>
       <String, dynamic>{
         'customerId': customer.id,
@@ -155,7 +157,7 @@ class CollectionDto {
   }
 }
 
-/// One invoice slice of a Collection Plus receipt, as returned by the server.
+/// One invoice slice of a receipt, as returned by the server.
 ///
 /// Read-only: the server's answer, not the client's proposal. The on-screen
 /// FIFO preview is a courtesy; the booked split is whatever comes back here.
@@ -183,9 +185,9 @@ class CollectionAllocationDto {
 }
 
 /// An invoice with money still owed on it, from
-/// `GET /collection-plus/parties/{partyId}/outstanding`.
+/// `GET /collections/parties/{partyId}/outstanding`.
 ///
-/// Returned **oldest-first with fully-paid rows dropped** â€” the same order the
+/// Returned **oldest-first with fully-paid rows dropped** — the same order the
 /// server's FIFO uses, so the preview can consume it as-is.
 ///
 /// Only POSTED invoices are collectible: an unposted order isn't a receivable
@@ -220,21 +222,21 @@ class OutstandingInvoiceDto {
   final String invoiceNumber;
 
   /// The FIFO sort key. Server order is `invoiceDate` ascending, ties broken by
-  /// `invoiceNumber` ascending â€” match it exactly or the preview shows a split
+  /// `invoiceNumber` ascending — match it exactly or the preview shows a split
   /// that isn't the one that gets booked.
   final DateTime invoiceDate;
 
   final double totalAmount;
   final double paid;
 
-  /// `totalAmount - paid`, clamped at zero. Derived server-side on every read â€”
+  /// `totalAmount - paid`, clamped at zero. Derived server-side on every read —
   /// never cached, which is how a bounced cheque restores a balance with no
   /// compensating row.
   final double outstanding;
 
   final DateTime? lastPaidOn;
 
-  /// The individual allocations that make up [paid], oldest-first â€” the same
+  /// The individual allocations that make up [paid], oldest-first — the same
   /// filtered rows [paid] and [lastPaidOn] are derived from server-side (this
   /// receipt's own allocations excluded, capped at its Received Date). Lets the
   /// UI list each prior payment separately instead of one lumped figure.
@@ -253,7 +255,7 @@ class OutstandingInvoiceDto {
 }
 
 /// One prior allocation booked against an invoice, from an invoice's
-/// `priorPayments` array. Read-only history â€” `{ amount, receivedDate }` is the
+/// `priorPayments` array. Read-only history — `{ amount, receivedDate }` is the
 /// entire wire shape (no collection number is returned).
 class PriorPaymentDto {
   const PriorPaymentDto({required this.amount, required this.receivedDate});

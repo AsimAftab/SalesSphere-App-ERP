@@ -47,9 +47,9 @@ abstract final class PaymentAllocator {
   /// worse than a slow one.
   ///
   /// Any remainder beyond the total outstanding is dropped; use [unallocated]
-  /// to detect it. The form blocks submission while it's non-zero, because the
-  /// server refuses that receipt anyway (there is no advance / on-account
-  /// credit in Collection Plus — plain Collection is the escape hatch).
+  /// to detect it. A non-zero remainder is **not** an error: the server books
+  /// it as an on-account advance and reports it back as `unallocatedAmount`.
+  /// The form surfaces it so the rep confirms the overshoot is deliberate.
   static List<CollectionAllocation> allocate(
     double amount,
     List<InvoiceDue> dues,

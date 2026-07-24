@@ -20,12 +20,13 @@ import 'package:sales_sphere_erp/shared/widgets/status_bar_style.dart';
 /// one pass across the whole app; the keys and the `hasAnyPermission` helper in
 /// `core/auth/permissions.dart` are already in place for it.
 ///
-/// **Collection Plus is the one to get right in that pass.** It's an
-/// ACCOUNTING-plan feature, so a CRM-only tenant's session doesn't carry the
-/// `collection-plus:*` keys at all — today they see the tile, tap it, and 403
-/// on every call. Gate it on `collection-plus:view` OR `:view-own` (a rep holds
-/// the latter; gating on `view` alone would hide it from every rep who can
-/// legitimately use it).
+/// For Collection, gate the tile on `collections:view` OR `:view-own` — a rep
+/// holds the latter, so gating on `view` alone would hide the module from
+/// everyone who can legitimately use it. The module itself ships on every plan,
+/// so the tile is not plan-gated; it is only *posting* that is ledger-bound,
+/// and the app doesn't expose posting at all (it's web-only). Gate any future
+/// post/cancel affordance on `collections:post`, which a non-accounting tenant
+/// never holds.
 class FieldOpsPage extends StatelessWidget {
   const FieldOpsPage({super.key});
 

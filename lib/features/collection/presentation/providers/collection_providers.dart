@@ -275,7 +275,7 @@ class CollectionList extends _$CollectionList {
   }
 }
 
-/// Drift-backed view of the loaded Collection Plus rows, with their
+/// Drift-backed view of the loaded collection rows, with their
 /// allocations. Re-emits when either the rows or the loaded ids change.
 @riverpod
 Stream<List<Collection>> collectionListVisible(Ref ref) {

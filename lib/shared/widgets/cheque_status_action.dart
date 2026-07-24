@@ -6,11 +6,10 @@ import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 /// One offerable cheque transition, flattened out of whichever module's
 /// `ChequeStatus` enum the caller owns.
 ///
-/// The two collection modules carry their own copies of that enum by design
-/// (separate features, separate wire contracts), so this widget can't name the
-/// type. It takes the already-resolved label / icon / colour / copy instead —
-/// which is also what lets each module supply its own honest wording: the plain
-/// module's cheque moves are metadata, Collection Plus's move real money.
+/// Generic over the enum rather than naming it, so any feature with a cheque
+/// lifecycle can drive this widget. It takes the already-resolved label / icon
+/// / colour / copy, which lets each caller supply wording honest to what its
+/// own transitions actually do.
 @immutable
 class ChequeTransition<T> {
   const ChequeTransition({

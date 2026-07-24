@@ -7,7 +7,7 @@ import 'package:sales_sphere_erp/features/collection/data/dto/collection_dto.dar
 import 'package:sales_sphere_erp/features/collection/data/repositories/collection_repository_impl.dart';
 import 'package:sales_sphere_erp/features/collection/presentation/providers/collection_providers.dart';
 
-/// Bridges the outbox drain back into the Collection Plus drift cache.
+/// Bridges the outbox drain back into the collection drift cache.
 ///
 /// **On 2xx** — swap the `local_<uuid>` row for the server's, *including its
 /// allocations*. This is the moment the real split lands: the queued row had

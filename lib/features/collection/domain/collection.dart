@@ -4,12 +4,13 @@ import 'package:sales_sphere_erp/features/collection/domain/collection_party.dar
 import 'package:sales_sphere_erp/features/collection/domain/collection_status.dart';
 import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart';
 
-/// UI-facing Collection Plus model — one payment received from a party and
+/// UI-facing Collection model — one payment received from a party, optionally
 /// **allocated across specific invoices**, oldest-first.
 ///
-/// The invoice-allocated sibling of plain `Collection`. Available on ACCOUNTING
-/// plans only: the `collection-plus:*` permissions don't exist in a CRM-only
-/// tenant's session, so the tile is hidden and every route 403s.
+/// Allocation is optional: a receipt with no invoices selected is a legal
+/// on-account advance, and [allocations] comes back empty for it. The module
+/// ships on every plan; only posting to the ledger is accounting-only, and the
+/// app never posts.
 ///
 /// Two independent axes of state, easy to confuse:
 ///
@@ -56,8 +57,8 @@ class Collection {
   /// a balance moved while the rep was offline, the booked split is whatever
   /// comes back here, and a receipt that no longer fits is refused outright.
   ///
-  /// Empty only for a row still sitting in the outbox, which the server hasn't
-  /// allocated yet.
+  /// Empty for a pure on-account advance, and for a row still sitting in the
+  /// outbox that the server hasn't allocated yet.
   final List<CollectionAllocation> allocations;
 
   /// The party the payment was collected from. Denormalised so the list card
@@ -124,6 +125,24 @@ class Collection {
   /// server can re-derive the split.
   List<String> get invoiceIds =>
       allocations.map((a) => a.invoiceId).toList(growable: false);
+
+  /// The part of [amount] sitting on account rather than against an invoice.
+  ///
+  /// Mirrors the wire's `unallocatedAmount` exactly — same subtraction, same
+  /// floor at zero, same 2-decimal rounding — but recomputed from [amount] and
+  /// [allocations] instead of stored, so a row read from the offline cache
+  /// reports the same figure as one straight off the network.
+  ///
+  /// Non-zero means the receipt carries an advance: either the rep recorded one
+  /// deliberately, or the payment overshot the invoices it settled.
+  double get unallocatedAmount {
+    final allocated = allocations.fold<double>(0, (sum, a) => sum + a.amount);
+    final remainder = amount - allocated;
+    return remainder > 0 ? double.parse(remainder.toStringAsFixed(2)) : 0;
+  }
+
+  /// True when this receipt is carrying money on account.
+  bool get hasAdvance => unallocatedAmount > 0;
 
   /// Document numbers this payment settled, for the list / detail cards:
   /// `ORD-2026-0006` for one invoice, `ORD-2026-0006 +1 more` when the payment

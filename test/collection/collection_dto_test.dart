@@ -47,7 +47,7 @@ Map<String, dynamic> _collectionWire({
   'updatedAt': '2026-07-11T09:00:00.000Z',
 };
 
-/// A `/collection-plus` row: everything above **plus** the three ledger fields.
+/// A `/collections` row: the base shape above plus the three ledger fields.
 Map<String, dynamic> _plusWire({
   String status = 'DRAFT',
   Object? voucherId,
@@ -173,7 +173,7 @@ void main() {
       expect(json, isNot(contains('invoiceIds')));
     });
 
-    test('Collection Plus sends the selection, never a split', () {
+    test('create sends the selection, never a split', () {
       final dto = CollectionDto.fromJson(_plusWire());
       expect(
         dto.toCreateJson(invoiceIds: <String>['inv_a'])['invoiceIds'],
@@ -232,7 +232,7 @@ void main() {
       }
     });
 
-    test('collection statuses round-trip (Collection Plus only)', () {
+    test('collection statuses round-trip', () {
       for (final s in CollectionStatus.values) {
         expect(collectionStatusFromWire(collectionStatusToWire(s)), s);
       }

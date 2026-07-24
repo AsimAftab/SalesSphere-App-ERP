@@ -1,18 +1,22 @@
 import 'package:drift/drift.dart';
 
-/// Offline read cache for both collection modules.
+/// Offline read cache for collections.
 ///
-/// `kind` discriminates the two features so one table, one DAO and one sync
-/// handler serve both — the wire shapes are identical apart from Collection
-/// Plus's invoice allocations, which live in [CollectionAllocations]. The two
-/// features stay separate above this layer (separate APIs, repositories,
-/// providers and screens), matching the backend's two modules; sharing the
-/// cache just avoids writing the same table twice.
-///
-///  * `onAccount` → `/collections`   — no invoice link. Every plan.
-///  * `allocated` → `/collection-plus` — FIFO-split across invoices.
-///                                       ACCOUNTING plans only.
-enum CollectionKind { onAccount, allocated }
+/// `kind` is a **legacy discriminator**. It dates from when the backend had two
+/// collection modules and this one table served both; those merged into a
+/// single `/collections` module, so everything written now is [allocated] and
+/// [onAccount] is unreachable. The column is kept rather than migrated away
+/// because dropping it buys nothing — it costs one text field and quietly
+/// partitions any pre-merge rows still sitting in an upgraded install's cache
+/// out of the list, which is the behaviour we want.
+enum CollectionKind {
+  /// Pre-merge rows from the old on-account module. Never written any more.
+  onAccount,
+
+  /// Every row written today, allocated or not — a receipt with no invoices is
+  /// an on-account advance and still lands here.
+  allocated,
+}
 
 @DataClassName('CollectionRow')
 class Collections extends Table {
@@ -52,17 +56,16 @@ class Collections extends Table {
 
   TextColumn get description => text().nullable()();
 
-  /// `DRAFT | POSTED | CANCELLED` — **Collection Plus only.**
+  /// `DRAFT | POSTED | CANCELLED`.
   ///
-  /// Null for every `onAccount` row: a plain Collection is a pure CRM record
-  /// that never posts to a ledger, so it has no lifecycle to sit in. Only the
-  /// invoice-allocated module carries a status.
+  /// Nullable only for the legacy `onAccount` rows, which predate the module
+  /// merge and carry no ledger lifecycle. Every row written today has one.
   ///
   /// Distinct from [syncPending], which is device state — whether the row has
   /// reached the server at all.
   TextColumn get status => text().nullable()();
 
-  /// Set once a Collection Plus receipt posts. Always null for `onAccount`.
+  /// Set once the receipt posts to the ledger; null while DRAFT.
   TextColumn get voucherId => text().nullable()();
 
   /// The rep who collected. Two columns, not one: the list filter sends the
@@ -93,8 +96,8 @@ class Collections extends Table {
   Set<Column<Object>> get primaryKey => <Column<Object>>{id};
 }
 
-/// One invoice slice of a Collection Plus receipt. Empty for `onAccount`
-/// rows.
+/// One invoice slice of a receipt. Empty for an on-account advance, and for
+/// legacy `onAccount` rows.
 ///
 /// The split is **computed and owned by the server** — the client sends
 /// `invoiceIds` + an amount and receives the authoritative allocation back.
