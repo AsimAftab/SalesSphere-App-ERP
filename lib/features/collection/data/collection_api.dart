@@ -8,23 +8,31 @@ import 'package:sales_sphere_erp/features/collection/data/dto/collection_page_dt
 
 const int _kCollectionPageSize = 15;
 
-/// HTTP layer for Collection Plus â€” receipts allocated across specific
-/// invoices, oldest-first.
+/// HTTP layer for Collections — receipts, optionally allocated across specific
+/// invoices oldest-first.
 ///
-/// **ACCOUNTING plans only.** The permission keys `collection-plus:*` simply
-/// don't exist in a CRM-only tenant's session, so every route here 403s for
-/// them. That's the whole feature gate; the UI just hides the tile.
+/// The module ships on every plan, but `post` / `cancel` are ledger-bound and
+/// withheld from non-accounting tiers, so those two routes 403 for a CRM-only
+/// tenant while the rest work. The app doesn't call them anyway — posting is
+/// web-only today.
 ///
-/// Speaks [CollectionDto], which extends the plain `CollectionDto` with the
-/// three things only a ledger-backed receipt has: `status`, `voucherId` and
-/// `allocations`. `/collections` returns none of them â€” sharing one DTO across
-/// both endpoints is what made `status` a required field the server never sent.
+/// Speaks [CollectionDto], whose ledger fields are `status`, `voucherId` and
+/// `allocations`. A receipt with no `invoiceIds` is a legal on-account advance,
+/// not an error: it comes back with `allocations: []`.
 class CollectionApi {
   CollectionApi(this._dio);
 
   final Dio _dio;
 
-  /// `GET /collection-plus` â€” cursor-paginated, newest first.
+  /// `GET /collections` — cursor-paginated, newest first.
+  ///
+  /// The server validates this query strictly: an unrecognised parameter is a
+  /// 400, not a silent ignore. Note [fromDate] / [toDate] filter on `createdAt`,
+  /// **not** on the received date.
+  ///
+  /// [hasAdvance] narrows to live receipts still carrying an unallocated
+  /// balance. Only `true` filters — passing `false` is accepted by the server
+  /// but does nothing, so send it only when you mean "advances only".
   Future<CollectionPageDto> list({
     int limit = _kCollectionPageSize,
     String? cursor,
@@ -36,6 +44,7 @@ class CollectionApi {
     String? createdById,
     DateTime? fromDate,
     DateTime? toDate,
+    bool? hasAdvance,
   }) async {
     final response = await _dio.get<Map<String, dynamic>>(
       Endpoints.collection,
@@ -51,6 +60,8 @@ class CollectionApi {
         if (createdById != null) 'createdById': createdById,
         if (fromDate != null) 'fromDate': _dateToWire(fromDate),
         if (toDate != null) 'toDate': _dateToWire(toDate),
+        // Wire type is the string flag `'true'` / `'false'`, not a JSON bool.
+        if (hasAdvance != null) 'hasAdvance': hasAdvance ? 'true' : 'false',
       },
     );
     return _pageFrom(_unwrapMap(response.data));
@@ -63,13 +74,15 @@ class CollectionApi {
     return CollectionDto.fromJson(_unwrapMap(response.data));
   }
 
-  /// `POST /collection-plus`.
+  /// `POST /collections`.
   ///
   /// Sends the **selected `invoiceIds`, never a split**. The server runs FIFO
   /// against live balances and returns the authoritative `allocations`. If the
-  /// selection no longer covers the amount â€” because another rep collected
-  /// against the same invoice while this one was offline â€” it refuses with a
+  /// selection no longer covers the amount — because another rep collected
+  /// against the same invoice while this one was offline — it refuses with a
   /// 422 rather than re-allocating.
+  ///
+  /// An empty `invoiceIds` is legal and means a pure on-account advance.
   Future<CollectionDto> create(
     CollectionDto draft, {
     required List<String> invoiceIds,
@@ -81,7 +94,7 @@ class CollectionApi {
     return CollectionDto.fromJson(_unwrapMap(response.data));
   }
 
-  /// `PATCH /collection-plus/{id}` â€” DRAFT only.
+  /// `PATCH /collections/{id}` — DRAFT only.
   Future<CollectionDto> update(
     CollectionDto collection, {
     required List<String> invoiceIds,
@@ -97,7 +110,7 @@ class CollectionApi {
     await _dio.delete<void>(Endpoints.collectionById(id));
   }
 
-  /// `PATCH /collection-plus/{id}/cheque-status`. Body key is `status`.
+  /// `PATCH /collections/{id}/cheque-status`. Body key is `status`.
   Future<CollectionDto> updateChequeStatus({
     required String id,
     required String status,
@@ -109,10 +122,10 @@ class CollectionApi {
     return CollectionDto.fromJson(_unwrapMap(response.data));
   }
 
-  /// `GET /collection-plus/parties/{partyId}/outstanding`.
+  /// `GET /collections/parties/{partyId}/outstanding`.
   ///
   /// Returns the party's unsettled invoices **oldest-first, fully-paid rows
-  /// already dropped** â€” the same order the server's FIFO uses, so the preview
+  /// already dropped** — the same order the server's FIFO uses, so the preview
   /// can consume it as-is.
   ///
   /// [excludeCollectionId] is **mandatory in edit mode.** It releases that
@@ -121,14 +134,14 @@ class CollectionApi {
   /// re-allocate, and re-saving it unchanged fails validation every single
   /// time.
   ///
-  /// Only POSTED invoices are collectible â€” a rep's order that's still DRAFT
+  /// Only POSTED invoices are collectible — a rep's order that's still DRAFT
   /// isn't a receivable yet and won't appear. An empty list means "nothing to
   /// settle", not a bug.
   ///
   /// [asOfDate] caps the read to what was actually due on that calendar date:
   /// the server drops invoices issued after it and ignores payments received
   /// after it. Pass the receipt's Received Date so a backdated collection sees
-  /// the balances that existed then â€” a July-15 invoice must not appear in a
+  /// the balances that existed then — a July-15 invoice must not appear in a
   /// July-10 receipt's picker, and a July-15 payment must not erase a balance
   /// the July-10 receipt is settling.
   Future<List<OutstandingInvoiceDto>> outstandingForParty({
@@ -147,7 +160,7 @@ class CollectionApi {
     return _outstandingFrom(_unwrapList(response.data));
   }
 
-  /// `GET /collection-plus/invoice-meta?ids=a,b,c`.
+  /// `GET /collections/invoice-meta?ids=a,b,c`.
   ///
   /// Hydrates the picker when editing: unlike the outstanding read, this keeps
   /// rows that are already fully paid, so an invoice this receipt settled
@@ -169,7 +182,7 @@ class CollectionApi {
     return _outstandingFrom(_unwrapList(response.data));
   }
 
-  /// Slot-based proof upload, 1â€“2. `imageNumber` streams before the file.
+  /// Slot-based proof upload, 1–2. `imageNumber` streams before the file.
   Future<void> uploadImage({
     required String collectionId,
     required String filePath,
@@ -200,7 +213,7 @@ class CollectionApi {
     );
   }
 
-  /// `GET /collection-plus/bank-names` â€” same catalogue as `/collections`.
+  /// `GET /collections/bank-names` — the server's suggestion catalogue.
   Future<List<String>> bankNames() async {
     final response = await _dio.get<Map<String, dynamic>>(
       Endpoints.collectionBankNames,
@@ -210,7 +223,7 @@ class CollectionApi {
     ).whereType<String>().toList(growable: false);
   }
 
-  /// `GET /collection-plus/summary` â€” count + total for the targets module.
+  /// `GET /collections/summary` — count + total for the targets module.
   Future<CollectionSummary> summary({
     String? employeeId,
     DateTime? fromDate,
@@ -231,13 +244,13 @@ class CollectionApi {
     );
   }
 
-  // â”€â”€ Envelope helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Envelope helpers ──────────────────────────────────────────────────────
 
   CollectionPageDto _pageFrom(Map<String, dynamic> data) {
     final rawItems = data['items'];
     if (rawItems is! List<dynamic>) {
       throw const FormatException(
-        'Malformed collection-plus page: missing or invalid `items` array',
+        'Malformed collections page: missing or invalid `items` array',
       );
     }
     final items = rawItems
@@ -257,7 +270,7 @@ class CollectionApi {
     final inner = _unwrapData(body);
     if (inner is! Map<String, dynamic>) {
       throw const FormatException(
-        'Malformed collection-plus envelope: missing or invalid `data` object',
+        'Malformed collections envelope: missing or invalid `data` object',
       );
     }
     return inner;
@@ -267,7 +280,7 @@ class CollectionApi {
     final inner = _unwrapData(body);
     if (inner is! List<dynamic>) {
       throw const FormatException(
-        'Malformed collection-plus envelope: missing or invalid `data` array',
+        'Malformed collections envelope: missing or invalid `data` array',
       );
     }
     return inner;
@@ -275,12 +288,12 @@ class CollectionApi {
 
   Object? _unwrapData(Map<String, dynamic>? body) {
     if (body == null) {
-      throw const FormatException('Empty collection-plus response body');
+      throw const FormatException('Empty collections response body');
     }
     final success = body['success'];
     if (success is! bool || !success) {
       throw const FormatException(
-        'Malformed collection-plus envelope: invalid `success` flag',
+        'Malformed collections envelope: invalid `success` flag',
       );
     }
     return body['data'];

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 
-/// Where a **Collection Plus** receipt sits in the accounting lifecycle.
+/// Where a receipt sits in the accounting lifecycle.
 ///
 /// Plus-only, by design. A plain Collection has no status at all: it's a pure
 /// CRM record that a rep collected money, it never posts to a ledger, and it is

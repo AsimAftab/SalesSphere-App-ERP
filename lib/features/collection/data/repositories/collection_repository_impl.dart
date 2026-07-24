@@ -26,7 +26,7 @@ import 'package:sales_sphere_erp/features/collection/domain/payment_mode.dart'
     as plus;
 import 'package:sales_sphere_erp/features/collection/domain/repositories/collection_repository.dart';
 
-/// Logical operation key for `POST /collection-plus`.
+/// Logical operation key for `POST /collections`.
 const String kCollectionCreateOperation = 'collection.create';
 
 const int _kCollectionPageSize = 15;
@@ -463,14 +463,13 @@ Collection collectionRowToDomain(
 );
 
 // ── Wire codecs ─────────────────────────────────────────────────────────────
-// Collection Plus is a separate feature and carries its own PaymentMode /
-// ChequeStatus enums, so it needs its own codecs.
+// Written out as explicit switches rather than bridged through `Enum.index`.
+// Index-bridging would work today, but it turns a future reordering of an enum
+// into a silent mis-mapping of money with no compile error. An exhaustive
+// switch fails loudly instead.
 //
-// These are written out as explicit switches rather than bridged through
-// `Enum.index` to the sibling module's copies. Index-bridging would work today
-// — both enums happen to declare their values in the same order — but it turns
-// a future reordering of an unrelated enum into a silent mis-mapping of money,
-// with no compile error. An exhaustive switch fails loudly instead.
+// The `plus.` import prefix is vestigial — it disambiguated these enums from a
+// second collection module that no longer exists.
 
 String paymentModeToWire(plus.PaymentMode mode) => switch (mode) {
   plus.PaymentMode.cash => 'CASH',
@@ -494,8 +493,7 @@ String chequeStatusToWire(plus.ChequeStatus status) => switch (status) {
   plus.ChequeStatus.bounced => 'BOUNCED',
 };
 
-/// Ledger lifecycle codecs — Collection Plus only. A plain Collection has no
-/// status, because it never posts to a ledger.
+/// Ledger lifecycle codecs.
 String collectionStatusToWire(CollectionStatus status) => switch (status) {
   CollectionStatus.draft => 'DRAFT',
   CollectionStatus.posted => 'POSTED',

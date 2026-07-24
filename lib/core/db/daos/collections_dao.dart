@@ -43,8 +43,8 @@ class CollectionsDao extends DatabaseAccessor<AppDatabase>
   Future<CollectionRow?> findById(String id) =>
       (select(collections)..where((c) => c.id.equals(id))).getSingleOrNull();
 
-  /// Allocations for one Collection Plus row, in the server's returned order.
-  /// Always empty for an on-account collection.
+  /// Allocations for one row, in the server's returned order. Empty for an
+  /// on-account advance.
   Future<List<CollectionAllocationRow>> allocationsFor(String collectionId) =>
       (select(collectionAllocations)
             ..where((a) => a.collectionId.equals(collectionId)))
@@ -109,8 +109,8 @@ class CollectionsDao extends DatabaseAccessor<AppDatabase>
   /// badge remains — it just turns from orange to red — and [error] carries
   /// the server's own copy.
   ///
-  /// This is the server-authoritative rejection surface. A Collection Plus
-  /// receipt allocated offline against a balance that moved comes back 422
+  /// This is the server-authoritative rejection surface. A receipt allocated
+  /// offline against a balance that moved comes back 422
   /// with "Selected invoices cover only Rs X…", and that lands here verbatim
   /// for the rep to act on. Do not silently re-allocate to make it fit.
   Future<void> markSyncFailed(String localId, String error) async {
@@ -136,8 +136,8 @@ class CollectionsDao extends DatabaseAccessor<AppDatabase>
     return delete(collections).go();
   }
 
-  /// Allocations exist only on a Collection Plus row. A plain Collection is an
-  /// on-account receipt booked against the party, not against any invoice.
+  /// Empty when the receipt is a pure advance — money booked against the party
+  /// rather than against any invoice.
   static List<CollectionAllocationDto> _allocationsOf(CollectionDto dto) =>
       dto.allocations;
 
@@ -170,9 +170,9 @@ class CollectionsDao extends DatabaseAccessor<AppDatabase>
   /// Sync columns default to [Value.absent] so a network upsert can't clobber
   /// the pending/error flags of a row that still has a queued mutation.
   ///
-  /// `status` / `voucherId` / allocations are **Collection Plus only** — a plain
-  /// Collection is a CRM record with no ledger, so `/collections` doesn't return
-  /// them and those columns stay null for `onAccount` rows.
+  /// `status` / `voucherId` / allocations stay null only on the legacy
+  /// `onAccount` rows, which predate the module merge and were cached from an
+  /// endpoint that never returned them.
   CollectionsCompanion _companion(
     CollectionKind kind,
     CollectionDto dto, {

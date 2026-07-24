@@ -251,9 +251,9 @@ final trackingPingsDaoProvider = Provider<TrackingPingsDao>(
   (ref) => ref.watch(appDatabaseProvider).trackingPingsDao,
 );
 
-/// Shared by both collection modules — rows are discriminated by
-/// `CollectionKind`, so `/collections` and `/collection-plus` never see each
-/// other's cache entries.
+/// Backs the single `/collections` module. Rows still carry the legacy
+/// `CollectionKind` discriminator, which now only serves to keep pre-merge
+/// cache entries out of the list.
 final collectionsDaoProvider = Provider<CollectionsDao>(
   (ref) => ref.watch(appDatabaseProvider).collectionsDao,
 );

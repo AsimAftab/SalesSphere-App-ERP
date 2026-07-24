@@ -138,25 +138,25 @@ class Endpoints {
       '/unplanned-visits/my-monthly-report';
   static String unplannedVisitById(String id) => '/unplanned-visits/$id';
 
-  // ── Collections (invoice-allocated receipts — ACCOUNTING plans) ───────────
-  // Note the singular path segment: the backend serves `/collection-plus`,
-  // NOT `/collections-plus`. We still use `/collection-plus` for the API.
-  static const collection = '/collection-plus';
-  static const collectionBankNames = '/collection-plus/bank-names';
-  static const collectionSummary = '/collection-plus/summary';
-  static const collectionInvoiceMeta = '/collection-plus/invoice-meta';
-  static String collectionById(String id) => '/collection-plus/$id';
-  static String collectionPost(String id) => '/collection-plus/$id/post';
-  static String collectionCancel(String id) =>
-      '/collection-plus/$id/cancel';
+  // ── Collections (receipts, optionally allocated across invoices) ──────────
+  // The backend unified its two collection modules into one at `/collections`.
+  // A `/collection-plus` alias still answers identically for fielded builds,
+  // but it is temporary and absent from `/openapi.json` — never point new code
+  // at it.
+  static const collection = '/collections';
+  static const collectionBankNames = '/collections/bank-names';
+  static const collectionSummary = '/collections/summary';
+  static const collectionInvoiceMeta = '/collections/invoice-meta';
+  static String collectionById(String id) => '/collections/$id';
+  static String collectionPost(String id) => '/collections/$id/post';
+  static String collectionCancel(String id) => '/collections/$id/cancel';
   static String collectionChequeStatus(String id) =>
-      '/collection-plus/$id/cheque-status';
-  static String collectionImages(String id) =>
-      '/collection-plus/$id/images';
+      '/collections/$id/cheque-status';
+  static String collectionImages(String id) => '/collections/$id/images';
   static String collectionImageSlot(String id, int slot) =>
-      '/collection-plus/$id/images/$slot';
+      '/collections/$id/images/$slot';
   static String collectionOutstanding(String partyId) =>
-      '/collection-plus/parties/$partyId/outstanding';
+      '/collections/parties/$partyId/outstanding';
 
   // ── Expense claims ────────────────────────────────────────────────────────
   static const expenseClaims = '/expense-claims';

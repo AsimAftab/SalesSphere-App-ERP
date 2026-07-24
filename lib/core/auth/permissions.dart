@@ -16,15 +16,15 @@ abstract final class Permissions {
   static const unplannedVisitRecord = 'unplanned-visits:record';
   static const unplannedVisitDelete = 'unplanned-visits:delete';
 
-  // Collections — granted on every plan, including CRM-only orgs that have no
-  // ledger at all. A rep typically holds `view-own` rather than `view`; the
-  // server narrows their list reads either way, so the UI gates on whichever
-  // of the two is present.
+  // Collections — one unified module. The backend merged Collection Plus into
+  // it, so `collection-plus:*` no longer exists in the catalog and a role can
+  // never hold those keys again; a migration rewrote the granted ones across
+  // to `collections:*`.
   //
-  // There is no `collections:post` / `collections:cancel`. A plain Collection
-  // is a pure CRM record that never touches a ledger, so the backend has no
-  // such routes and those keys have been deleted from the catalog — a role can
-  // never hold them again. Posting and cancelling live only in Collection Plus.
+  // The module ships on every plan, including CRM-only orgs with no ledger. A
+  // rep typically holds `view-own` rather than `view` and the server narrows
+  // their list reads either way, so gate reads on whichever of the two is
+  // present — never on `view` alone.
   static const collectionsView = 'collections:view';
   static const collectionsViewOwn = 'collections:view-own';
   static const collectionsCreate = 'collections:create';
@@ -33,19 +33,17 @@ abstract final class Permissions {
   static const collectionsChequeStatus = 'collections:cheque-status';
   static const collectionsManageImages = 'collections:manage-images';
 
-  // Collection Plus — ACCOUNTING plans only. Effective permissions are
-  // `role ∩ plan`, so these keys simply don't exist in a CRM-only tenant's
-  // session and every `/collection-plus` route 403s. That's the whole
-  // feature gate: no flag, no special-casing — just hide the tile.
-  static const collectionView = 'collection-plus:view';
-  static const collectionViewOwn = 'collection-plus:view-own';
-  static const collectionCreate = 'collection-plus:create';
-  static const collectionUpdate = 'collection-plus:update';
-  static const collectionDelete = 'collection-plus:delete';
-  static const collectionPost = 'collection-plus:post';
-  static const collectionCancel = 'collection-plus:cancel';
-  static const collectionChequeStatus = 'collection-plus:cheque-status';
-  static const collectionManageImages = 'collection-plus:manage-images';
+  // Ledger-bound, and the exception to "every plan": effective permissions are
+  // `role ∩ plan`, and the plan catalogue withholds these two from every
+  // non-accounting tier. So a CRM-only tenant's session carries neither, their
+  // receipts stay DRAFT forever, and posting UI must be gated on
+  // [collectionsPost] rather than on holding the module at all.
+  static const collectionsPost = 'collections:post';
+  static const collectionsCancel = 'collections:cancel';
+
+  /// Catalogue-only today — the backend defines the key but ships no
+  /// `/collections/export` route, so gating a button on this would 404.
+  static const collectionsExport = 'collections:export';
 }
 
 /// Whether the signed-in user's active-membership role grants [permission].

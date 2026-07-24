@@ -17,8 +17,8 @@ import 'package:sales_sphere_erp/core/constants/app_colors.dart';
 ///  * **orange `cloud_off`** — queued in the outbox, waiting for a connection.
 ///    Normal in the field.
 ///  * **red `error_outline`** — the sync drain gave up. [syncError] carries the
-///    server's own copy, which the rep needs to read: for Collection Plus it's
-///    typically "Selected invoices cover only Rs X. Select more to cover Rs Y."
+///    server's own copy, which the rep needs to read: typically
+///    "Selected invoices cover only Rs X. Select more to cover Rs Y."
 ///    — i.e. someone else collected against that invoice first, and this
 ///    receipt no longer fits. Long-press to read it in full.
 class CollectionSyncBadge extends StatelessWidget {

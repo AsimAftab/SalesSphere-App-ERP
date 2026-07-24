@@ -61,12 +61,11 @@ extension ChequeStatusTransitions on ChequeStatus {
 
   bool get isTerminal => nextStates.isEmpty;
 
-  /// What actually happens when a cheque on a **Collection Plus** receipt moves
-  /// here.
+  /// What actually happens when a cheque on a receipt moves here.
   ///
-  /// Unlike a plain Collection, this module is ledger-backed, so these
-  /// transitions do real PDC accounting — and the copy names the entries,
-  /// because an accountant reading it needs to know what was written.
+  /// Receipts are ledger-backed, so on a posted one these transitions do real
+  /// PDC accounting — and the copy names the entries, because an accountant
+  /// reading it needs to know what was written.
   String get confirmationCopy => switch (this) {
     ChequeStatus.pending => 'The cheque goes back to pending.',
     ChequeStatus.deposited =>
